@@ -1,44 +1,72 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MOCK_TEMPLATES } from '@/data/mockData';
-import { useApp } from '@/contexts/AppContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ArrowRight, User, Phone, Briefcase, MapPin, Mail, FileText } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 
 const OrderForm = () => {
   const { templateId } = useParams<{ templateId: string }>();
   const navigate = useNavigate();
-  const { addOrder } = useApp();
-  const template = MOCK_TEMPLATES.find(t => t.id === templateId);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [template, setTemplate] = useState<any>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     name: '', phone: '', job_title: '', address: '', email: '', notes: ''
   });
 
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from('templates')
+        .select('*')
+        .eq('id', templateId || '')
+        .maybeSingle();
+      setTemplate(data);
+    };
+    load();
+  }, [templateId]);
+
   const update = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.phone) return;
 
-    const orderId = `ord-${Date.now().toString(36)}`;
-    addOrder({
-      id: orderId,
-      customer_name: form.name,
-      customer_phone: form.phone,
-      template_id: templateId || '',
-      template_name: template?.name || '',
-      service_type: template?.service_type || 'business_card',
-      status: 'draft',
-      details: form,
-      created_at: new Date().toISOString().split('T')[0],
-    });
-    navigate(`/verify-otp?order=${orderId}`);
+    if (!user) {
+      toast({ title: 'يجب تسجيل الدخول أولاً', variant: 'destructive' });
+      navigate('/auth');
+      return;
+    }
+
+    setSubmitting(true);
+    const { data, error } = await supabase
+      .from('orders')
+      .insert({
+        customer_id: user.id,
+        template_id: templateId,
+        status: 'submitted' as any,
+        customer_name: form.name,
+        customer_phone: form.phone,
+        details: form as any,
+      })
+      .select('id')
+      .single();
+
+    setSubmitting(false);
+
+    if (error) {
+      toast({ title: 'خطأ في إنشاء الطلب', description: error.message, variant: 'destructive' });
+    } else if (data) {
+      navigate(`/order-success?order=${data.id}`);
+    }
   };
 
   const fields = [
@@ -69,10 +97,7 @@ const OrderForm = () => {
           </div>
         )}
 
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-2xl font-bold text-foreground mb-2">تفاصيل التصميم</h1>
           <p className="text-muted-foreground mb-8">أدخل بياناتك لنقوم بتصميم المطبوعة</p>
 
@@ -107,8 +132,13 @@ const OrderForm = () => {
               />
             </div>
 
-            <Button type="submit" size="lg" className="w-full bg-success hover:bg-success/90 text-success-foreground text-lg py-6 rounded-xl">
-              متابعة - التحقق من الهاتف
+            <Button
+              type="submit"
+              size="lg"
+              disabled={submitting}
+              className="w-full bg-success hover:bg-success/90 text-success-foreground text-lg py-6 rounded-xl"
+            >
+              {submitting ? 'جاري الإرسال...' : 'إرسال الطلب'}
             </Button>
           </form>
         </motion.div>

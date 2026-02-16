@@ -1,36 +1,45 @@
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useApp } from '@/contexts/AppContext';
+import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Upload, Send, User, Phone, MapPin, Briefcase, FileText } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import type { OrderStatus } from '@/data/mockData';
 
 const DesignerOrderDetails = () => {
   const { orderId } = useParams<{ orderId: string }>();
-  const { orders, updateOrderStatus } = useApp();
-  const order = orders.find(o => o.id === orderId);
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [uploaded, setUploaded] = useState(false);
 
-  if (!order) {
-    return (
-      <div className="py-20 text-center">
-        <p className="text-muted-foreground text-lg">لم يتم العثور على الطلب</p>
-      </div>
-    );
-  }
+  const loadOrder = async () => {
+    const { data } = await supabase
+      .from('orders')
+      .select('*, templates(name, service_type)')
+      .eq('id', orderId || '')
+      .maybeSingle();
+    setOrder(data);
+    setLoading(false);
+  };
 
-  const handleUpload = () => {
+  useEffect(() => { loadOrder(); }, [orderId]);
+
+  const handleUpload = async () => {
     setUploaded(true);
-    updateOrderStatus(order.id, 'design_uploaded');
+    await supabase.from('orders').update({ status: 'design_uploaded' as any }).eq('id', orderId || '');
+    loadOrder();
   };
 
-  const handleSendForApproval = () => {
-    updateOrderStatus(order.id, 'waiting_approval');
+  const handleSendForApproval = async () => {
+    await supabase.from('orders').update({ status: 'waiting_approval' as any }).eq('id', orderId || '');
+    loadOrder();
   };
 
-  const details = order.details || {};
+  if (loading) return <div className="py-20 text-center"><p className="text-muted-foreground">جاري التحميل...</p></div>;
+  if (!order) return <div className="py-20 text-center"><p className="text-muted-foreground text-lg">لم يتم العثور على الطلب</p></div>;
+
+  const details = (order.details || {}) as Record<string, any>;
 
   return (
     <div className="py-12">
@@ -43,10 +52,9 @@ const DesignerOrderDetails = () => {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-foreground">تفاصيل الطلب</h1>
-            <StatusBadge status={order.status} />
+            <StatusBadge status={order.status as OrderStatus} />
           </div>
 
-          {/* Customer Info */}
           <div className="bg-card rounded-xl p-6 border border-border shadow-card mb-6">
             <h3 className="font-bold text-foreground mb-4">بيانات العميل</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -92,7 +100,6 @@ const DesignerOrderDetails = () => {
             )}
           </div>
 
-          {/* Template Info */}
           <div className="bg-card rounded-xl p-6 border border-border shadow-card mb-6">
             <h3 className="font-bold text-foreground mb-4">القالب</h3>
             <div className="flex items-center gap-4">
@@ -100,13 +107,12 @@ const DesignerOrderDetails = () => {
                 <FileText className="w-8 h-8 text-primary/50" />
               </div>
               <div>
-                <p className="font-bold text-foreground">{order.template_name}</p>
-                <p className="text-muted-foreground text-sm">{order.service_type}</p>
+                <p className="font-bold text-foreground">{order.templates?.name}</p>
+                <p className="text-muted-foreground text-sm">{order.templates?.service_type}</p>
               </div>
             </div>
           </div>
 
-          {/* Upload / Actions */}
           <div className="bg-card rounded-xl p-6 border border-border shadow-card">
             <h3 className="font-bold text-foreground mb-4">رفع التصميم</h3>
             
