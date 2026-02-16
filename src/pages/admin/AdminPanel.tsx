@@ -79,16 +79,6 @@ const AdminPanel = () => {
     Promise.all([loadOrders(), loadDesigners(), loadAllUsers()]).then(() => setLoading(false));
   }, [loadOrders, loadDesigners, loadAllUsers]);
 
-  const handleAssignDesigner = async (orderId: string, designerId: string) => {
-    const { error } = await supabase
-      .from('orders')
-      .update({ designer_id: designerId, status: 'assigned' as any })
-      .eq('id', orderId);
-    if (error) { toast.error('فشل تعيين المصمم'); return; }
-    toast.success('تم تعيين المصمم بنجاح');
-    loadOrders();
-  };
-
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const { error } = await supabase
       .from('orders')
@@ -237,27 +227,15 @@ const AdminPanel = () => {
 
                       {/* Actions */}
                       <div className="flex items-center gap-3 flex-wrap">
-                        {/* Assign Designer */}
+                        {/* Auto-assigned Designer (read-only) */}
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-muted-foreground">المصمم:</span>
-                          <Select
-                            value={order.designer_id || 'unassigned'}
-                            onValueChange={(val) => {
-                              if (val !== 'unassigned') handleAssignDesigner(order.id, val);
-                            }}
-                          >
-                            <SelectTrigger className="w-40 h-8 text-sm">
-                              <SelectValue placeholder="غير معيّن" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="unassigned">غير معيّن</SelectItem>
-                              {designers.map(d => (
-                                <SelectItem key={d.user_id} value={d.user_id}>
-                                  {d.display_name || d.phone || d.user_id.slice(0, 8)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Badge variant={order.designer_id ? 'secondary' : 'outline'} className="text-sm">
+                            <Palette className="w-3 h-3 ml-1" />
+                            {order.designer_id
+                              ? (designers.find(d => d.user_id === order.designer_id)?.display_name || 'مصمم')
+                              : 'تعيين تلقائي عند الإرسال'}
+                          </Badge>
                         </div>
 
                         {/* Change Status */}
