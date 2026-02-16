@@ -1,87 +1,145 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
-import { FileText, Eye } from 'lucide-react';
+import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const DesignerOrders = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!user) return;
-      const { data } = await supabase
-        .from('orders')
-        .select('*, templates(name, service_type)')
-        .eq('designer_id', user.id)
-        .in('status', ['assigned', 'design_uploaded', 'waiting_approval', 'submitted'])
-        .order('created_at', { ascending: false });
-      setOrders(data || []);
-      setLoading(false);
-    };
-    load();
+  const loadOrders = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('orders')
+      .select('*, templates(name, service_type)')
+      .eq('designer_id', user.id)
+      .order('created_at', { ascending: false });
+    setOrders(data || []);
+    setLoading(false);
   }, [user]);
+
+  useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  const activeStatuses: OrderStatus[] = ['assigned', 'design_uploaded', 'waiting_approval'];
+  const completedStatuses: OrderStatus[] = ['approved', 'print_ready', 'printed', 'delivered'];
+
+  const activeOrders = orders.filter(o => activeStatuses.includes(o.status));
+  const completedOrders = orders.filter(o => completedStatuses.includes(o.status));
+
+  const stats = [
+    { label: 'الكل', value: orders.length, icon: Inbox, color: 'text-primary' },
+    { label: 'نشطة', value: activeOrders.length, icon: Clock, color: 'text-cmyk-yellow' },
+    { label: 'بانتظار رفع', value: orders.filter(o => o.status === 'assigned').length, icon: Upload, color: 'text-cmyk-magenta' },
+    { label: 'مكتملة', value: completedOrders.length, icon: CheckCircle2, color: 'text-success' },
+  ];
 
   if (loading) return <div className="py-20 text-center"><p className="text-muted-foreground">جاري التحميل...</p></div>;
 
-  return (
-    <div className="py-12">
-      <div className="container max-w-4xl">
-        <div className="flex items-center justify-between mb-8">
+  const OrderCard = ({ order, i }: { order: any; i: number }) => (
+    <motion.div
+      key={order.id}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: i * 0.06 }}
+      className="bg-card rounded-xl p-5 border border-border shadow-sm hover:shadow-md transition-all"
+    >
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <FileText className="w-6 h-6 text-primary" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">طلبات التصميم</h1>
-            <p className="text-muted-foreground">{orders.length} طلب</p>
+            <h3 className="font-bold text-foreground">{order.templates?.name || '-'}</h3>
+            <p className="text-muted-foreground text-sm">
+              {order.customer_name} • {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
+            </p>
+            <p className="text-muted-foreground text-xs mt-1">{new Date(order.created_at).toLocaleDateString('ar')}</p>
           </div>
         </div>
+        <div className="flex items-center gap-3">
+          <StatusBadge status={order.status as OrderStatus} />
+          <Link to={`/designer/orders/${order.id}`}>
+            <Button size="sm" variant="outline" className="rounded-lg">
+              <Eye className="w-4 h-4 ml-1" />
+              عرض
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </motion.div>
+  );
 
-        {orders.length === 0 ? (
-          <div className="text-center py-20">
-            <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground text-lg">لا توجد طلبات حالياً</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {orders.map((order, i) => (
-              <motion.div
-                key={order.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.08 }}
-                className="bg-card rounded-xl p-5 border border-border shadow-card hover:shadow-card-hover transition-all"
-              >
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg gradient-primary flex items-center justify-center text-primary-foreground flex-shrink-0">
-                      <FileText className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-foreground">{order.templates?.name || '-'}</h3>
-                      <p className="text-muted-foreground text-sm">
-                        {order.customer_name} • {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
-                      </p>
-                      <p className="text-muted-foreground text-xs mt-1">{new Date(order.created_at).toLocaleDateString('ar')}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <StatusBadge status={order.status as OrderStatus} />
-                    <Link to={`/designer/orders/${order.id}`}>
-                      <Button size="sm" variant="outline" className="rounded-lg">
-                        <Eye className="w-4 h-4 ml-1" />
-                        عرض
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
+  const EmptyState = ({ message }: { message: string }) => (
+    <div className="text-center py-16">
+      <FileText className="w-14 h-14 text-muted-foreground/40 mx-auto mb-3" />
+      <p className="text-muted-foreground">{message}</p>
+    </div>
+  );
+
+  return (
+    <div className="py-8">
+      <div className="container max-w-4xl">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-foreground mb-1">لوحة المصمم</h1>
+          <p className="text-muted-foreground text-sm">إدارة ومتابعة طلبات التصميم</p>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+          {stats.map((s) => (
+            <div key={s.label} className="bg-card rounded-xl p-4 border border-border text-center">
+              <s.icon className={`w-6 h-6 mx-auto mb-2 ${s.color}`} />
+              <p className="text-2xl font-bold text-foreground">{s.value}</p>
+              <p className="text-muted-foreground text-xs">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <Tabs defaultValue="active" dir="rtl">
+          <TabsList className="w-full mb-4">
+            <TabsTrigger value="active" className="flex-1">
+              نشطة ({activeOrders.length})
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="flex-1">
+              مكتملة ({completedOrders.length})
+            </TabsTrigger>
+            <TabsTrigger value="all" className="flex-1">
+              الكل ({orders.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="active">
+            {activeOrders.length === 0 ? <EmptyState message="لا توجد طلبات نشطة حالياً" /> : (
+              <div className="space-y-3">
+                {activeOrders.map((order, i) => <OrderCard key={order.id} order={order} i={i} />)}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="completed">
+            {completedOrders.length === 0 ? <EmptyState message="لا توجد طلبات مكتملة" /> : (
+              <div className="space-y-3">
+                {completedOrders.map((order, i) => <OrderCard key={order.id} order={order} i={i} />)}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="all">
+            {orders.length === 0 ? <EmptyState message="لا توجد طلبات حالياً" /> : (
+              <div className="space-y-3">
+                {orders.map((order, i) => <OrderCard key={order.id} order={order} i={i} />)}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
