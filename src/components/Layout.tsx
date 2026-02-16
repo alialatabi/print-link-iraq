@@ -1,8 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Printer, Home, Palette, ShieldCheck, LogIn, LogOut, User } from 'lucide-react';
+import { Printer, Home, User, Palette, ShieldCheck, LogIn, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 
 const Layout = ({ children }: { children: ReactNode }) => {
   const { pathname } = useLocation();
@@ -12,8 +11,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
   const NAV_ITEMS = [
     { label: 'الرئيسية', path: '/', icon: Home, show: true },
     { label: 'طلباتي', path: '/my-orders', icon: User, show: !!user },
-    { label: 'طلبات المصمم', path: '/designer/orders', icon: Palette, show: role === 'designer' || role === 'admin' },
-    { label: 'لوحة الطباعة', path: '/admin', icon: ShieldCheck, show: role === 'admin' },
+    { label: 'المصمم', path: '/designer/orders', icon: Palette, show: role === 'designer' || role === 'admin' },
+    { label: 'الإدارة', path: '/admin', icon: ShieldCheck, show: role === 'admin' },
   ];
 
   const handleSignOut = async () => {
@@ -22,15 +21,21 @@ const Layout = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-cairo">
-      <header className="sticky top-0 z-50 gradient-primary border-b border-primary/20 backdrop-blur-md">
-        <div className="container flex items-center justify-between h-16">
+    <div className="min-h-screen flex flex-col font-cairo" dir="rtl">
+      {/* CMYK color strip */}
+      <div className="flex h-1.5">
+        <div className="flex-1 bg-cmyk-cyan" />
+        <div className="flex-1 bg-cmyk-magenta" />
+        <div className="flex-1 bg-cmyk-yellow" />
+        <div className="flex-1 bg-cmyk-key" />
+      </div>
+
+      <header className="sticky top-0 z-50 bg-card border-b border-border">
+        <div className="container flex items-center justify-between h-14">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
-              <Printer className="w-5 h-5 text-accent-foreground" />
-            </div>
-            <span className="text-xl font-bold text-primary-foreground">
-              Print<span className="text-gradient">Link</span>
+            <Printer className="w-6 h-6 text-primary" />
+            <span className="text-lg font-bold text-foreground">
+              Print<span className="text-cmyk-magenta">Link</span>
             </span>
           </Link>
 
@@ -39,10 +44,10 @@ const Layout = ({ children }: { children: ReactNode }) => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                   pathname === item.path
-                    ? 'bg-primary-foreground/15 text-primary-foreground'
-                    : 'text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10'
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <span className="hidden sm:inline">{item.label}</span>
@@ -54,7 +59,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
               user ? (
                 <button
                   onClick={handleSignOut}
-                  className="px-3 py-2 rounded-lg text-sm font-medium text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
+                  className="px-3 py-1.5 rounded text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <span className="hidden sm:inline">خروج</span>
                   <LogOut className="w-5 h-5 sm:hidden" />
@@ -62,9 +67,9 @@ const Layout = ({ children }: { children: ReactNode }) => {
               ) : (
                 <Link
                   to="/auth"
-                  className="px-3 py-2 rounded-lg text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 transition-colors"
+                  className="px-3 py-1.5 rounded text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
-                  <span className="hidden sm:inline">تسجيل الدخول</span>
+                  <span className="hidden sm:inline">دخول</span>
                   <LogIn className="w-5 h-5 sm:hidden" />
                 </Link>
               )
@@ -75,17 +80,22 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="gradient-primary py-8 mt-auto">
+      <footer className="border-t border-border py-6 mt-auto">
         <div className="container text-center">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-              <Printer className="w-4 h-4 text-accent-foreground" />
-            </div>
-            <span className="text-lg font-bold text-primary-foreground">PrintLink</span>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Printer className="w-4 h-4 text-primary" />
+            <span className="text-sm font-bold text-foreground">PrintLink</span>
           </div>
-          <p className="text-primary-foreground/60 text-sm">
+          <p className="text-muted-foreground text-xs">
             حلقة الوصل بين الزبون والمصمم © {new Date().getFullYear()}
           </p>
+        </div>
+        {/* CMYK color strip */}
+        <div className="flex h-1 mt-6">
+          <div className="flex-1 bg-cmyk-cyan" />
+          <div className="flex-1 bg-cmyk-magenta" />
+          <div className="flex-1 bg-cmyk-yellow" />
+          <div className="flex-1 bg-cmyk-key" />
         </div>
       </footer>
     </div>
