@@ -49,8 +49,8 @@ const AuthPage = () => {
           className="bg-card rounded-2xl p-8 shadow-card border border-border"
         >
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-4">
-              <Printer className="w-8 h-8 text-primary-foreground" />
+            <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <Printer className="w-7 h-7 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground">
               {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}

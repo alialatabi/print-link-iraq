@@ -32,7 +32,7 @@ const ServiceSelection = () => (
               to={`/templates/${service.type}`}
               className="group block bg-card rounded-xl p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border"
             >
-              <div className="w-20 h-20 rounded-2xl gradient-primary flex items-center justify-center text-primary-foreground mx-auto mb-4 group-hover:scale-110 transition-transform">
+              <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4 group-hover:scale-105 transition-transform">
                 {ICONS[service.type]}
               </div>
               <h3 className="font-bold text-lg text-foreground mb-2">{SERVICE_LABELS[service.type]}</h3>
