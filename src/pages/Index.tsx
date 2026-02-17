@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Printer, CreditCard, FileText, Receipt,
+  TrendingUp, CreditCard, FileText, Receipt,
   Zap, Star, Users, ArrowLeft, CheckCircle, Palette, Truck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -87,9 +87,9 @@ const Index = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             <div className="flex items-center justify-center gap-3 mb-6">
-              <Printer className="w-10 h-10 text-primary" />
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-secondary-foreground">
-                Print<span className="text-cmyk-magenta">Link</span>
+              <TrendingUp className="w-10 h-10 text-red-500" />
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-yellow-400">
+                ترندي
               </h1>
             </div>
           </motion.div>
@@ -236,7 +236,7 @@ const Index = () => {
             variants={fadeUp}
             custom={0}
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">لماذا PrintLink؟</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">لماذا ترندي؟</h2>
             <p className="text-muted-foreground text-lg">نسهّل عليك عملية التصميم من البداية للنهاية</p>
           </motion.div>
 
