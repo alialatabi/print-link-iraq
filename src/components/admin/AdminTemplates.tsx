@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { Progress } from '@/components/ui/progress';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
@@ -39,6 +40,8 @@ const AdminTemplates = () => {
   const [form, setForm] = useState<TemplateFormData>({ name: '', description: '', service_type: 'business_card', price: '' });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState('');
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewLocalUrl, setPreviewLocalUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -133,15 +136,23 @@ const AdminTemplates = () => {
     if (!previewFile) return editingTemplate?.preview_url || null;
 
     try {
+      setUploadStage('جاري تجهيز الصورة...');
+      setUploadProgress(10);
       const ext = previewFile.name.split('.').pop();
       const filePath = `${templateId}.${ext}`;
 
-      // Delete old file if exists
+      setUploadStage('جاري حذف الصورة القديمة...');
+      setUploadProgress(20);
       await supabase.storage.from('template-previews').remove([filePath]);
+
+      setUploadStage('جاري رفع الصورة...');
+      setUploadProgress(40);
 
       const { error } = await supabase.storage
         .from('template-previews')
         .upload(filePath, previewFile, { upsert: true });
+
+      setUploadProgress(80);
 
       if (error) {
         console.error('Upload error:', error);
@@ -149,7 +160,10 @@ const AdminTemplates = () => {
         return editingTemplate?.preview_url || null;
       }
 
+      setUploadStage('جاري الحصول على الرابط...');
+      setUploadProgress(90);
       const { data } = supabase.storage.from('template-previews').getPublicUrl(filePath);
+      setUploadProgress(100);
       return data.publicUrl;
     } catch (error) {
       console.error('Upload error:', error);
@@ -161,6 +175,8 @@ const AdminTemplates = () => {
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('اسم القالب مطلوب'); return; }
     setSaving(true);
+    setUploadProgress(0);
+    setUploadStage(previewFile ? 'بدء الرفع...' : 'جاري الحفظ...');
 
     try {
       if (editingTemplate) {
@@ -405,12 +421,23 @@ const AdminTemplates = () => {
               />
             </div>
 
+            {/* Upload Progress */}
+            {saving && previewFile && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{uploadStage}</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <Progress value={uploadProgress} className="h-2" />
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex gap-2 pt-2">
               <Button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl">
-                {saving ? 'جاري الحفظ...' : editingTemplate ? 'حفظ التغييرات' : 'إضافة القالب'}
+                {saving ? (previewFile ? `جاري الرفع... ${uploadProgress}%` : 'جاري الحفظ...') : editingTemplate ? 'حفظ التغييرات' : 'إضافة القالب'}
               </Button>
-              <Button variant="outline" onClick={() => setDialogOpen(false)} className="rounded-xl">
+              <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} className="rounded-xl">
                 إلغاء
               </Button>
             </div>
