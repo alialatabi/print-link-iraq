@@ -3,8 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Clock, Layers, Info } from 'lucide-react';
+import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Clock, Layers, Info, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useCart } from '@/contexts/CartContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface DbTemplate {
   id: string;
@@ -27,6 +29,8 @@ const PREPARATION_DAYS: Record<string, number> = {
 const TemplateDetails = () => {
   const { templateId } = useParams<{ templateId: string }>();
   const navigate = useNavigate();
+  const { addItem, items } = useCart();
+  const { toast } = useToast();
   const [template, setTemplate] = useState<DbTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1); // quantity in thousands
@@ -55,8 +59,24 @@ const TemplateDetails = () => {
     setQuantity(q => q + 1);
   };
 
+  const isInCart = items.some(i => i.templateId === templateId);
+
+  const handleAddToCart = () => {
+    if (!template) return;
+    addItem({
+      templateId: template.id,
+      templateName: template.name,
+      serviceType: template.service_type,
+      previewUrl: template.preview_url,
+      quantity,
+      unitPrice: unitPrice,
+    });
+    toast({ title: 'تمت الإضافة للسلة ✓', description: template.name });
+  };
+
   const handleOrder = () => {
-    navigate(`/order/${templateId}?qty=${quantity * 1000}`);
+    handleAddToCart();
+    navigate('/cart');
   };
 
   if (loading) {
@@ -190,7 +210,7 @@ const TemplateDetails = () => {
               </div>
             </div>
 
-            {/* Total & Order Button */}
+            {/* Total & Order Buttons */}
             <div className="p-5 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-muted-foreground font-medium">المجموع الكلي</span>
@@ -198,10 +218,16 @@ const TemplateDetails = () => {
                   {totalPrice.toLocaleString('ar-IQ')} <span className="text-sm font-medium">د.ع</span>
                 </span>
               </div>
-              <Button onClick={handleOrder} className="w-full h-12 rounded-xl text-base font-bold gap-2">
-                <ShoppingCart className="w-5 h-5" />
-                اطلب الآن
-              </Button>
+              <div className="flex gap-3">
+                <Button onClick={handleAddToCart} variant="outline" className="flex-1 h-12 rounded-xl text-base font-bold gap-2">
+                  {isInCart ? <Check className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
+                  {isInCart ? 'في السلة ✓' : 'أضف للسلة'}
+                </Button>
+                <Button onClick={handleOrder} className="flex-1 h-12 rounded-xl text-base font-bold gap-2">
+                  <ShoppingCart className="w-5 h-5" />
+                  اطلب الآن
+                </Button>
+              </div>
             </div>
           </motion.div>
         </div>
