@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Upload, Send, User, Phone, MapPin, Briefcase, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye } from 'lucide-react';
+import { ArrowRight, Upload, Send, User, Phone, MapPin, Briefcase, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { OrderStatus } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
@@ -137,6 +137,7 @@ const DesignerOrderDetails = () => {
   if (!order) return <div className="py-20 text-center"><p className="text-muted-foreground text-lg">لم يتم العثور على الطلب</p></div>;
 
   const details = (order.details || {}) as Record<string, any>;
+  const revisions: { note: string; date: string; version: number }[] = details.revisions || [];
   const canUpload = ['assigned', 'design_uploaded'].includes(order.status);
   const canSendApproval = order.status === 'design_uploaded' && designs.length > 0;
   const latestDesign = designs[0];
@@ -380,6 +381,46 @@ const DesignerOrderDetails = () => {
               </div>
             )}
           </div>
+
+          {/* Revision Notes from Customer */}
+          {revisions.length > 0 && (
+            <div className="bg-card rounded-xl p-6 border border-border mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <MessageSquare className="w-5 h-5 text-destructive" />
+                <h3 className="font-bold text-foreground">ملاحظات العميل</h3>
+              </div>
+
+              {/* Latest revision highlighted */}
+              <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 mb-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                  <span className="text-sm font-bold text-destructive">آخر طلب تعديل</span>
+                  <span className="text-xs text-muted-foreground mr-auto">
+                    الإصدار {revisions[revisions.length - 1].version} — {new Date(revisions[revisions.length - 1].date).toLocaleDateString('ar')}
+                  </span>
+                </div>
+                <p className="text-foreground">{revisions[revisions.length - 1].note}</p>
+              </div>
+
+              {/* Older revisions */}
+              {revisions.length > 1 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">تعديلات سابقة:</p>
+                  {revisions.slice(0, -1).reverse().map((rev, i) => (
+                    <div key={i} className="bg-muted/50 rounded-lg p-3 border border-border">
+                      <div className="flex items-center gap-2 mb-1">
+                        <MessageSquare className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          الإصدار {rev.version} — {new Date(rev.date).toLocaleDateString('ar')}
+                        </span>
+                      </div>
+                      <p className="text-foreground text-sm">{rev.note}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
       </div>
     </div>
