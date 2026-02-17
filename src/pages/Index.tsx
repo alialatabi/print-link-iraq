@@ -85,42 +85,6 @@ const Index = () => {
   }, []);
   return (
     <div className="overflow-hidden">
-      {/* Services - shown immediately */}
-      <section className="py-12 bg-background">
-        <div className="container max-w-5xl">
-          <motion.div
-            className="text-center mb-10"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">خدماتنا</h1>
-            <p className="text-muted-foreground text-lg">اختر من مجموعة واسعة من خدمات التصميم والطباعة</p>
-          </motion.div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-            {SERVICES.map((service, i) => (
-              <motion.div
-                key={service.type}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.08 }}
-              >
-                <Link
-                  to={`/templates/${service.type}`}
-                  className="block bg-card rounded-2xl p-6 md:p-8 text-center border border-border hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all group hover:-translate-y-1"
-                >
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4 group-hover:bg-primary/20 transition-colors">
-                    {SERVICE_ICONS[service.type]}
-                  </div>
-                  <h4 className="font-bold text-foreground mb-2">{SERVICE_LABELS[service.type as ServiceType]}</h4>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{service.description}</p>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
       {/* Best Selling Templates */}
       <section className="py-20 bg-background">
         <div className="container max-w-5xl">
