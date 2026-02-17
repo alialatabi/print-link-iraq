@@ -17,7 +17,7 @@ import {
   ShieldCheck, Search, Calendar, ArrowUpDown,
   TrendingUp, Clock, CheckCircle, Truck, FileText, Download
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+
 import AdminTemplates from '@/components/admin/AdminTemplates';
 import AdminAccounts from '@/components/admin/AdminAccounts';
 
@@ -159,15 +159,24 @@ const AdminPanel = () => {
       };
     });
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    // Set RTL and column widths
-    ws['!cols'] = [
-      { wch: 5 }, { wch: 20 }, { wch: 16 }, { wch: 25 },
-      { wch: 25 }, { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 14 },
+    const headers = Object.keys(exportData[0]);
+    const csvRows = [
+      headers.join(','),
+      ...exportData.map(row =>
+        headers.map(h => {
+          const val = String((row as any)[h] ?? '').replace(/"/g, '""');
+          return `"${val}"`;
+        }).join(',')
+      ),
     ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'الطلبات المطبوعة');
-    XLSX.writeFile(wb, `طلبات_مطبوعة_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `طلبات_مطبوعة_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
     toast.success(`تم تصدير ${printedOrders.length} طلب`);
   };
 
