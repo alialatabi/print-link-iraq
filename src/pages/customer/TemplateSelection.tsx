@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { SERVICE_LABELS, TEMPLATE_COLORS, ServiceType } from '@/data/mockData';
+import { SERVICE_LABELS, TEMPLATE_COLORS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Palette } from 'lucide-react';
 
 interface DbTemplate {
@@ -64,7 +64,7 @@ const TemplateSelection = () => {
                   to={`/template/${template.id}`}
                   className={`group block rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border ${colors.accent}`}
                 >
-                  <div className={`aspect-[3/4] bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`}>
+                  <div className={`bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`} style={{ aspectRatio: TEMPLATE_ASPECT_RATIOS[serviceType as ServiceType] || '3/4' }}>
                     {template.preview_url ? (
                       <img src={template.preview_url} alt={template.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                     ) : (
