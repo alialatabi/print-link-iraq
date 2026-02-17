@@ -71,36 +71,55 @@ const AdminTemplates = () => {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('حجم الصورة يجب أن لا يتجاوز 5MB');
-      return;
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('حجم الصورة يجب أن لا يتجاوز 5MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error('يرجى اختيار ملف صورة فقط');
+        return;
+      }
+      setPreviewFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewLocalUrl(url);
+    } catch (error) {
+      console.error('File selection error:', error);
+      toast.error('حدث خطأ أثناء اختيار الصورة');
     }
-    setPreviewFile(file);
-    setPreviewLocalUrl(URL.createObjectURL(file));
+    // Reset input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const uploadPreviewImage = async (templateId: string): Promise<string | null> => {
     if (!previewFile) return editingTemplate?.preview_url || null;
 
-    const ext = previewFile.name.split('.').pop();
-    const filePath = `${templateId}.${ext}`;
+    try {
+      const ext = previewFile.name.split('.').pop();
+      const filePath = `${templateId}.${ext}`;
 
-    // Delete old file if exists
-    await supabase.storage.from('template-previews').remove([filePath]);
+      // Delete old file if exists
+      await supabase.storage.from('template-previews').remove([filePath]);
 
-    const { error } = await supabase.storage
-      .from('template-previews')
-      .upload(filePath, previewFile, { upsert: true });
+      const { error } = await supabase.storage
+        .from('template-previews')
+        .upload(filePath, previewFile, { upsert: true });
 
-    if (error) {
+      if (error) {
+        console.error('Upload error:', error);
+        toast.error('فشل رفع الصورة: ' + error.message);
+        return editingTemplate?.preview_url || null;
+      }
+
+      const { data } = supabase.storage.from('template-previews').getPublicUrl(filePath);
+      return data.publicUrl;
+    } catch (error) {
       console.error('Upload error:', error);
-      return null;
+      toast.error('حدث خطأ أثناء رفع الصورة');
+      return editingTemplate?.preview_url || null;
     }
-
-    const { data } = supabase.storage.from('template-previews').getPublicUrl(filePath);
-    return data.publicUrl;
   };
 
   const handleSave = async () => {
