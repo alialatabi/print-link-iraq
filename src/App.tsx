@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import Layout from "@/components/Layout";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/auth/AuthPage";
@@ -33,19 +34,27 @@ const App = () => (
           <BrowserRouter>
             <Layout>
               <Routes>
+                {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/services" element={<ServiceSelection />} />
                 <Route path="/templates/:serviceType" element={<TemplateSelection />} />
-                <Route path="/order/:templateId" element={<OrderForm />} />
-                <Route path="/verify-otp" element={<OTPVerification />} />
-                <Route path="/order-success" element={<OrderSuccess />} />
-                <Route path="/track-order/:orderId" element={<OrderTracking />} />
-                <Route path="/my-orders" element={<MyOrders />} />
+
+                {/* Authenticated customer routes */}
+                <Route path="/order/:templateId" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
+                <Route path="/verify-otp" element={<ProtectedRoute><OTPVerification /></ProtectedRoute>} />
+                <Route path="/order-success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
+                <Route path="/track-order/:orderId" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
+                <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
+
+                {/* Designer routes */}
                 <Route path="/designer/login" element={<DesignerLogin />} />
-                <Route path="/designer/orders" element={<DesignerOrders />} />
-                <Route path="/designer/orders/:orderId" element={<DesignerOrderDetails />} />
-                <Route path="/admin" element={<AdminPanel />} />
+                <Route path="/designer/orders" element={<ProtectedRoute requiredRole="designer"><DesignerOrders /></ProtectedRoute>} />
+                <Route path="/designer/orders/:orderId" element={<ProtectedRoute requiredRole="designer"><DesignerOrderDetails /></ProtectedRoute>} />
+
+                {/* Admin routes */}
+                <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminPanel /></ProtectedRoute>} />
+
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Layout>
