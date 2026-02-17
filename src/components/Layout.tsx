@@ -61,45 +61,31 @@ const Layout = ({ children }: { children: ReactNode }) => {
         <div className="flex-1 bg-cmyk-key" />
       </div>
 
-      <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
-        <div className="container flex items-center justify-between h-14">
-          <Link to="/" className="flex items-center gap-2" onClick={closeMobile}>
-            <TrendingUp className="w-6 h-6 text-red-500" />
-            <span className="text-lg font-bold text-yellow-400">
-              ترندي
-            </span>
-          </Link>
+      <header className="sticky top-0 z-50">
+        <div className="bg-card/95 backdrop-blur-md border-b border-border">
+          <div className="container flex items-center justify-between h-14">
+            <Link to="/" className="flex items-center gap-2" onClick={closeMobile}>
+              <TrendingUp className="w-6 h-6 text-red-500" />
+              <span className="text-lg font-bold text-yellow-400">
+                ترندي
+              </span>
+            </Link>
 
-          {/* Desktop nav */}
-          <nav className="hidden sm:flex items-center gap-1">
-            {NAV_ITEMS.filter(i => i.show).map(item => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  pathname === item.path
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-
-            {/* Service links inline */}
-            {SERVICES.map(service => (
-              <Link
-                key={service.type}
-                to={`/templates/${service.type}`}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  pathname === `/templates/${service.type}`
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                }`}
-              >
-                {SERVICE_LABELS[service.type as ServiceType]}
-              </Link>
-            ))}
+            {/* Desktop nav */}
+            <nav className="hidden sm:flex items-center gap-1">
+              {NAV_ITEMS.filter(i => i.show).map(item => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    pathname === item.path
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
 
             {/* Notification bell */}
             {user && <NotificationBell />}
@@ -140,6 +126,27 @@ const Layout = ({ children }: { children: ReactNode }) => {
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
+        </div>
+
+        {/* Services sub-navbar */}
+        <div className="hidden sm:block bg-muted/50 border-b border-border">
+          <div className="container">
+            <div className="flex items-center gap-1 h-10 overflow-x-auto scrollbar-hide">
+              {SERVICES.map(service => (
+                <Link
+                  key={service.type}
+                  to={`/templates/${service.type}`}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                    pathname === `/templates/${service.type}`
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {SERVICE_LABELS[service.type as ServiceType]}
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Mobile menu */}
@@ -218,6 +225,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </header>
 
       <main className="flex-1">{children}</main>
