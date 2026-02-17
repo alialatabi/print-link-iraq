@@ -11,6 +11,12 @@ interface TextField {
   textAlign: string;
   maxWidth: number;
   placeholder: string;
+  fontFamily?: string;
+  rotation?: number;
+  letterSpacing?: number;
+  opacity?: number;
+  textDecoration?: string;
+  lineHeight?: number;
 }
 
 interface DesignCanvasPreviewProps {
@@ -20,10 +26,6 @@ interface DesignCanvasPreviewProps {
   className?: string;
 }
 
-/**
- * Renders template image with text fields overlaid using Canvas API.
- * Used for customer preview and final design generation.
- */
 const DesignCanvasPreview = ({ imageUrl, fields, values, className = '' }: DesignCanvasPreviewProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -39,10 +41,8 @@ const DesignCanvasPreview = ({ imageUrl, fields, values, className = '' }: Desig
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Draw template image
       ctx.drawImage(img, 0, 0);
 
-      // Draw each text field
       fields.forEach(field => {
         const text = values[field.key] || '';
         if (!text) return;
@@ -50,27 +50,83 @@ const DesignCanvasPreview = ({ imageUrl, fields, values, className = '' }: Desig
         const x = (field.x / 100) * canvas.width;
         const y = (field.y / 100) * canvas.height;
         const maxW = (field.maxWidth / 100) * canvas.width;
-
-        // Scale font size relative to canvas
         const scaledFontSize = (field.fontSize / 100) * canvas.width * 0.25;
+        const fontFamily = field.fontFamily || 'Cairo';
+        const weightStr = field.fontWeight === 'bold' ? 'bold' : field.fontWeight === 'lighter' ? '300' : 'normal';
+        const lineHeightMul = field.lineHeight ?? 1.3;
+        const opacity = (field.opacity ?? 100) / 100;
+        const rotation = field.rotation || 0;
+        const letterSpacing = field.letterSpacing || 0;
+        const textDecoration = field.textDecoration || 'none';
 
         ctx.save();
-        ctx.font = `${field.fontWeight === 'bold' ? 'bold' : field.fontWeight === 'lighter' ? '300' : 'normal'} ${scaledFontSize}px Cairo, sans-serif`;
+        ctx.globalAlpha = opacity;
+
+        // Rotation
+        if (rotation !== 0) {
+          ctx.translate(x, y);
+          ctx.rotate((rotation * Math.PI) / 180);
+          ctx.translate(-x, -y);
+        }
+
+        ctx.font = `${weightStr} ${scaledFontSize}px ${fontFamily}, sans-serif`;
         ctx.fillStyle = field.fontColor;
         ctx.textAlign = field.textAlign as CanvasTextAlign;
         ctx.textBaseline = 'middle';
 
-        // Simple text wrapping
+        // Letter spacing workaround
+        const drawText = (txt: string, tx: number, ty: number) => {
+          if (letterSpacing && letterSpacing !== 0) {
+            // Draw character by character for letter spacing
+            const chars = txt.split('');
+            let currentX = tx;
+            // Adjust starting position based on textAlign
+            if (field.textAlign === 'center') {
+              const totalWidth = chars.reduce((sum, c) => sum + ctx.measureText(c).width + letterSpacing, -letterSpacing);
+              currentX = tx - totalWidth / 2;
+            } else if (field.textAlign === 'right') {
+              const totalWidth = chars.reduce((sum, c) => sum + ctx.measureText(c).width + letterSpacing, -letterSpacing);
+              currentX = tx - totalWidth;
+            }
+            ctx.textAlign = 'left';
+            chars.forEach(char => {
+              ctx.fillText(char, currentX, ty);
+              currentX += ctx.measureText(char).width + letterSpacing;
+            });
+            // Reset
+            ctx.textAlign = field.textAlign as CanvasTextAlign;
+          } else {
+            ctx.fillText(txt, tx, ty);
+          }
+
+          // Text decoration
+          if (textDecoration !== 'none') {
+            const metrics = ctx.measureText(txt);
+            let lineX = tx;
+            if (field.textAlign === 'center') lineX = tx - metrics.width / 2;
+            else if (field.textAlign === 'right') lineX = tx - metrics.width;
+
+            ctx.strokeStyle = field.fontColor;
+            ctx.lineWidth = Math.max(1, scaledFontSize * 0.05);
+            ctx.beginPath();
+            const offsetY = textDecoration === 'underline' ? ty + scaledFontSize * 0.35 : ty;
+            ctx.moveTo(lineX, offsetY);
+            ctx.lineTo(lineX + metrics.width, offsetY);
+            ctx.stroke();
+          }
+        };
+
+        // Text wrapping
         const words = text.split(' ');
         let line = '';
         let lineY = y;
-        const lineHeight = scaledFontSize * 1.3;
+        const lineHeight = scaledFontSize * lineHeightMul;
 
         words.forEach(word => {
           const testLine = line ? line + ' ' + word : word;
           const metrics = ctx.measureText(testLine);
           if (metrics.width > maxW && line) {
-            ctx.fillText(line, x, lineY);
+            drawText(line, x, lineY);
             line = word;
             lineY += lineHeight;
           } else {
@@ -78,7 +134,7 @@ const DesignCanvasPreview = ({ imageUrl, fields, values, className = '' }: Desig
           }
         });
         if (line) {
-          ctx.fillText(line, x, lineY);
+          drawText(line, x, lineY);
         }
 
         ctx.restore();
