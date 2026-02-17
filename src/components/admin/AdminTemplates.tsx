@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Upload, Image, Palette, X, Type } from 'lucide-react';
 import TemplateFieldEditor, { type TextField } from './TemplateFieldEditor';
+import { getUserFriendlyError } from '@/lib/errors';
 
 interface Template {
   id: string;
@@ -163,7 +164,7 @@ const AdminTemplates = () => {
 
       if (error) {
         console.error('Upload error:', error);
-        toast.error('فشل رفع الصورة: ' + error.message);
+        toast.error(getUserFriendlyError(error));
         return editingTemplate?.preview_url || null;
       }
 
@@ -227,7 +228,7 @@ const AdminTemplates = () => {
       setDialogOpen(false);
       loadTemplates();
     } catch (err: any) {
-      toast.error('فشلت العملية: ' + err.message);
+      toast.error(getUserFriendlyError(err));
     } finally {
       setSaving(false);
     }
@@ -245,7 +246,7 @@ const AdminTemplates = () => {
       toast.success('تم حذف القالب');
       loadTemplates();
     } catch (err: any) {
-      toast.error('فشل الحذف: ' + err.message);
+      toast.error(getUserFriendlyError(err));
     }
   };
 

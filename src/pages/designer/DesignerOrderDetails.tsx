@@ -8,6 +8,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { OrderStatus } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
 import { getDesignSignedUrl } from '@/lib/storage';
+import { getUserFriendlyError } from '@/lib/errors';
 
 interface DesignVersion {
   id: string;
@@ -121,7 +122,7 @@ const DesignerOrderDetails = () => {
       loadOrder();
       loadDesigns();
     } catch (err: any) {
-      toast({ title: 'فشل رفع الملف', description: err.message, variant: 'destructive' });
+      toast({ title: 'فشل رفع الملف', description: getUserFriendlyError(err), variant: 'destructive' });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -159,7 +160,7 @@ const DesignerOrderDetails = () => {
         loadOrder();
       }
     } catch (err: any) {
-      toast({ title: 'فشل الحذف', description: err.message, variant: 'destructive' });
+      toast({ title: 'فشل الحذف', description: getUserFriendlyError(err), variant: 'destructive' });
     }
   };
 
