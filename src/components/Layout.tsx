@@ -1,6 +1,6 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Printer, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X } from 'lucide-react';
+import { Printer, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,6 +9,19 @@ const Layout = ({ children }: { children: ReactNode }) => {
   const { user, role, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dark, setDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark]);
 
   const NAV_ITEMS = [
     { label: 'الرئيسية', path: '/', icon: Home, show: true },
@@ -59,6 +72,15 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 {item.label}
               </Link>
             ))}
+
+            {/* Dark mode toggle */}
+            <button
+              onClick={() => setDark(d => !d)}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              aria-label="تبديل الوضع"
+            >
+              {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
 
             {!loading && (
               user ? (
@@ -115,6 +137,15 @@ const Layout = ({ children }: { children: ReactNode }) => {
                     {item.label}
                   </Link>
                 ))}
+
+                {/* Dark mode toggle mobile */}
+                <button
+                  onClick={() => setDark(d => !d)}
+                  className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                  {dark ? 'الوضع الفاتح' : 'الوضع الداكن'}
+                </button>
 
                 {!loading && (
                   user ? (
