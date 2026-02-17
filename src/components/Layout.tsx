@@ -8,12 +8,12 @@ import { SERVICES, SERVICE_LABELS } from '@/data/mockData';
 import type { ServiceType } from '@/data/mockData';
 
 const SERVICE_ICONS: Record<string, React.ReactNode> = {
-  business_card: <CreditCard className="w-4 h-4" />,
-  flyer: <FileText className="w-4 h-4" />,
-  receipt: <Receipt className="w-4 h-4" />,
-  letterhead: <ClipboardList className="w-4 h-4" />,
-  menu: <UtensilsCrossed className="w-4 h-4" />,
-  invitation: <Mail className="w-4 h-4" />,
+  business_card: <CreditCard className="w-6 h-6" />,
+  flyer: <FileText className="w-6 h-6" />,
+  receipt: <Receipt className="w-6 h-6" />,
+  letterhead: <ClipboardList className="w-6 h-6" />,
+  menu: <UtensilsCrossed className="w-6 h-6" />,
+  invitation: <Mail className="w-6 h-6" />,
 };
 
 const Layout = ({ children }: { children: ReactNode }) => {
@@ -129,30 +129,32 @@ const Layout = ({ children }: { children: ReactNode }) => {
         </div>
 
         {/* Services sub-navbar */}
-        <div className="hidden sm:block bg-card border-b border-border py-3">
+        <div className="hidden sm:block bg-card border-b border-border py-4">
           <div className="container">
-            <div className="flex items-center justify-center gap-3 flex-wrap">
+            <div className="flex items-center justify-center gap-5 flex-wrap">
               {SERVICES.map((service, i) => {
-                const colors = [
-                  'bg-cmyk-cyan text-white hover:bg-cmyk-cyan/80',
-                  'bg-cmyk-magenta text-white hover:bg-cmyk-magenta/80',
-                  'bg-cmyk-yellow text-foreground hover:bg-cmyk-yellow/80',
-                  'bg-cmyk-key text-white hover:bg-cmyk-key/80',
-                  'bg-primary text-primary-foreground hover:bg-primary/80',
-                  'bg-accent text-accent-foreground hover:bg-accent/80',
+                const styles = [
+                  { bg: 'bg-cmyk-cyan/10', iconBg: 'bg-cmyk-cyan', iconText: 'text-white', hoverBorder: 'hover:border-cmyk-cyan' },
+                  { bg: 'bg-cmyk-magenta/10', iconBg: 'bg-cmyk-magenta', iconText: 'text-white', hoverBorder: 'hover:border-cmyk-magenta' },
+                  { bg: 'bg-cmyk-yellow/10', iconBg: 'bg-cmyk-yellow', iconText: 'text-foreground', hoverBorder: 'hover:border-cmyk-yellow' },
+                  { bg: 'bg-cmyk-key/10', iconBg: 'bg-cmyk-key', iconText: 'text-white', hoverBorder: 'hover:border-cmyk-key' },
+                  { bg: 'bg-primary/10', iconBg: 'bg-primary', iconText: 'text-primary-foreground', hoverBorder: 'hover:border-primary' },
+                  { bg: 'bg-accent/10', iconBg: 'bg-accent', iconText: 'text-accent-foreground', hoverBorder: 'hover:border-accent' },
                 ];
+                const s = styles[i % styles.length];
                 const isActive = pathname === `/templates/${service.type}`;
                 return (
                   <Link
                     key={service.type}
                     to={`/templates/${service.type}`}
-                    className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 ${
-                      isActive
-                        ? `${colors[i % colors.length]} ring-2 ring-offset-2 ring-primary`
-                        : colors[i % colors.length]
+                    className={`flex flex-col items-center gap-2 px-4 py-3 rounded-2xl border-2 transition-all hover:-translate-y-1 hover:shadow-md ${s.hoverBorder} ${
+                      isActive ? `border-primary ${s.bg}` : `border-transparent ${s.bg}`
                     }`}
                   >
-                    {SERVICE_LABELS[service.type as ServiceType]}
+                    <div className={`w-12 h-12 rounded-xl ${s.iconBg} ${s.iconText} flex items-center justify-center shadow-sm`}>
+                      {SERVICE_ICONS[service.type]}
+                    </div>
+                    <span className="text-xs font-bold text-foreground whitespace-nowrap">{SERVICE_LABELS[service.type as ServiceType]}</span>
                   </Link>
                 );
               })}
