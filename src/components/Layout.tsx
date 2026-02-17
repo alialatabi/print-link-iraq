@@ -129,9 +129,9 @@ const Layout = ({ children }: { children: ReactNode }) => {
         </div>
 
         {/* Services sub-navbar */}
-        <div className="hidden sm:block bg-card border-b border-border py-4">
+        <div className="bg-card border-b border-border py-3 sm:py-4">
           <div className="container">
-            <div className="flex items-center justify-center gap-5 flex-wrap">
+            <div className="flex items-center justify-start sm:justify-center gap-3 sm:gap-5 overflow-x-auto scrollbar-hide pb-1">
               {SERVICES.map((service, i) => {
                 const styles = [
                   { bg: 'bg-cmyk-cyan/10', iconBg: 'bg-cmyk-cyan', iconText: 'text-white', hoverBorder: 'hover:border-cmyk-cyan' },
