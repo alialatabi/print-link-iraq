@@ -18,6 +18,7 @@ import {
   TrendingUp, Clock, CheckCircle, Truck, FileText
 } from 'lucide-react';
 import AdminTemplates from '@/components/admin/AdminTemplates';
+import AdminAccounts from '@/components/admin/AdminAccounts';
 
 const ORDER_STATUSES: OrderStatus[] = [
   'draft', 'submitted', 'assigned', 'design_uploaded',
@@ -208,10 +209,14 @@ const AdminPanel = () => {
         </div>
 
         <Tabs defaultValue="orders" dir="rtl">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ClipboardList className="w-4 h-4" />
               <span className="hidden sm:inline">الطلبات</span>
+            </TabsTrigger>
+            <TabsTrigger value="accounts" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">الحسابات</span>
             </TabsTrigger>
             <TabsTrigger value="templates" className="flex items-center gap-2">
               <LayoutGrid className="w-4 h-4" />
@@ -399,6 +404,11 @@ const AdminPanel = () => {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          {/* ACCOUNTS TAB */}
+          <TabsContent value="accounts">
+            <AdminAccounts />
           </TabsContent>
 
           {/* TEMPLATES TAB */}
