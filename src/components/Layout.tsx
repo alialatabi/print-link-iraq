@@ -1,9 +1,20 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
+import { TrendingUp, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon, ChevronDown, CreditCard, FileText, Receipt, ClipboardList, UtensilsCrossed, Mail } from 'lucide-react';
 import NotificationBell from '@/components/NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SERVICES, SERVICE_LABELS } from '@/data/mockData';
+import type { ServiceType } from '@/data/mockData';
+
+const SERVICE_ICONS: Record<string, React.ReactNode> = {
+  business_card: <CreditCard className="w-4 h-4" />,
+  flyer: <FileText className="w-4 h-4" />,
+  receipt: <Receipt className="w-4 h-4" />,
+  letterhead: <ClipboardList className="w-4 h-4" />,
+  menu: <UtensilsCrossed className="w-4 h-4" />,
+  invitation: <Mail className="w-4 h-4" />,
+};
 
 const Layout = ({ children }: { children: ReactNode }) => {
   const { pathname } = useLocation();
@@ -75,6 +86,30 @@ const Layout = ({ children }: { children: ReactNode }) => {
               </Link>
             ))}
 
+            {/* Services dropdown */}
+            <div className="relative group">
+              <button className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
+                pathname.startsWith('/templates') || pathname === '/services'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}>
+                خدماتنا
+                <ChevronDown className="w-3 h-3 transition-transform group-hover:rotate-180" />
+              </button>
+              <div className="absolute top-full right-0 mt-1 w-52 bg-card border border-border rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2">
+                {SERVICES.map(service => (
+                  <Link
+                    key={service.type}
+                    to={`/templates/${service.type}`}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <span className="text-primary">{SERVICE_ICONS[service.type]}</span>
+                    {SERVICE_LABELS[service.type as ServiceType]}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
             {/* Notification bell */}
             {user && <NotificationBell />}
 
@@ -142,6 +177,22 @@ const Layout = ({ children }: { children: ReactNode }) => {
                     {item.label}
                   </Link>
                 ))}
+
+                {/* Services links mobile */}
+                <div className="pt-2 border-t border-border mt-2">
+                  <p className="px-4 py-2 text-xs font-bold text-muted-foreground">خدماتنا</p>
+                  {SERVICES.map(service => (
+                    <Link
+                      key={service.type}
+                      to={`/templates/${service.type}`}
+                      onClick={closeMobile}
+                      className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      <span className="text-primary">{SERVICE_ICONS[service.type]}</span>
+                      {SERVICE_LABELS[service.type as ServiceType]}
+                    </Link>
+                  ))}
+                </div>
 
                 {/* Dark mode toggle mobile */}
                 <button
