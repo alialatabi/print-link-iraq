@@ -15,8 +15,9 @@ import {
   Package, Users, BarChart3, ClipboardList,
   Trash2, Palette, User, LayoutGrid,
   ShieldCheck, Search, Calendar, ArrowUpDown,
-  TrendingUp, Clock, CheckCircle, Truck, FileText
+  TrendingUp, Clock, CheckCircle, Truck, FileText, Download
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import AdminTemplates from '@/components/admin/AdminTemplates';
 import AdminAccounts from '@/components/admin/AdminAccounts';
 
@@ -136,6 +137,40 @@ const AdminPanel = () => {
     Promise.all([loadAllUsers(), loadDesigners()]);
   };
 
+  const handleExportPrintedOrders = () => {
+    const printedOrders = orders.filter(o => o.status === 'printed' || o.status === 'delivered');
+    if (printedOrders.length === 0) {
+      toast.error('لا توجد طلبات مطبوعة للتصدير');
+      return;
+    }
+
+    const exportData = printedOrders.map((o, i) => {
+      const details = (o.details || {}) as Record<string, any>;
+      return {
+        '#': i + 1,
+        'اسم الزبون': o.customer_name || details.name || '-',
+        'رقم الهاتف': o.customer_phone || details.phone || '-',
+        'العنوان': details.address || '-',
+        'البريد الإلكتروني': details.email || '-',
+        'نوع الخدمة': SERVICE_LABELS[o.templates?.service_type as ServiceType] || '-',
+        'اسم القالب': o.templates?.name || '-',
+        'الحالة': STATUS_LABELS[o.status as OrderStatus] || o.status,
+        'تاريخ الطلب': new Date(o.created_at).toLocaleDateString('ar'),
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    // Set RTL and column widths
+    ws['!cols'] = [
+      { wch: 5 }, { wch: 20 }, { wch: 16 }, { wch: 25 },
+      { wch: 25 }, { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 14 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'الطلبات المطبوعة');
+    XLSX.writeFile(wb, `طلبات_مطبوعة_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success(`تم تصدير ${printedOrders.length} طلب`);
+  };
+
   if (role !== 'admin') {
     return <div className="py-20 text-center"><p className="text-destructive text-lg">ليس لديك صلاحية الوصول</p></div>;
   }
@@ -179,12 +214,18 @@ const AdminPanel = () => {
   return (
     <div className="py-8">
       <div className="container max-w-6xl">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <ShieldCheck className="w-7 h-7 text-primary" />
-            لوحة الإدارة
-          </h1>
-          <p className="text-muted-foreground">إدارة شاملة للطلبات والمستخدمين</p>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <ShieldCheck className="w-7 h-7 text-primary" />
+              لوحة الإدارة
+            </h1>
+            <p className="text-muted-foreground">إدارة شاملة للطلبات والمستخدمين</p>
+          </div>
+          <Button onClick={handleExportPrintedOrders} variant="outline" className="rounded-xl">
+            <Download className="w-4 h-4 ml-2" />
+            تصدير الطلبات المطبوعة (Excel)
+          </Button>
         </div>
 
         {/* Quick Stats Dashboard */}
