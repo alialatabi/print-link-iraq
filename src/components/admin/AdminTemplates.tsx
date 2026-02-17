@@ -70,7 +70,43 @@ const AdminTemplates = () => {
     setDialogOpen(true);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImageForPreview = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new window.Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const MAX_SIZE = 600;
+            let width = img.width;
+            let height = img.height;
+            if (width > height && width > MAX_SIZE) {
+              height = (height * MAX_SIZE) / width;
+              width = MAX_SIZE;
+            } else if (height > MAX_SIZE) {
+              width = (width * MAX_SIZE) / height;
+              height = MAX_SIZE;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { reject('Canvas error'); return; }
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = () => reject('Image load error');
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => reject('File read error');
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -83,13 +119,13 @@ const AdminTemplates = () => {
         return;
       }
       setPreviewFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewLocalUrl(url);
+      // Compress for preview to avoid freezing with large images
+      const compressedUrl = await compressImageForPreview(file);
+      setPreviewLocalUrl(compressedUrl);
     } catch (error) {
       console.error('File selection error:', error);
       toast.error('حدث خطأ أثناء اختيار الصورة');
     }
-    // Reset input so the same file can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
