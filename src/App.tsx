@@ -22,6 +22,7 @@ import DesignerLogin from "./pages/designer/DesignerLogin";
 import DesignerOrders from "./pages/designer/DesignerOrders";
 import DesignerOrderDetails from "./pages/designer/DesignerOrderDetails";
 import AdminPanel from "./pages/admin/AdminPanel";
+import TemplateDetails from "./pages/customer/TemplateDetails";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/services" element={<ServiceSelection />} />
                 <Route path="/templates/:serviceType" element={<TemplateSelection />} />
+                <Route path="/template/:templateId" element={<TemplateDetails />} />
 
                 {/* Authenticated customer routes */}
                 <Route path="/order/:templateId" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />

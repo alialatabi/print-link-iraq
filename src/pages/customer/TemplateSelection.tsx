@@ -61,7 +61,7 @@ const TemplateSelection = () => {
                 transition={{ delay: i * 0.08 }}
               >
                 <Link
-                  to={`/order/${template.id}`}
+                  to={`/template/${template.id}`}
                   className={`group block rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border ${colors.accent}`}
                 >
                   <div className={`aspect-[3/4] bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`}>
