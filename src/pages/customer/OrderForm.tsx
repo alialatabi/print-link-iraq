@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ArrowRight, User, Phone, Briefcase, MapPin, Mail, FileText, Globe, Building2, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getUserFriendlyError } from '@/lib/errors';
 import DesignCanvasPreview from '@/components/DesignCanvasPreview';
 
 const FIELD_ICONS: Record<string, typeof User> = {
@@ -110,7 +111,7 @@ const OrderForm = () => {
     setSubmitting(false);
 
     if (error) {
-      toast({ title: 'خطأ في إنشاء الطلب', description: error.message, variant: 'destructive' });
+      toast({ title: 'خطأ في إنشاء الطلب', description: getUserFriendlyError(error), variant: 'destructive' });
     } else if (data) {
       navigate(`/order-success?order=${data.id}`);
     }
