@@ -35,9 +35,9 @@ const TemplateSelection = () => {
   return (
     <div className="py-12">
       <div className="container max-w-5xl">
-        <Link to="/services" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors">
+        <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors">
           <ArrowRight className="w-4 h-4" />
-          العودة للخدمات
+          العودة للرئيسية
         </Link>
 
         <div className="text-center mb-10">
