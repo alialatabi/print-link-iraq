@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Printer, Mail, Lock, User, LogIn, UserPlus } from 'lucide-react';
+import { TrendingUp, Mail, Lock, User, LogIn, UserPlus, Phone, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const AuthPage = () => {
@@ -13,6 +13,8 @@ const AuthPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
@@ -30,7 +32,12 @@ const AuthPage = () => {
         navigate('/');
       }
     } else {
-      const { error } = await signUp(email, password, displayName);
+      if (!phone.trim()) {
+        toast({ title: 'رقم الهاتف مطلوب', variant: 'destructive' });
+        setSubmitting(false);
+        return;
+      }
+      const { error } = await signUp(email, password, displayName, phone, address);
       if (error) {
         toast({ title: 'خطأ في إنشاء الحساب', description: error.message, variant: 'destructive' });
       } else {
@@ -50,7 +57,7 @@ const AuthPage = () => {
         >
           <div className="text-center mb-8">
             <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <Printer className="w-7 h-7 text-primary" />
+              <TrendingUp className="w-7 h-7 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground">
               {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
@@ -62,18 +69,48 @@ const AuthPage = () => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {!isLogin && (
-              <div>
-                <Label className="text-foreground mb-2 flex items-center gap-2">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  الاسم
-                </Label>
-                <Input
-                  value={displayName}
-                  onChange={e => setDisplayName(e.target.value)}
-                  placeholder="أدخل اسمك"
-                  required={!isLogin}
-                />
-              </div>
+              <>
+                <div>
+                  <Label className="text-foreground mb-2 flex items-center gap-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    الاسم الكامل
+                  </Label>
+                  <Input
+                    value={displayName}
+                    onChange={e => setDisplayName(e.target.value)}
+                    placeholder="أدخل اسمك الكامل"
+                    required={!isLogin}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-foreground mb-2 flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-muted-foreground" />
+                    رقم الهاتف *
+                  </Label>
+                  <Input
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="07xxxxxxxxx"
+                    dir="ltr"
+                    className="text-left"
+                    required={!isLogin}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-foreground mb-2 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    العنوان
+                  </Label>
+                  <Input
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                    placeholder="المحافظة - المنطقة - أقرب نقطة دالة"
+                  />
+                </div>
+              </>
             )}
 
             <div>
