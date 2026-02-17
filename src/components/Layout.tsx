@@ -86,29 +86,20 @@ const Layout = ({ children }: { children: ReactNode }) => {
               </Link>
             ))}
 
-            {/* Services dropdown */}
-            <div className="relative group">
-              <button className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
-                pathname.startsWith('/templates') || pathname === '/services'
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}>
-                خدماتنا
-                <ChevronDown className="w-3 h-3 transition-transform group-hover:rotate-180" />
-              </button>
-              <div className="absolute top-full right-0 mt-1 w-52 bg-card border border-border rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2">
-                {SERVICES.map(service => (
-                  <Link
-                    key={service.type}
-                    to={`/templates/${service.type}`}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  >
-                    <span className="text-primary">{SERVICE_ICONS[service.type]}</span>
-                    {SERVICE_LABELS[service.type as ServiceType]}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            {/* Service links inline */}
+            {SERVICES.map(service => (
+              <Link
+                key={service.type}
+                to={`/templates/${service.type}`}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  pathname === `/templates/${service.type}`
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                {SERVICE_LABELS[service.type as ServiceType]}
+              </Link>
+            ))}
 
             {/* Notification bell */}
             {user && <NotificationBell />}
