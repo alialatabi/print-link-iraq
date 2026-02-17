@@ -213,7 +213,7 @@ const AdminPanel = () => {
                       {order.details && (
                         <div className="bg-muted/50 rounded-lg p-3 text-sm">
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {Object.entries(order.details as Record<string, string>).map(([key, val]) => 
+                            {Object.entries(order.details as Record<string, any>).filter(([_, val]) => typeof val === 'string').map(([key, val]) => 
                               val ? (
                                 <div key={key}>
                                   <span className="text-muted-foreground">{key === 'name' ? 'الاسم' : key === 'phone' ? 'الهاتف' : key === 'job_title' ? 'المسمى' : key === 'address' ? 'العنوان' : key === 'email' ? 'البريد' : key === 'notes' ? 'ملاحظات' : key}: </span>
