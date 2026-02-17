@@ -1,7 +1,8 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon, ChevronDown, CreditCard, FileText, Receipt, ClipboardList, UtensilsCrossed, Mail } from 'lucide-react';
+import { TrendingUp, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon, ChevronDown, CreditCard, FileText, Receipt, ClipboardList, UtensilsCrossed, Mail, ShoppingCart } from 'lucide-react';
 import NotificationBell from '@/components/NotificationBell';
+import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SERVICES, SERVICE_LABELS } from '@/data/mockData';
@@ -19,6 +20,7 @@ const SERVICE_ICONS: Record<string, React.ReactNode> = {
 const Layout = ({ children }: { children: ReactNode }) => {
   const { pathname } = useLocation();
   const { user, role, signOut, loading } = useAuth();
+  const { itemCount } = useCart();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dark, setDark] = useState(() => {
@@ -86,6 +88,16 @@ const Layout = ({ children }: { children: ReactNode }) => {
                   {item.label}
                 </Link>
               ))}
+
+            {/* Cart icon */}
+            <Link to="/cart" className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              <ShoppingCart className="w-4 h-4" />
+              {itemCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {itemCount}
+                </span>
+              )}
+            </Link>
 
             {/* Notification bell */}
             {user && <NotificationBell />}
