@@ -153,3 +153,13 @@ export const TEMPLATE_COLORS: Record<ServiceType, { bg: string; accent: string }
   menu: { bg: 'from-accent/10 to-success/5', accent: 'border-accent/20' },
   invitation: { bg: 'from-accent/10 to-primary/5', accent: 'border-accent/30' },
 };
+
+// Real-world aspect ratios for each service type (width/height as CSS aspect-ratio)
+export const TEMPLATE_ASPECT_RATIOS: Record<ServiceType, string> = {
+  business_card: '9/5.5',   // 9×5.5 cm landscape
+  flyer: '3/4',             // portrait flyer
+  receipt: '1/1.414',       // A4/A5/A6 portrait
+  letterhead: '1/1.414',    // A4 portrait
+  menu: '3/4',              // portrait menu
+  invitation: '4/5',        // portrait invitation
+};

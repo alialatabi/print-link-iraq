@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
+import { SERVICE_LABELS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Clock, Layers, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -95,13 +95,15 @@ const TemplateDetails = () => {
             className="rounded-2xl overflow-hidden border border-border shadow-card bg-card"
           >
             {template.preview_url ? (
-              <img
-                src={template.preview_url}
-                alt={template.name}
-                className="w-full h-auto object-contain"
-              />
+              <div style={{ aspectRatio: TEMPLATE_ASPECT_RATIOS[template.service_type as ServiceType] || '3/4' }} className="overflow-hidden">
+                <img
+                  src={template.preview_url}
+                  alt={template.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
             ) : (
-              <div className="aspect-[3/4] bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
+              <div className="bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center" style={{ aspectRatio: TEMPLATE_ASPECT_RATIOS[template.service_type as ServiceType] || '3/4' }}>
                 <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center">
                   <Palette className="w-12 h-12 text-primary" />
                 </div>
