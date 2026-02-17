@@ -1,12 +1,24 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, CreditCard, FileText, Receipt,
-  Zap, Star, Users, ArrowLeft, CheckCircle, Palette, Truck
+  Zap, Star, Users, ArrowLeft, CheckCircle, Palette, Truck, ShoppingBag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SERVICES, SERVICE_LABELS } from '@/data/mockData';
 import type { ServiceType } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+
+interface PopularTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  preview_url: string | null;
+  price: number | null;
+  service_type: string;
+  order_count: number;
+}
 
 const SERVICE_ICONS: Record<string, React.ReactNode> = {
   business_card: <CreditCard className="w-7 h-7" />,
@@ -40,6 +52,37 @@ const fadeUp = {
 };
 
 const Index = () => {
+  const [popularTemplates, setPopularTemplates] = useState<PopularTemplate[]>([]);
+
+  useEffect(() => {
+    const loadPopular = async () => {
+      // Get templates with order count
+      const { data: templates } = await supabase
+        .from('templates')
+        .select('id, name, description, preview_url, price, service_type');
+      if (!templates) return;
+
+      // Get order counts per template
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('template_id');
+
+      const countMap: Record<string, number> = {};
+      (orders || []).forEach((o: any) => {
+        if (o.template_id) countMap[o.template_id] = (countMap[o.template_id] || 0) + 1;
+      });
+
+      const withCounts = templates.map(t => ({
+        ...t,
+        order_count: countMap[t.id] || 0,
+      }));
+
+      // Sort by order count desc, take top 6
+      withCounts.sort((a, b) => b.order_count - a.order_count);
+      setPopularTemplates(withCounts.slice(0, 6));
+    };
+    loadPopular();
+  }, []);
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
@@ -143,8 +186,86 @@ const Index = () => {
         </div>
       </section>
 
-      {/* How it works */}
+      {/* Best Selling Templates */}
       <section className="py-20 bg-background">
+        <div className="container max-w-5xl">
+          <motion.div
+            className="text-center mb-14"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-50px' }}
+            variants={fadeUp}
+            custom={0}
+          >
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
+              <ShoppingBag className="w-8 h-8 inline-block ml-2 text-primary" />
+              الأكثر طلباً
+            </h2>
+            <p className="text-muted-foreground text-lg">القوالب المفضلة لعملائنا — اطلب مباشرة!</p>
+          </motion.div>
+
+          {popularTemplates.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+              {popularTemplates.map((template, i) => (
+                <motion.div
+                  key={template.id}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true, margin: '-20px' }}
+                  variants={fadeUp}
+                  custom={i + 1}
+                >
+                  <Link
+                    to={`/order/${template.id}`}
+                    className="group block rounded-2xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all hover:-translate-y-1 bg-card"
+                  >
+                    <div className="aspect-[3/4] bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center overflow-hidden">
+                      {template.preview_url ? (
+                        <img src={template.preview_url} alt={template.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Palette className="w-8 h-8 text-primary" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <h4 className="font-bold text-foreground text-sm truncate">{template.name}</h4>
+                        {template.price != null && (
+                          <span className="text-xs font-bold text-primary whitespace-nowrap">{template.price.toLocaleString('ar-IQ')} د.ع</span>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground text-xs mb-2">{template.description}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">{SERVICE_LABELS[template.service_type as ServiceType]}</span>
+                        {template.order_count > 0 && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{template.order_count} طلب</span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-muted-foreground">جاري تحميل القوالب...</p>
+            </div>
+          )}
+
+          <div className="text-center mt-8">
+            <Link to="/services">
+              <Button variant="outline" size="lg" className="rounded-xl px-8">
+                عرض جميع الخدمات
+                <ArrowLeft className="w-4 h-4 mr-2" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="py-20 bg-muted/30">
         <div className="container max-w-4xl">
           <motion.div
             className="text-center mb-14"
@@ -169,7 +290,6 @@ const Index = () => {
                 variants={fadeUp}
                 custom={i + 1}
               >
-                {/* Connector line (desktop) */}
                 {i < STEPS.length - 1 && (
                   <div className="hidden md:block absolute top-8 -left-3 w-6 h-0.5 bg-border" />
                 )}
@@ -185,7 +305,7 @@ const Index = () => {
       </section>
 
       {/* Services */}
-      <section className="py-20 bg-muted/30">
+      <section className="py-20 bg-background">
         <div className="container max-w-5xl">
           <motion.div
             className="text-center mb-14"
@@ -226,7 +346,7 @@ const Index = () => {
       </section>
 
       {/* Features */}
-      <section className="py-20 bg-background">
+      <section className="py-20 bg-muted/30">
         <div className="container max-w-4xl">
           <motion.div
             className="text-center mb-14"
