@@ -37,6 +37,8 @@ const OrderTracking = () => {
   const [revisionNote, setRevisionNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showRevisionForm, setShowRevisionForm] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   const loadOrder = useCallback(async () => {
     const { data } = await supabase
@@ -54,7 +56,13 @@ const OrderTracking = () => {
       .select('*')
       .eq('order_id', orderId || '')
       .order('version', { ascending: false });
-    setDesigns((data as DesignVersion[]) || []);
+    const designs = (data as DesignVersion[]) || [];
+    setDesigns(designs);
+    // Auto-load preview for the latest design
+    if (designs.length > 0 && designs[0].file_url) {
+      const url = await getDesignSignedUrl(designs[0].file_url);
+      if (url) setPreviewUrl(url);
+    }
   }, [orderId]);
 
   useEffect(() => {
@@ -170,48 +178,76 @@ const OrderTracking = () => {
             <div className="bg-card rounded-xl p-6 border border-border mb-6">
               <h3 className="font-bold text-foreground mb-4">التصميم</h3>
 
+              {/* Inline Preview */}
+              {previewUrl && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4">
+                  <div className="rounded-xl overflow-hidden border border-border bg-muted/30">
+                    <img
+                      src={previewUrl}
+                      alt="معاينة التصميم"
+                      className="w-full max-h-[500px] object-contain"
+                      onError={() => {
+                        setPreviewUrl(null);
+                        toast({ title: 'فشل تحميل المعاينة', variant: 'destructive' });
+                      }}
+                    />
+                  </div>
+                </motion.div>
+              )}
+
               {/* Design versions */}
               {designs.length > 0 ? (
                 <div className="space-y-3 mb-4">
-                  {designs.map((design, i) => (
-                    <div
-                      key={design.id}
-                      className={`rounded-lg p-4 flex items-center justify-between gap-3 ${
-                        i === 0
-                          ? 'bg-primary/5 border border-primary/20'
-                          : 'bg-muted/50 border border-border'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText className={`w-5 h-5 ${i === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-                        <div>
-                          <p className="font-medium text-foreground text-sm">
-                            الإصدار {design.version}
-                            {i === 0 && <span className="text-primary text-xs mr-2">(الأحدث)</span>}
-                          </p>
-                          <p className="text-muted-foreground text-xs">
-                            {new Date(design.uploaded_at).toLocaleDateString('ar')}
-                          </p>
+                  {designs.map((design, i) => {
+                    const isSelected = previewUrl !== null && i === 0; // simplified
+                    return (
+                      <div
+                        key={design.id}
+                        className={`rounded-lg p-4 flex items-center justify-between gap-3 ${
+                          i === 0
+                            ? 'bg-primary/5 border border-primary/20'
+                            : 'bg-muted/50 border border-border'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileText className={`w-5 h-5 ${i === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+                          <div>
+                            <p className="font-medium text-foreground text-sm">
+                              الإصدار {design.version}
+                              {i === 0 && <span className="text-primary text-xs mr-2">(الأحدث)</span>}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              {new Date(design.uploaded_at).toLocaleDateString('ar')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {design.approved && (
+                            <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" /> معتمد
+                            </span>
+                          )}
+                          {design.file_url && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs rounded-lg"
+                              disabled={loadingPreview}
+                              onClick={async () => {
+                                setLoadingPreview(true);
+                                const url = await getDesignSignedUrl(design.file_url!);
+                                if (url) setPreviewUrl(url);
+                                else toast({ title: 'فشل تحميل المعاينة', variant: 'destructive' });
+                                setLoadingPreview(false);
+                              }}
+                            >
+                              <Eye className="w-3 h-3 ml-1" /> {loadingPreview ? '...' : 'عرض'}
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {design.approved && (
-                          <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" /> معتمد
-                          </span>
-                        )}
-                        {design.file_url && (
-                          <Button size="sm" variant="outline" className="h-8 text-xs rounded-lg" onClick={async () => {
-                            const url = await getDesignSignedUrl(design.file_url!);
-                            if (url) window.open(url, '_blank');
-                            else toast({ title: 'فشل فتح الملف', variant: 'destructive' });
-                          }}>
-                            <Eye className="w-3 h-3 ml-1" /> عرض
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
