@@ -17,6 +17,7 @@ import OTPVerification from "./pages/customer/OTPVerification";
 import OrderSuccess from "./pages/customer/OrderSuccess";
 import OrderTracking from "./pages/customer/OrderTracking";
 import MyOrders from "./pages/customer/MyOrders";
+import ProfilePage from "./pages/customer/ProfilePage";
 import DesignerLogin from "./pages/designer/DesignerLogin";
 import DesignerOrders from "./pages/designer/DesignerOrders";
 import DesignerOrderDetails from "./pages/designer/DesignerOrderDetails";
@@ -46,6 +47,7 @@ const App = () => (
                 <Route path="/order-success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
                 <Route path="/track-order/:orderId" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
                 <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
                 {/* Designer routes */}
                 <Route path="/designer/login" element={<DesignerLogin />} />

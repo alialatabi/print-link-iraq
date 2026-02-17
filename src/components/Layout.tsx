@@ -27,6 +27,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
   const NAV_ITEMS = [
     { label: 'الرئيسية', path: '/', icon: Home, show: true },
     { label: 'طلباتي', path: '/my-orders', icon: User, show: !!user },
+    { label: 'حسابي', path: '/profile', icon: User, show: !!user },
     { label: 'المصمم', path: '/designer/orders', icon: Palette, show: role === 'designer' || role === 'admin' },
     { label: 'الإدارة', path: '/admin', icon: ShieldCheck, show: role === 'admin' },
   ];
