@@ -58,6 +58,8 @@ export type Database = {
           designer_id: string | null
           details: Json | null
           id: string
+          paid_amount: number
+          payment_status: string
           status: Database["public"]["Enums"]["order_status"]
           template_id: string | null
           updated_at: string
@@ -70,6 +72,8 @@ export type Database = {
           designer_id?: string | null
           details?: Json | null
           id?: string
+          paid_amount?: number
+          payment_status?: string
           status?: Database["public"]["Enums"]["order_status"]
           template_id?: string | null
           updated_at?: string
@@ -82,6 +86,8 @@ export type Database = {
           designer_id?: string | null
           details?: Json | null
           id?: string
+          paid_amount?: number
+          payment_status?: string
           status?: Database["public"]["Enums"]["order_status"]
           template_id?: string | null
           updated_at?: string
