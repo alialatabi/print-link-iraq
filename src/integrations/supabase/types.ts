@@ -179,6 +179,7 @@ export type Database = {
           preview_url: string | null
           price: number | null
           service_type: Database["public"]["Enums"]["service_type"]
+          text_fields: Json
         }
         Insert: {
           created_at?: string
@@ -188,6 +189,7 @@ export type Database = {
           preview_url?: string | null
           price?: number | null
           service_type: Database["public"]["Enums"]["service_type"]
+          text_fields?: Json
         }
         Update: {
           created_at?: string
@@ -197,6 +199,7 @@ export type Database = {
           preview_url?: string | null
           price?: number | null
           service_type?: Database["public"]["Enums"]["service_type"]
+          text_fields?: Json
         }
         Relationships: []
       }

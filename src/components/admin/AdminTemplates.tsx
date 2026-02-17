@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Upload, Image, Palette, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Upload, Image, Palette, X, Type } from 'lucide-react';
+import TemplateFieldEditor, { type TextField } from './TemplateFieldEditor';
 
 interface Template {
   id: string;
@@ -18,6 +19,7 @@ interface Template {
   service_type: string;
   preview_url: string | null;
   price: number | null;
+  text_fields: TextField[];
 }
 
 interface TemplateFormData {
@@ -27,10 +29,6 @@ interface TemplateFormData {
   price: string;
 }
 
-interface AdminTemplatesProps {
-  // no props needed
-}
-
 const AdminTemplates = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,12 +36,14 @@ const AdminTemplates = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [form, setForm] = useState<TemplateFormData>({ name: '', description: '', service_type: 'business_card', price: '' });
+  const [textFields, setTextFields] = useState<TextField[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStage, setUploadStage] = useState('');
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewLocalUrl, setPreviewLocalUrl] = useState<string | null>(null);
+  const [showFieldEditor, setShowFieldEditor] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadTemplates = useCallback(async () => {
@@ -51,7 +51,7 @@ const AdminTemplates = () => {
       .from('templates')
       .select('*')
       .order('created_at', { ascending: false });
-    setTemplates((data as Template[]) || []);
+    setTemplates((data as unknown as Template[]) || []);
     setLoading(false);
   }, []);
 
@@ -60,16 +60,20 @@ const AdminTemplates = () => {
   const openAdd = () => {
     setEditingTemplate(null);
     setForm({ name: '', description: '', service_type: 'business_card', price: '' });
+    setTextFields([]);
     setPreviewFile(null);
     setPreviewLocalUrl(null);
+    setShowFieldEditor(false);
     setDialogOpen(true);
   };
 
   const openEdit = (t: Template) => {
     setEditingTemplate(t);
     setForm({ name: t.name, description: t.description || '', service_type: t.service_type, price: t.price?.toString() || '' });
+    setTextFields(t.text_fields || []);
     setPreviewFile(null);
     setPreviewLocalUrl(t.preview_url);
+    setShowFieldEditor(false);
     setDialogOpen(true);
   };
 
@@ -123,7 +127,6 @@ const AdminTemplates = () => {
       }
       setUploading(true);
       setPreviewFile(file);
-      // Use setTimeout to yield to UI thread before heavy canvas work
       await new Promise(resolve => setTimeout(resolve, 50));
       const compressedUrl = await compressImageForPreview(file);
       setPreviewLocalUrl(compressedUrl);
@@ -194,6 +197,7 @@ const AdminTemplates = () => {
             service_type: form.service_type as any,
             preview_url: previewUrl,
             price: priceVal,
+            text_fields: textFields as any,
           })
           .eq('id', editingTemplate.id);
         if (error) throw error;
@@ -207,12 +211,12 @@ const AdminTemplates = () => {
             description: form.description || null,
             service_type: form.service_type as any,
             price: priceVal,
+            text_fields: textFields as any,
           })
           .select()
           .single();
         if (error) throw error;
 
-        // Upload image after getting the ID
         if (previewFile && newTemplate) {
           const previewUrl = await uploadPreviewImage(newTemplate.id);
           await supabase.from('templates').update({ preview_url: previewUrl }).eq('id', newTemplate.id);
@@ -232,7 +236,6 @@ const AdminTemplates = () => {
   const handleDelete = async (t: Template) => {
     if (!confirm(`حذف القالب "${t.name}"؟`)) return;
     try {
-      // Delete preview image
       if (t.preview_url) {
         const path = t.preview_url.split('/template-previews/')[1];
         if (path) await supabase.storage.from('template-previews').remove([decodeURIComponent(path)]);
@@ -247,7 +250,6 @@ const AdminTemplates = () => {
   };
 
   const filtered = filterService === 'all' ? templates : templates.filter(t => t.service_type === filterService);
-
   const serviceCounts = Object.keys(SERVICE_LABELS).reduce((acc, key) => {
     acc[key] = templates.filter(t => t.service_type === key).length;
     return acc;
@@ -300,7 +302,6 @@ const AdminTemplates = () => {
               transition={{ delay: i * 0.04 }}
               className="bg-card rounded-xl border border-border overflow-hidden shadow-sm group"
             >
-              {/* Preview Image */}
               <div className="aspect-[4/3] bg-muted/30 flex items-center justify-center relative overflow-hidden">
                 {t.preview_url ? (
                   <img src={t.preview_url} alt={t.name} className="w-full h-full object-cover" />
@@ -310,7 +311,13 @@ const AdminTemplates = () => {
                     <p className="text-xs text-muted-foreground/50">بدون صورة</p>
                   </div>
                 )}
-                {/* Overlay actions */}
+                {/* Field count badge */}
+                {t.text_fields && t.text_fields.length > 0 && (
+                  <div className="absolute top-2 right-2 bg-primary/90 text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                    <Type className="w-2.5 h-2.5" />
+                    {t.text_fields.length}
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <Button size="sm" variant="secondary" className="rounded-lg" onClick={() => openEdit(t)}>
                     <Pencil className="w-3 h-3 ml-1" /> تعديل
@@ -337,7 +344,7 @@ const AdminTemplates = () => {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md" dir="rtl">
+        <DialogContent className={`${showFieldEditor && previewLocalUrl ? 'max-w-3xl' : 'max-w-md'} max-h-[90vh] overflow-y-auto`} dir="rtl">
           <DialogHeader>
             <DialogTitle>{editingTemplate ? 'تعديل القالب' : 'إضافة قالب جديد'}</DialogTitle>
           </DialogHeader>
@@ -357,7 +364,7 @@ const AdminTemplates = () => {
                 <div className="relative rounded-xl overflow-hidden border border-border">
                   <img src={previewLocalUrl} alt="preview" className="w-full aspect-[4/3] object-cover" />
                   <button
-                    onClick={() => { setPreviewFile(null); setPreviewLocalUrl(null); }}
+                    onClick={() => { setPreviewFile(null); setPreviewLocalUrl(null); setShowFieldEditor(false); }}
                     className="absolute top-2 left-2 w-7 h-7 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
                   >
                     <X className="w-4 h-4" />
@@ -379,6 +386,25 @@ const AdminTemplates = () => {
                 </div>
               )}
             </div>
+
+            {/* Text Fields Editor Toggle */}
+            {previewLocalUrl && (
+              <div>
+                {!showFieldEditor ? (
+                  <Button variant="outline" className="w-full rounded-xl" onClick={() => setShowFieldEditor(true)}>
+                    <Type className="w-4 h-4 ml-2" />
+                    تحديد حقول النص على التصميم
+                    {textFields.length > 0 && <span className="mr-2 text-xs text-primary">({textFields.length} حقل)</span>}
+                  </Button>
+                ) : (
+                  <TemplateFieldEditor
+                    imageUrl={previewLocalUrl}
+                    fields={textFields}
+                    onChange={setTextFields}
+                  />
+                )}
+              </div>
+            )}
 
             {/* Name */}
             <div>
