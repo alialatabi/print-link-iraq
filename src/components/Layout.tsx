@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Printer, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
+import { TrendingUp, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -51,9 +51,9 @@ const Layout = ({ children }: { children: ReactNode }) => {
       <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border">
         <div className="container flex items-center justify-between h-14">
           <Link to="/" className="flex items-center gap-2" onClick={closeMobile}>
-            <Printer className="w-6 h-6 text-primary" />
-            <span className="text-lg font-bold text-foreground">
-              Print<span className="text-cmyk-magenta">Link</span>
+            <TrendingUp className="w-6 h-6 text-red-500" />
+            <span className="text-lg font-bold text-yellow-400">
+              ترندي
             </span>
           </Link>
 
@@ -178,9 +178,9 @@ const Layout = ({ children }: { children: ReactNode }) => {
       <footer className="border-t border-border py-8 mt-auto bg-card">
         <div className="container text-center">
           <div className="flex items-center justify-center gap-2 mb-3">
-            <Printer className="w-5 h-5 text-primary" />
-            <span className="text-sm font-bold text-foreground">
-              Print<span className="text-cmyk-magenta">Link</span>
+            <TrendingUp className="w-5 h-5 text-red-500" />
+            <span className="text-sm font-bold text-yellow-400">
+              ترندي
             </span>
           </div>
           <p className="text-muted-foreground text-xs">
