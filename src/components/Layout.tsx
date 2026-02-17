@@ -129,22 +129,33 @@ const Layout = ({ children }: { children: ReactNode }) => {
         </div>
 
         {/* Services sub-navbar */}
-        <div className="hidden sm:block bg-muted/50 border-b border-border">
+        <div className="hidden sm:block bg-card border-b border-border py-3">
           <div className="container">
-            <div className="flex items-center gap-1 h-10 overflow-x-auto scrollbar-hide">
-              {SERVICES.map(service => (
-                <Link
-                  key={service.type}
-                  to={`/templates/${service.type}`}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                    pathname === `/templates/${service.type}`
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {SERVICE_LABELS[service.type as ServiceType]}
-                </Link>
-              ))}
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              {SERVICES.map((service, i) => {
+                const colors = [
+                  'bg-cmyk-cyan text-white hover:bg-cmyk-cyan/80',
+                  'bg-cmyk-magenta text-white hover:bg-cmyk-magenta/80',
+                  'bg-cmyk-yellow text-foreground hover:bg-cmyk-yellow/80',
+                  'bg-cmyk-key text-white hover:bg-cmyk-key/80',
+                  'bg-primary text-primary-foreground hover:bg-primary/80',
+                  'bg-accent text-accent-foreground hover:bg-accent/80',
+                ];
+                const isActive = pathname === `/templates/${service.type}`;
+                return (
+                  <Link
+                    key={service.type}
+                    to={`/templates/${service.type}`}
+                    className={`px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 ${
+                      isActive
+                        ? `${colors[i % colors.length]} ring-2 ring-offset-2 ring-primary`
+                        : colors[i % colors.length]
+                    }`}
+                  >
+                    {SERVICE_LABELS[service.type as ServiceType]}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </div>
