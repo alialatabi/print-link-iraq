@@ -1,6 +1,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { TrendingUp, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
+import NotificationBell from '@/components/NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -72,6 +73,9 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 {item.label}
               </Link>
             ))}
+
+            {/* Notification bell */}
+            {user && <NotificationBell />}
 
             {/* Dark mode toggle */}
             <button
