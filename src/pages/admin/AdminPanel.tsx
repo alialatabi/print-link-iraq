@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { SERVICE_LABELS, STATUS_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,8 +13,9 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
   Package, Users, BarChart3, ClipboardList,
-  UserPlus, Trash2, Eye, Printer, Truck, CheckCircle,
-  ArrowLeftRight, ShieldCheck, Palette, User, LayoutGrid
+  Trash2, Palette, User, LayoutGrid,
+  ShieldCheck, Search, Calendar, ArrowUpDown,
+  TrendingUp, Clock, CheckCircle, Truck, FileText
 } from 'lucide-react';
 import AdminTemplates from '@/components/admin/AdminTemplates';
 
@@ -23,12 +25,18 @@ const ORDER_STATUSES: OrderStatus[] = [
 ];
 
 const AdminPanel = () => {
-  const { user, role } = useAuth();
+  const { role } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [designers, setDesigners] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [serviceFilter, setServiceFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [designerFilter, setDesignerFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('newest');
 
   const loadOrders = useCallback(async () => {
     const { data } = await supabase
@@ -43,7 +51,6 @@ const AdminPanel = () => {
       .from('user_roles')
       .select('user_id')
       .eq('role', 'designer');
-    
     if (roleData && roleData.length > 0) {
       const userIds = roleData.map(r => r.user_id);
       const { data: profiles } = await supabase
@@ -60,15 +67,12 @@ const AdminPanel = () => {
     const { data: roles } = await supabase
       .from('user_roles')
       .select('user_id, role');
-    
     const userIds = [...new Set((roles || []).map(r => r.user_id))];
     if (userIds.length === 0) { setAllUsers([]); return; }
-
     const { data: profiles } = await supabase
       .from('profiles')
       .select('*')
       .in('user_id', userIds);
-
     const userMap = (profiles || []).map(p => ({
       ...p,
       roles: (roles || []).filter(r => r.user_id === p.user_id).map(r => r.role)
@@ -87,6 +91,22 @@ const AdminPanel = () => {
       .eq('id', orderId);
     if (error) { toast.error('فشل تحديث الحالة'); return; }
     toast.success('تم تحديث الحالة');
+    loadOrders();
+  };
+
+  const handleAssignDesigner = async (orderId: string, designerId: string) => {
+    const updateData: any = { designer_id: designerId };
+    // If order is submitted and we're assigning, change to assigned
+    const order = orders.find(o => o.id === orderId);
+    if (order && order.status === 'submitted') {
+      updateData.status = 'assigned';
+    }
+    const { error } = await supabase
+      .from('orders')
+      .update(updateData)
+      .eq('id', orderId);
+    if (error) { toast.error('فشل تعيين المصمم'); return; }
+    toast.success('تم تعيين المصمم');
     loadOrders();
   };
 
@@ -121,13 +141,39 @@ const AdminPanel = () => {
 
   if (loading) return <div className="py-20 text-center"><p className="text-muted-foreground">جاري التحميل...</p></div>;
 
-  const filteredOrders = statusFilter === 'all' ? orders : orders.filter(o => o.status === statusFilter);
+  // Filtering & sorting
+  let filteredOrders = orders;
+  if (statusFilter !== 'all') filteredOrders = filteredOrders.filter(o => o.status === statusFilter);
+  if (serviceFilter !== 'all') filteredOrders = filteredOrders.filter(o => o.templates?.service_type === serviceFilter);
+  if (designerFilter !== 'all') {
+    if (designerFilter === 'unassigned') filteredOrders = filteredOrders.filter(o => !o.designer_id);
+    else filteredOrders = filteredOrders.filter(o => o.designer_id === designerFilter);
+  }
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase();
+    filteredOrders = filteredOrders.filter(o =>
+      (o.customer_name || '').toLowerCase().includes(q) ||
+      (o.customer_phone || '').includes(q) ||
+      (o.templates?.name || '').toLowerCase().includes(q) ||
+      o.id.toLowerCase().includes(q)
+    );
+  }
+  if (sortBy === 'oldest') filteredOrders = [...filteredOrders].reverse();
 
   // Stats
   const totalOrders = orders.length;
   const pendingOrders = orders.filter(o => ['submitted', 'draft'].includes(o.status)).length;
   const inProgressOrders = orders.filter(o => ['assigned', 'design_uploaded', 'waiting_approval'].includes(o.status)).length;
   const completedOrders = orders.filter(o => ['approved', 'print_ready', 'printed', 'delivered'].includes(o.status)).length;
+  const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
+
+  // Designer workload
+  const designerWorkload = designers.map(d => ({
+    ...d,
+    activeOrders: orders.filter(o => o.designer_id === d.user_id && !['delivered', 'draft'].includes(o.status)).length,
+    totalOrders: orders.filter(o => o.designer_id === d.user_id).length,
+    completedOrders: orders.filter(o => o.designer_id === d.user_id && ['approved', 'print_ready', 'printed', 'delivered'].includes(o.status)).length,
+  }));
 
   return (
     <div className="py-8">
@@ -140,6 +186,27 @@ const AdminPanel = () => {
           <p className="text-muted-foreground">إدارة شاملة للطلبات والمستخدمين</p>
         </div>
 
+        {/* Quick Stats Dashboard */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          {[
+            { label: 'إجمالي الطلبات', value: totalOrders, icon: Package, color: 'text-primary', bg: 'bg-primary/10' },
+            { label: 'بانتظار التعيين', value: pendingOrders, icon: Clock, color: 'text-cmyk-yellow', bg: 'bg-cmyk-yellow/10' },
+            { label: 'قيد التنفيذ', value: inProgressOrders, icon: TrendingUp, color: 'text-cmyk-cyan', bg: 'bg-cmyk-cyan/10' },
+            { label: 'مكتملة', value: completedOrders, icon: CheckCircle, color: 'text-success', bg: 'bg-success/10' },
+            { label: 'المصممين', value: designers.length, icon: Palette, color: 'text-cmyk-magenta', bg: 'bg-cmyk-magenta/10' },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-card rounded-xl p-4 border border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+                  <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+              <p className="text-xs text-muted-foreground">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+
         <Tabs defaultValue="orders" dir="rtl">
           <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="orders" className="flex items-center gap-2">
@@ -150,9 +217,9 @@ const AdminPanel = () => {
               <LayoutGrid className="w-4 h-4" />
               <span className="hidden sm:inline">القوالب</span>
             </TabsTrigger>
-            <TabsTrigger value="stats" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">الإحصائيات</span>
+            <TabsTrigger value="designers" className="flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              <span className="hidden sm:inline">المصممين</span>
             </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -162,95 +229,161 @@ const AdminPanel = () => {
 
           {/* ORDERS TAB */}
           <TabsContent value="orders">
-            <div className="flex items-center gap-3 mb-4 flex-wrap">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="فلتر الحالة" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الحالات ({orders.length})</SelectItem>
-                  {ORDER_STATUSES.map(s => {
-                    const count = orders.filter(o => o.status === s).length;
-                    return (
+            {/* Advanced Filters */}
+            <div className="bg-card rounded-xl p-4 border border-border mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {/* Search */}
+                <div className="relative sm:col-span-2 lg:col-span-1">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="بحث بالاسم أو الهاتف..."
+                    className="pr-9 rounded-lg"
+                  />
+                </div>
+                {/* Status */}
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="rounded-lg">
+                    <SelectValue placeholder="الحالة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">جميع الحالات</SelectItem>
+                    {ORDER_STATUSES.map(s => (
                       <SelectItem key={s} value={s}>
-                        {STATUS_LABELS[s]} ({count})
+                        {STATUS_LABELS[s]} ({orders.filter(o => o.status === s).length})
                       </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              <span className="text-sm text-muted-foreground">{filteredOrders.length} طلب</span>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {/* Service */}
+                <Select value={serviceFilter} onValueChange={setServiceFilter}>
+                  <SelectTrigger className="rounded-lg">
+                    <SelectValue placeholder="الخدمة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">جميع الخدمات</SelectItem>
+                    {Object.entries(SERVICE_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {/* Designer */}
+                <Select value={designerFilter} onValueChange={setDesignerFilter}>
+                  <SelectTrigger className="rounded-lg">
+                    <SelectValue placeholder="المصمم" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">جميع المصممين</SelectItem>
+                    <SelectItem value="unassigned">غير معيّن</SelectItem>
+                    {designers.map(d => (
+                      <SelectItem key={d.user_id} value={d.user_id}>
+                        {d.display_name || d.phone || 'مصمم'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {/* Sort */}
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="rounded-lg">
+                    <SelectValue placeholder="الترتيب" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">الأحدث أولاً</SelectItem>
+                    <SelectItem value="oldest">الأقدم أولاً</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                عرض {filteredOrders.length} من {orders.length} طلب
+              </div>
             </div>
 
             {filteredOrders.length === 0 ? (
               <div className="text-center py-16">
-                <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground text-lg">لا توجد طلبات</p>
+                <Package className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+                <p className="text-muted-foreground text-lg">لا توجد طلبات مطابقة</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {filteredOrders.map((order, i) => (
                   <motion.div
                     key={order.id}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.04 }}
-                    className="bg-card rounded-xl p-5 border border-border shadow-sm"
+                    transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                    className="bg-card rounded-xl p-4 border border-border shadow-sm hover:shadow-md transition-shadow"
                   >
-                    <div className="flex flex-col gap-4">
-                      {/* Header */}
-                      <div className="flex items-start justify-between flex-wrap gap-3">
+                    <div className="flex flex-col gap-3">
+                      {/* Header row */}
+                      <div className="flex items-start justify-between flex-wrap gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-1">
-                            <h3 className="font-bold text-foreground">{order.templates?.name || '-'}</h3>
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <h3 className="font-bold text-foreground text-sm">{order.templates?.name || '-'}</h3>
                             <StatusBadge status={order.status as OrderStatus} />
+                            <span className="text-xs text-muted-foreground font-mono">#{order.id.slice(0, 8)}</span>
                           </div>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                            <span>الزبون: {order.customer_name || '-'}</span>
-                            <span>الخدمة: {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}</span>
-                            <span dir="ltr">هاتف: {order.customer_phone || '-'}</span>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                            <span>{order.customer_name || '-'}</span>
+                            <span dir="ltr">{order.customer_phone || '-'}</span>
+                            <span>{SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}</span>
                             <span>{new Date(order.created_at).toLocaleDateString('ar')}</span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Details */}
+                      {/* Details (collapsed) */}
                       {order.details && (
-                        <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {Object.entries(order.details as Record<string, any>).filter(([_, val]) => typeof val === 'string').map(([key, val]) => 
-                              val ? (
-                                <div key={key}>
-                                  <span className="text-muted-foreground">{key === 'name' ? 'الاسم' : key === 'phone' ? 'الهاتف' : key === 'job_title' ? 'المسمى' : key === 'address' ? 'العنوان' : key === 'email' ? 'البريد' : key === 'notes' ? 'ملاحظات' : key}: </span>
-                                  <span className="text-foreground">{val}</span>
-                                </div>
-                              ) : null
-                            )}
+                        <div className="bg-muted/40 rounded-lg p-2.5 text-xs">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1">
+                            {Object.entries(order.details as Record<string, any>)
+                              .filter(([_, val]) => typeof val === 'string' && val)
+                              .map(([key, val]) => (
+                                <span key={key}>
+                                  <span className="text-muted-foreground">
+                                    {key === 'name' ? 'الاسم' : key === 'phone' ? 'الهاتف' : key === 'job_title' ? 'المسمى' : key === 'address' ? 'العنوان' : key === 'email' ? 'البريد' : key === 'notes' ? 'ملاحظات' : key}:
+                                  </span>{' '}
+                                  <span className="text-foreground">{val as string}</span>
+                                </span>
+                              ))}
                           </div>
                         </div>
                       )}
 
-                      {/* Actions */}
+                      {/* Actions row */}
                       <div className="flex items-center gap-3 flex-wrap">
-                        {/* Auto-assigned Designer (read-only) */}
+                        {/* Assign Designer */}
                         <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">المصمم:</span>
-                          <Badge variant={order.designer_id ? 'secondary' : 'outline'} className="text-sm">
-                            <Palette className="w-3 h-3 ml-1" />
-                            {order.designer_id
-                              ? (designers.find(d => d.user_id === order.designer_id)?.display_name || 'مصمم')
-                              : 'تعيين تلقائي عند الإرسال'}
-                          </Badge>
+                          <Palette className="w-4 h-4 text-muted-foreground" />
+                          <Select
+                            value={order.designer_id || 'none'}
+                            onValueChange={(val) => {
+                              if (val !== 'none') handleAssignDesigner(order.id, val);
+                            }}
+                          >
+                            <SelectTrigger className="w-40 h-8 text-xs rounded-lg">
+                              <SelectValue placeholder="تعيين مصمم" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none" disabled>اختر مصمم</SelectItem>
+                              {designers.map(d => (
+                                <SelectItem key={d.user_id} value={d.user_id}>
+                                  {d.display_name || d.phone || 'مصمم'}
+                                  {' '}({designerWorkload.find(w => w.user_id === d.user_id)?.activeOrders || 0} نشط)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         {/* Change Status */}
                         <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">الحالة:</span>
+                          <FileText className="w-4 h-4 text-muted-foreground" />
                           <Select
                             value={order.status}
                             onValueChange={(val) => handleStatusChange(order.id, val)}
                           >
-                            <SelectTrigger className="w-40 h-8 text-sm">
+                            <SelectTrigger className="w-40 h-8 text-xs rounded-lg">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -273,101 +406,95 @@ const AdminPanel = () => {
             <AdminTemplates />
           </TabsContent>
 
-          {/* STATS TAB */}
-          <TabsContent value="stats">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">إجمالي الطلبات</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-foreground">{totalOrders}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">بانتظار التعيين</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-primary">{pendingOrders}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">قيد التنفيذ</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-accent-foreground">{inProgressOrders}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">مكتملة</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-success">{completedOrders}</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Orders by service */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">الطلبات حسب الخدمة</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {Object.entries(SERVICE_LABELS).map(([key, label]) => {
-                    const count = orders.filter(o => o.templates?.service_type === key).length;
-                    const percentage = totalOrders > 0 ? (count / totalOrders) * 100 : 0;
-                    return (
-                      <div key={key} className="flex items-center gap-3">
-                        <span className="text-sm text-muted-foreground w-24 text-left">{label}</span>
-                        <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-                          <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${percentage}%` }} />
-                        </div>
-                        <span className="text-sm font-bold text-foreground w-8">{count}</span>
-                      </div>
-                    );
-                  })}
+          {/* DESIGNERS TAB */}
+          <TabsContent value="designers">
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-foreground">أداء المصممين</h3>
+              {designerWorkload.length === 0 ? (
+                <div className="text-center py-16">
+                  <Palette className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+                  <p className="text-muted-foreground">لا يوجد مصممين بعد</p>
+                  <p className="text-muted-foreground text-sm mt-1">أضف دور "مصمم" لأحد المستخدمين من تبويب المستخدمين</p>
                 </div>
-              </CardContent>
-            </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {designerWorkload.map((d) => (
+                    <div key={d.user_id} className="bg-card rounded-xl p-5 border border-border">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-full bg-cmyk-magenta/10 flex items-center justify-center">
+                          <Palette className="w-5 h-5 text-cmyk-magenta" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-foreground">{d.display_name || d.phone || 'مصمم'}</h4>
+                          {d.phone && <p className="text-xs text-muted-foreground" dir="ltr">{d.phone}</p>}
+                        </div>
+                      </div>
 
-            {/* Designers stats */}
-            <Card className="mt-4">
-              <CardHeader>
-                <CardTitle className="text-lg">المصممين</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {designers.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">لا يوجد مصممين</p>
-                ) : (
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        <div className="bg-primary/5 rounded-lg p-3">
+                          <p className="text-xl font-bold text-primary">{d.activeOrders}</p>
+                          <p className="text-xs text-muted-foreground">نشطة</p>
+                        </div>
+                        <div className="bg-success/5 rounded-lg p-3">
+                          <p className="text-xl font-bold text-success">{d.completedOrders}</p>
+                          <p className="text-xs text-muted-foreground">مكتملة</p>
+                        </div>
+                        <div className="bg-muted rounded-lg p-3">
+                          <p className="text-xl font-bold text-foreground">{d.totalOrders}</p>
+                          <p className="text-xs text-muted-foreground">الإجمالي</p>
+                        </div>
+                      </div>
+
+                      {/* Workload bar */}
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                          <span>عبء العمل</span>
+                          <span>{d.activeOrders} طلبات نشطة</span>
+                        </div>
+                        <div className="bg-muted rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${d.activeOrders > 5 ? 'bg-destructive' : d.activeOrders > 3 ? 'bg-cmyk-yellow' : 'bg-success'}`}
+                            style={{ width: `${Math.min(d.activeOrders * 15, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Service Distribution */}
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="text-lg">توزيع الطلبات حسب الخدمة</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="space-y-3">
-                    {designers.map(d => {
-                      const assignedCount = orders.filter(o => o.designer_id === d.user_id).length;
+                    {Object.entries(SERVICE_LABELS).map(([key, label]) => {
+                      const count = orders.filter(o => o.templates?.service_type === key).length;
+                      const percentage = totalOrders > 0 ? (count / totalOrders) * 100 : 0;
                       return (
-                        <div key={d.user_id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <Palette className="w-4 h-4 text-primary" />
-                            <span className="font-medium text-foreground">{d.display_name || d.phone || 'مصمم'}</span>
+                        <div key={key} className="flex items-center gap-3">
+                          <span className="text-sm text-muted-foreground w-24 text-left">{label}</span>
+                          <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
+                            <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${percentage}%` }} />
                           </div>
-                          <Badge variant="secondary">{assignedCount} طلب</Badge>
+                          <span className="text-sm font-bold text-foreground w-8">{count}</span>
                         </div>
                       );
                     })}
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* USERS TAB */}
           <TabsContent value="users">
-            <div className="space-y-4">
+            <div className="space-y-3">
               {allUsers.length === 0 ? (
                 <div className="text-center py-16">
-                  <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <Users className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
                   <p className="text-muted-foreground text-lg">لا يوجد مستخدمين</p>
                 </div>
               ) : (
@@ -376,22 +503,22 @@ const AdminPanel = () => {
                     key={u.user_id}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.04 }}
-                    className="bg-card rounded-xl p-5 border border-border shadow-sm"
+                    transition={{ delay: Math.min(i * 0.04, 0.3) }}
+                    className="bg-card rounded-xl p-4 border border-border shadow-sm"
                   >
                     <div className="flex items-start justify-between flex-wrap gap-3">
                       <div>
-                        <h3 className="font-bold text-foreground flex items-center gap-2">
+                        <h3 className="font-bold text-foreground flex items-center gap-2 text-sm">
                           <User className="w-4 h-4 text-muted-foreground" />
                           {u.display_name || u.phone || 'مستخدم'}
                         </h3>
-                        {u.phone && <p className="text-sm text-muted-foreground mt-1" dir="ltr">{u.phone}</p>}
-                        <div className="flex items-center gap-2 mt-2">
+                        {u.phone && <p className="text-xs text-muted-foreground mt-0.5" dir="ltr">{u.phone}</p>}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
                           {u.roles.map((r: string) => (
                             <Badge
                               key={r}
                               variant={r === 'admin' ? 'default' : r === 'designer' ? 'secondary' : 'outline'}
-                              className="flex items-center gap-1"
+                              className="flex items-center gap-1 text-xs"
                             >
                               {r === 'admin' ? <ShieldCheck className="w-3 h-3" /> : r === 'designer' ? <Palette className="w-3 h-3" /> : <User className="w-3 h-3" />}
                               {r === 'admin' ? 'أدمن' : r === 'designer' ? 'مصمم' : 'زبون'}
@@ -410,14 +537,14 @@ const AdminPanel = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         {!u.roles.includes('designer') && (
-                          <Button size="sm" variant="outline" onClick={() => handleAddRole(u.user_id, 'designer')}>
-                            <Palette className="w-4 h-4 ml-1" />
+                          <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg" onClick={() => handleAddRole(u.user_id, 'designer')}>
+                            <Palette className="w-3 h-3 ml-1" />
                             مصمم
                           </Button>
                         )}
                         {!u.roles.includes('admin') && (
-                          <Button size="sm" variant="outline" onClick={() => handleAddRole(u.user_id, 'admin')}>
-                            <ShieldCheck className="w-4 h-4 ml-1" />
+                          <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg" onClick={() => handleAddRole(u.user_id, 'admin')}>
+                            <ShieldCheck className="w-3 h-3 ml-1" />
                             أدمن
                           </Button>
                         )}
