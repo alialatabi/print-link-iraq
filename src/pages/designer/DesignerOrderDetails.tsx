@@ -7,6 +7,7 @@ import { ArrowRight, Upload, Send, User, Phone, MapPin, Briefcase, FileText, Ima
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { OrderStatus } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
+import { getDesignSignedUrl } from '@/lib/storage';
 
 interface DesignVersion {
   id: string;
@@ -72,16 +73,13 @@ const DesignerOrderDetails = () => {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage.from('designs').getPublicUrl(filePath);
-
-      // Insert design record
+      // Store the storage path (not a URL) since bucket is private
       const { error: insertError } = await supabase
         .from('designs')
         .insert({
           order_id: orderId,
           version: nextVersion,
-          file_url: urlData.publicUrl,
+          file_url: filePath,
         });
 
       if (insertError) throw insertError;
@@ -109,14 +107,17 @@ const DesignerOrderDetails = () => {
     setSendingApproval(false);
   };
 
+  const handleViewDesign = async (filePath: string) => {
+    const url = await getDesignSignedUrl(filePath);
+    if (url) window.open(url, '_blank');
+    else toast({ title: 'فشل فتح الملف', variant: 'destructive' });
+  };
+
   const handleDeleteDesign = async (design: DesignVersion) => {
     if (!orderId || !design.file_url) return;
     try {
-      // Extract file path from URL
-      const pathMatch = design.file_url.split('/designs/')[1];
-      if (pathMatch) {
-        await supabase.storage.from('designs').remove([decodeURIComponent(pathMatch)]);
-      }
+      // file_url now stores the path directly
+      await supabase.storage.from('designs').remove([design.file_url]);
       await supabase.from('designs').delete().eq('id', design.id);
       toast({ title: 'تم حذف الإصدار' });
       loadDesigns();
@@ -331,11 +332,9 @@ const DesignerOrderDetails = () => {
                         </span>
                       )}
                       {design.file_url && (
-                        <a href={design.file_url} target="_blank" rel="noopener noreferrer">
-                          <Button size="sm" variant="ghost" className="h-8 text-xs">
-                            <Eye className="w-3 h-3 ml-1" /> عرض
-                          </Button>
-                        </a>
+                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => handleViewDesign(design.file_url!)}>
+                          <Eye className="w-3 h-3 ml-1" /> عرض
+                        </Button>
                       )}
                       {canUpload && !design.approved && (
                         <Button
