@@ -63,10 +63,14 @@ const TemplateSelection = () => {
                   to={`/order/${template.id}`}
                   className={`group block rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border ${colors.accent}`}
                 >
-                  <div className={`aspect-[3/4] bg-gradient-to-br ${colors.bg} flex items-center justify-center`}>
-                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Palette className="w-8 h-8 text-primary" />
-                    </div>
+                  <div className={`aspect-[3/4] bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`}>
+                    {template.preview_url ? (
+                      <img src={template.preview_url} alt={template.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Palette className="w-8 h-8 text-primary" />
+                      </div>
+                    )}
                   </div>
                   <div className="p-4 bg-card">
                     <h4 className="font-bold text-foreground text-sm">{template.name}</h4>
