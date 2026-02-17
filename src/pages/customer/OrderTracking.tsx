@@ -8,6 +8,7 @@ import { CheckCircle, Clock, FileText, Palette, Printer, Truck, Package, Eye, Me
 import { Textarea } from '@/components/ui/textarea';
 import type { OrderStatus } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
+import { getDesignSignedUrl } from '@/lib/storage';
 
 const STEPS = [
   { status: 'submitted', label: 'تم الإرسال', icon: FileText },
@@ -200,11 +201,13 @@ const OrderTracking = () => {
                           </span>
                         )}
                         {design.file_url && (
-                          <a href={design.file_url} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" variant="outline" className="h-8 text-xs rounded-lg">
-                              <Eye className="w-3 h-3 ml-1" /> عرض
-                            </Button>
-                          </a>
+                          <Button size="sm" variant="outline" className="h-8 text-xs rounded-lg" onClick={async () => {
+                            const url = await getDesignSignedUrl(design.file_url!);
+                            if (url) window.open(url, '_blank');
+                            else toast({ title: 'فشل فتح الملف', variant: 'destructive' });
+                          }}>
+                            <Eye className="w-3 h-3 ml-1" /> عرض
+                          </Button>
                         )}
                       </div>
                     </div>
