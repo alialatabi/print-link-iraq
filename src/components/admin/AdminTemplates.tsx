@@ -113,21 +113,25 @@ const AdminTemplates = () => {
     try {
       const file = e.target.files?.[0];
       if (!file) return;
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('حجم الصورة يجب أن لا يتجاوز 5MB');
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error('حجم الصورة يجب أن لا يتجاوز 20MB');
         return;
       }
       if (!file.type.startsWith('image/')) {
         toast.error('يرجى اختيار ملف صورة فقط');
         return;
       }
+      setUploading(true);
       setPreviewFile(file);
-      // Compress for preview to avoid freezing with large images
+      // Use setTimeout to yield to UI thread before heavy canvas work
+      await new Promise(resolve => setTimeout(resolve, 50));
       const compressedUrl = await compressImageForPreview(file);
       setPreviewLocalUrl(compressedUrl);
     } catch (error) {
       console.error('File selection error:', error);
       toast.error('حدث خطأ أثناء اختيار الصورة');
+    } finally {
+      setUploading(false);
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -297,7 +301,7 @@ const AdminTemplates = () => {
               className="bg-card rounded-xl border border-border overflow-hidden shadow-sm group"
             >
               {/* Preview Image */}
-              <div className="aspect-[3/4] bg-muted/30 flex items-center justify-center relative overflow-hidden">
+              <div className="aspect-[4/3] bg-muted/30 flex items-center justify-center relative overflow-hidden">
                 {t.preview_url ? (
                   <img src={t.preview_url} alt={t.name} className="w-full h-full object-cover" />
                 ) : (
@@ -351,13 +355,18 @@ const AdminTemplates = () => {
               />
               {previewLocalUrl ? (
                 <div className="relative rounded-xl overflow-hidden border border-border">
-                  <img src={previewLocalUrl} alt="preview" className="w-full aspect-[3/4] object-cover" />
+                  <img src={previewLocalUrl} alt="preview" className="w-full aspect-[4/3] object-cover" />
                   <button
                     onClick={() => { setPreviewFile(null); setPreviewLocalUrl(null); }}
                     className="absolute top-2 left-2 w-7 h-7 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
                   >
                     <X className="w-4 h-4" />
                   </button>
+                </div>
+              ) : uploading ? (
+                <div className="border-2 border-dashed border-primary/40 rounded-xl p-8 text-center bg-primary/5">
+                  <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">جاري تجهيز الصورة...</p>
                 </div>
               ) : (
                 <div
@@ -366,7 +375,7 @@ const AdminTemplates = () => {
                 >
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">اضغط لرفع صورة</p>
-                  <p className="text-xs text-muted-foreground mt-1">PNG, JPG — حتى 5MB</p>
+                  <p className="text-xs text-muted-foreground mt-1">PNG, JPG — حتى 20MB</p>
                 </div>
               )}
             </div>
