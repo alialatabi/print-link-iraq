@@ -130,6 +130,7 @@ export type Database = {
           id: string
           name: string
           preview_url: string | null
+          price: number | null
           service_type: Database["public"]["Enums"]["service_type"]
         }
         Insert: {
@@ -138,6 +139,7 @@ export type Database = {
           id?: string
           name: string
           preview_url?: string | null
+          price?: number | null
           service_type: Database["public"]["Enums"]["service_type"]
         }
         Update: {
@@ -146,6 +148,7 @@ export type Database = {
           id?: string
           name?: string
           preview_url?: string | null
+          price?: number | null
           service_type?: Database["public"]["Enums"]["service_type"]
         }
         Relationships: []

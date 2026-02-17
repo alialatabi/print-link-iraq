@@ -16,12 +16,14 @@ interface Template {
   description: string | null;
   service_type: string;
   preview_url: string | null;
+  price: number | null;
 }
 
 interface TemplateFormData {
   name: string;
   description: string;
   service_type: string;
+  price: string;
 }
 
 interface AdminTemplatesProps {
@@ -34,7 +36,7 @@ const AdminTemplates = () => {
   const [filterService, setFilterService] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [form, setForm] = useState<TemplateFormData>({ name: '', description: '', service_type: 'business_card' });
+  const [form, setForm] = useState<TemplateFormData>({ name: '', description: '', service_type: 'business_card', price: '' });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
@@ -54,7 +56,7 @@ const AdminTemplates = () => {
 
   const openAdd = () => {
     setEditingTemplate(null);
-    setForm({ name: '', description: '', service_type: 'business_card' });
+    setForm({ name: '', description: '', service_type: 'business_card', price: '' });
     setPreviewFile(null);
     setPreviewLocalUrl(null);
     setDialogOpen(true);
@@ -62,7 +64,7 @@ const AdminTemplates = () => {
 
   const openEdit = (t: Template) => {
     setEditingTemplate(t);
-    setForm({ name: t.name, description: t.description || '', service_type: t.service_type });
+    setForm({ name: t.name, description: t.description || '', service_type: t.service_type, price: t.price?.toString() || '' });
     setPreviewFile(null);
     setPreviewLocalUrl(t.preview_url);
     setDialogOpen(true);
@@ -107,8 +109,8 @@ const AdminTemplates = () => {
 
     try {
       if (editingTemplate) {
-        // Update
         const previewUrl = await uploadPreviewImage(editingTemplate.id);
+        const priceVal = form.price ? parseInt(form.price) : null;
         const { error } = await supabase
           .from('templates')
           .update({
@@ -116,18 +118,20 @@ const AdminTemplates = () => {
             description: form.description || null,
             service_type: form.service_type as any,
             preview_url: previewUrl,
+            price: priceVal,
           })
           .eq('id', editingTemplate.id);
         if (error) throw error;
         toast.success('تم تحديث القالب');
       } else {
-        // Insert
+        const priceVal = form.price ? parseInt(form.price) : null;
         const { data: newTemplate, error } = await supabase
           .from('templates')
           .insert({
             name: form.name,
             description: form.description || null,
             service_type: form.service_type as any,
+            price: priceVal,
           })
           .select()
           .single();
@@ -242,7 +246,12 @@ const AdminTemplates = () => {
                 </div>
               </div>
               <div className="p-3">
-                <h4 className="font-bold text-foreground text-sm truncate">{t.name}</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-foreground text-sm truncate">{t.name}</h4>
+                  {t.price != null && (
+                    <span className="text-xs font-bold text-primary whitespace-nowrap">{t.price.toLocaleString('ar-IQ')} د.ع</span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{SERVICE_LABELS[t.service_type as ServiceType]}</p>
                 {t.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.description}</p>}
               </div>
@@ -315,6 +324,19 @@ const AdminTemplates = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Price */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">السعر (د.ع)</label>
+              <Input
+                type="number"
+                value={form.price}
+                onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                placeholder="مثال: 15000"
+                className="rounded-xl"
+                min="0"
+              />
             </div>
 
             {/* Description */}
