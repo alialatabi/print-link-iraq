@@ -50,6 +50,36 @@ const DesignerOrderDetails = () => {
     loadDesigns();
   }, [loadOrder, loadDesigns]);
 
+  // Realtime: listen for order changes (e.g. customer requests revision)
+  useEffect(() => {
+    if (!orderId) return;
+    const channel = supabase
+      .channel(`order-${orderId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'orders',
+        filter: `id=eq.${orderId}`,
+      }, (payload) => {
+        const newStatus = payload.new?.status;
+        const oldStatus = payload.old?.status;
+        if (newStatus === 'assigned' && oldStatus !== 'assigned') {
+          toast({ title: '📝 العميل طلب تعديل على التصميم' });
+        }
+        loadOrder();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'designs',
+        filter: `order_id=eq.${orderId}`,
+      }, () => {
+        loadDesigns();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [orderId, loadOrder, loadDesigns]);
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !orderId) return;

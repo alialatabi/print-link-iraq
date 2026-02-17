@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
 import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
@@ -26,6 +27,26 @@ const DesignerOrders = () => {
   }, [user]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  // Realtime: auto-refresh when orders change
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('designer-orders')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+        filter: `designer_id=eq.${user.id}`,
+      }, (payload) => {
+        if (payload.eventType === 'UPDATE' && payload.new?.status === 'assigned' && payload.old?.status !== 'assigned') {
+          toast({ title: '📝 عميل طلب تعديل على تصميم' });
+        }
+        loadOrders();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, loadOrders]);
 
   const activeStatuses: OrderStatus[] = ['assigned', 'design_uploaded', 'waiting_approval'];
   const completedStatuses: OrderStatus[] = ['approved', 'print_ready', 'printed', 'delivered'];

@@ -70,6 +70,32 @@ const OrderTracking = () => {
     loadDesigns();
   }, [loadOrder, loadDesigns]);
 
+  // Realtime: listen for new designs uploaded by designer
+  useEffect(() => {
+    if (!orderId) return;
+    const channel = supabase
+      .channel(`tracking-${orderId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'designs',
+        filter: `order_id=eq.${orderId}`,
+      }, () => {
+        toast({ title: '🎨 المصمم رفع تصميم جديد!' });
+        loadDesigns();
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'orders',
+        filter: `id=eq.${orderId}`,
+      }, () => {
+        loadOrder();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [orderId, loadOrder, loadDesigns]);
+
   const handleApprove = async () => {
     if (!orderId) return;
     setSubmitting(true);
