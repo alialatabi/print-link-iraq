@@ -11,6 +11,7 @@ interface DbTemplate {
   description: string | null;
   service_type: string;
   preview_url: string | null;
+  price: number | null;
 }
 
 const TemplateSelection = () => {
@@ -73,7 +74,12 @@ const TemplateSelection = () => {
                     )}
                   </div>
                   <div className="p-4 bg-card">
-                    <h4 className="font-bold text-foreground text-sm">{template.name}</h4>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-bold text-foreground text-sm truncate">{template.name}</h4>
+                      {template.price != null && (
+                        <span className="text-xs font-bold text-primary whitespace-nowrap">{template.price.toLocaleString('ar-IQ')} د.ع</span>
+                      )}
+                    </div>
                     <p className="text-muted-foreground text-xs mt-1">{template.description}</p>
                   </div>
                 </Link>
