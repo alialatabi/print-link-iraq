@@ -52,7 +52,7 @@ const TemplateSelection = () => {
             <p className="text-muted-foreground">جاري التحميل...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {templates.map((template, i) => (
               <motion.div
                 key={template.id}
@@ -62,11 +62,11 @@ const TemplateSelection = () => {
               >
                 <Link
                   to={`/template/${template.id}`}
-                  className={`group block rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border ${colors.accent}`}
+                  className={`group block rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border ${colors.accent}`}
                 >
                   <div className={`bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`} style={{ aspectRatio: TEMPLATE_ASPECT_RATIOS[serviceType as ServiceType] || '3/4' }}>
                     {template.preview_url ? (
-                      <img src={template.preview_url} alt={template.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      <img src={template.preview_url} alt={template.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform" loading="lazy" />
                     ) : (
                       <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                         <Palette className="w-8 h-8 text-primary" />
