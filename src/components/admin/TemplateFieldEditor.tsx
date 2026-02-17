@@ -16,6 +16,12 @@ export interface TextField {
   textAlign: string;
   maxWidth: number; // percentage
   placeholder: string;
+  fontFamily: string;
+  rotation: number; // degrees
+  letterSpacing: number; // px
+  opacity: number; // 0-100
+  textDecoration: string; // none, underline, line-through
+  lineHeight: number; // multiplier e.g. 1.3
 }
 
 const DEFAULT_FIELDS: { key: string; label: string; placeholder: string }[] = [
@@ -61,6 +67,12 @@ const TemplateFieldEditor = ({ imageUrl, fields, onChange }: TemplateFieldEditor
       textAlign: 'center',
       maxWidth: 60,
       placeholder: def?.placeholder || label,
+      fontFamily: 'Cairo',
+      rotation: 0,
+      letterSpacing: 0,
+      opacity: 100,
+      textDecoration: 'none',
+      lineHeight: 1.3,
     };
     onChange([...fields, newField]);
     setAddDialogOpen(false);
@@ -140,14 +152,18 @@ const TemplateFieldEditor = ({ imageUrl, fields, onChange }: TemplateFieldEditor
             style={{
               left: `${field.x}%`,
               top: `${field.y}%`,
-              transform: 'translate(-50%, -50%)',
+              transform: `translate(-50%, -50%) rotate(${field.rotation || 0}deg)`,
               fontSize: `${field.fontSize}px`,
               color: field.fontColor,
               fontWeight: field.fontWeight,
+              fontFamily: field.fontFamily || 'Cairo',
               textAlign: field.textAlign as any,
               maxWidth: `${field.maxWidth}%`,
               whiteSpace: 'nowrap',
               textShadow: '0 0 3px rgba(255,255,255,0.8)',
+              letterSpacing: `${field.letterSpacing || 0}px`,
+              opacity: (field.opacity ?? 100) / 100,
+              textDecoration: field.textDecoration || 'none',
             }}
             onMouseDown={(e) => handleMouseDown(idx, e)}
             onClick={(e) => { e.stopPropagation(); setSelectedField(idx); }}
@@ -186,6 +202,21 @@ const TemplateFieldEditor = ({ imageUrl, fields, onChange }: TemplateFieldEditor
               </div>
             </div>
             <div>
+              <label className="text-[10px] text-muted-foreground">عائلة الخط</label>
+              <Select value={sel.fontFamily || 'Cairo'} onValueChange={v => updateField(selectedField, { fontFamily: v })}>
+                <SelectTrigger className="h-8 text-xs rounded"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cairo">Cairo</SelectItem>
+                  <SelectItem value="Tajawal">Tajawal</SelectItem>
+                  <SelectItem value="Amiri">Amiri</SelectItem>
+                  <SelectItem value="Noto Kufi Arabic">Noto Kufi Arabic</SelectItem>
+                  <SelectItem value="Arial">Arial</SelectItem>
+                  <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                  <SelectItem value="Georgia">Georgia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <label className="text-[10px] text-muted-foreground">سمك الخط</label>
               <Select value={sel.fontWeight} onValueChange={v => updateField(selectedField, { fontWeight: v })}>
                 <SelectTrigger className="h-8 text-xs rounded"><SelectValue /></SelectTrigger>
@@ -208,8 +239,35 @@ const TemplateFieldEditor = ({ imageUrl, fields, onChange }: TemplateFieldEditor
               </Select>
             </div>
             <div>
+              <label className="text-[10px] text-muted-foreground">تزيين النص</label>
+              <Select value={sel.textDecoration || 'none'} onValueChange={v => updateField(selectedField, { textDecoration: v })}>
+                <SelectTrigger className="h-8 text-xs rounded"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">بدون</SelectItem>
+                  <SelectItem value="underline">خط سفلي</SelectItem>
+                  <SelectItem value="line-through">خط وسطي</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <label className="text-[10px] text-muted-foreground">العرض الأقصى %</label>
               <Input type="number" value={sel.maxWidth} onChange={e => updateField(selectedField, { maxWidth: parseInt(e.target.value) || 60 })} className="h-8 text-xs rounded" min="10" max="100" />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground">الدوران (درجة)</label>
+              <Input type="number" value={sel.rotation || 0} onChange={e => updateField(selectedField, { rotation: parseInt(e.target.value) || 0 })} className="h-8 text-xs rounded" min="-360" max="360" />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground">تباعد الأحرف</label>
+              <Input type="number" value={sel.letterSpacing || 0} onChange={e => updateField(selectedField, { letterSpacing: parseFloat(e.target.value) || 0 })} className="h-8 text-xs rounded" min="-5" max="20" step="0.5" />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground">ارتفاع السطر</label>
+              <Input type="number" value={sel.lineHeight ?? 1.3} onChange={e => updateField(selectedField, { lineHeight: parseFloat(e.target.value) || 1.3 })} className="h-8 text-xs rounded" min="0.5" max="3" step="0.1" />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground">الشفافية %</label>
+              <Input type="number" value={sel.opacity ?? 100} onChange={e => updateField(selectedField, { opacity: parseInt(e.target.value) || 100 })} className="h-8 text-xs rounded" min="0" max="100" />
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground">نص تجريبي</label>
