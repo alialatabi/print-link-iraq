@@ -48,7 +48,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
   const handleSignOut = async () => {
     await signOut();
     setMobileMenuOpen(false);
-    navigate('/');
+    navigate('/auth');
   };
 
   const closeMobile = () => setMobileMenuOpen(false);
