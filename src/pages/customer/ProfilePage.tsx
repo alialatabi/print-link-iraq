@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Phone, MapPin, Save, CheckCircle } from 'lucide-react';
+import { User, Phone, MapPin, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const ProfilePage = () => {
@@ -76,11 +76,11 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="py-12">
+    <div className="py-8 sm:py-14">
       <div className="container max-w-lg">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-primary/8 flex items-center justify-center">
               <User className="w-6 h-6 text-primary" />
             </div>
             <div>
@@ -89,10 +89,10 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          <div className="bg-card rounded-2xl border border-border p-6">
+          <div className="bg-card rounded-2xl border border-border/60 p-6 sm:p-7 shadow-sm">
             <form onSubmit={handleSave} className="space-y-5">
               <div>
-                <Label className="text-foreground font-medium flex items-center gap-2 mb-2">
+                <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
                   <User className="w-4 h-4 text-muted-foreground" />
                   الاسم <span className="text-destructive">*</span>
                 </Label>
@@ -107,7 +107,7 @@ const ProfilePage = () => {
               </div>
 
               <div>
-                <Label className="text-foreground font-medium flex items-center gap-2 mb-2">
+                <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
                   <Phone className="w-4 h-4 text-muted-foreground" />
                   رقم الهاتف
                 </Label>
@@ -122,7 +122,7 @@ const ProfilePage = () => {
               </div>
 
               <div>
-                <Label className="text-foreground font-medium flex items-center gap-2 mb-2">
+                <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
                   <MapPin className="w-4 h-4 text-muted-foreground" />
                   العنوان
                 </Label>
@@ -135,14 +135,14 @@ const ProfilePage = () => {
                 />
               </div>
 
-              <div className="pt-2">
+              <div className="pt-3">
                 <p className="text-xs text-muted-foreground mb-4">
                   البريد: {user?.email || '—'}
                 </p>
                 <Button
                   type="submit"
                   disabled={saving}
-                  className="w-full rounded-xl"
+                  className="w-full h-12"
                   size="lg"
                 >
                   {saving ? (
