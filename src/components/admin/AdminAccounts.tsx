@@ -108,24 +108,36 @@ const AdminAccounts = () => {
   if (sortBy === 'highest') filtered = [...filtered].sort((a, b) => (b.templates?.price || 0) - (a.templates?.price || 0));
   if (sortBy === 'lowest') filtered = [...filtered].sort((a, b) => (a.templates?.price || 0) - (b.templates?.price || 0));
 
-  // Stats
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.templates?.price || 0), 0);
-  const totalPaid = orders.reduce((sum, o) => sum + o.paid_amount, 0);
-  const totalRemaining = totalRevenue - totalPaid;
+  // Stats - logical grouping
+  const COMPLETED_STATUSES = ['printed', 'delivered'];
+  const PENDING_STATUSES = ['submitted', 'assigned', 'design_uploaded', 'waiting_approval', 'approved', 'print_ready'];
+
+  const completedOrders = orders.filter(o => COMPLETED_STATUSES.includes(o.status));
+  const pendingOrders = orders.filter(o => PENDING_STATUSES.includes(o.status));
+
+  // إجمالي الإيرادات المؤكدة (طلبات مطبوعة/مسلّمة فقط)
+  const confirmedRevenue = completedOrders.reduce((sum, o) => sum + (o.templates?.price || 0), 0);
+  // المبالغ المستلمة فعلياً من الطلبات المؤكدة
+  const confirmedPaid = completedOrders.reduce((sum, o) => sum + o.paid_amount, 0);
+  const confirmedRemaining = confirmedRevenue - confirmedPaid;
+
+  // مبالغ الطلبات المعلقة (لم تتم طباعتها بعد)
+  const pendingValue = pendingOrders.reduce((sum, o) => sum + (o.templates?.price || 0), 0);
+
   const paidCount = orders.filter(o => o.payment_status === 'paid').length;
   const unpaidCount = orders.filter(o => o.payment_status === 'unpaid').length;
   const partialCount = orders.filter(o => o.payment_status === 'partial').length;
 
   const now = new Date();
-  const currentMonthOrders = orders.filter(o => {
+  const currentMonthCompleted = completedOrders.filter(o => {
     const d = new Date(o.created_at);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-  const monthlyRevenue = currentMonthOrders.reduce((sum, o) => sum + (o.templates?.price || 0), 0);
-  const monthlyPaid = currentMonthOrders.reduce((sum, o) => sum + o.paid_amount, 0);
+  const monthlyRevenue = currentMonthCompleted.reduce((sum, o) => sum + (o.templates?.price || 0), 0);
+  const monthlyPaid = currentMonthCompleted.reduce((sum, o) => sum + o.paid_amount, 0);
 
   const serviceRevenue = Object.keys(SERVICE_LABELS).map(key => {
-    const serviceOrders = orders.filter(o => o.templates?.service_type === key);
+    const serviceOrders = completedOrders.filter(o => o.templates?.service_type === key);
     return {
       key,
       label: SERVICE_LABELS[key as ServiceType],
@@ -136,7 +148,7 @@ const AdminAccounts = () => {
   }).filter(s => s.count > 0).sort((a, b) => b.total - a.total);
 
   const fmt = (n: number) => n.toLocaleString('en-US');
-  const collectionRate = totalRevenue > 0 ? Math.round((totalPaid / totalRevenue) * 100) : 0;
+  const collectionRate = confirmedRevenue > 0 ? Math.round((confirmedPaid / confirmedRevenue) * 100) : 0;
 
   if (loading) return <div className="py-10 text-center text-muted-foreground">جاري التحميل...</div>;
 
@@ -145,9 +157,9 @@ const AdminAccounts = () => {
       {/* Top Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'إجمالي الإيرادات', value: fmt(totalRevenue), sub: `${orders.length} طلب`, icon: DollarSign, iconBg: 'bg-primary/10', iconColor: 'text-primary', valueColor: 'text-foreground' },
-          { label: 'المبالغ المستلمة', value: fmt(totalPaid), sub: `${collectionRate}% نسبة التحصيل`, icon: TrendingUp, iconBg: 'bg-success/10', iconColor: 'text-success', valueColor: 'text-success' },
-          { label: 'المبالغ المتبقية', value: fmt(totalRemaining), sub: `${unpaidCount + partialCount} طلب معلق`, icon: TrendingDown, iconBg: 'bg-destructive/10', iconColor: 'text-destructive', valueColor: 'text-destructive' },
+          { label: 'الإيرادات المؤكدة', value: fmt(confirmedRevenue), sub: `${completedOrders.length} طلب مكتمل`, icon: DollarSign, iconBg: 'bg-primary/10', iconColor: 'text-primary', valueColor: 'text-foreground' },
+          { label: 'المبالغ المستلمة', value: fmt(confirmedPaid), sub: `${collectionRate}% نسبة التحصيل`, icon: TrendingUp, iconBg: 'bg-success/10', iconColor: 'text-success', valueColor: 'text-success' },
+          { label: 'الطلبات المعلقة', value: fmt(pendingValue), sub: `${pendingOrders.length} طلب قيد المعالجة`, icon: Clock, iconBg: 'bg-accent/10', iconColor: 'text-accent-foreground', valueColor: 'text-accent-foreground' },
           { label: 'إيرادات الشهر', value: fmt(monthlyRevenue), sub: `مستلم: ${fmt(monthlyPaid)} د.ع`, icon: Calendar, iconBg: 'bg-primary/10', iconColor: 'text-primary', valueColor: 'text-foreground' },
         ].map((stat, i) => (
           <Card key={i} className="border-border overflow-hidden">
