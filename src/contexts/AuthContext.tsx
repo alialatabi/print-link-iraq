@@ -9,9 +9,7 @@ interface AuthState {
   session: Session | null;
   role: AppRole | null;
   loading: boolean;
-  sendOtp: (phone: string) => Promise<{ error: any }>;
-  verifyOtp: (phone: string, code: string) => Promise<{ error: any; isNewUser?: boolean }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  phoneLogin: (phone: string) => Promise<{ error: any; isNewUser?: boolean }>;
   signOut: () => Promise<void>;
 }
 
@@ -66,23 +64,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const sendOtp = async (phone: string) => {
+  const phoneLogin = async (phone: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('send-otp', {
+      const { data, error } = await supabase.functions.invoke('phone-login', {
         body: { phone },
-      });
-      if (error) return { error };
-      if (data?.error) return { error: { message: data.error } };
-      return { error: null };
-    } catch (err: any) {
-      return { error: { message: err.message || 'خطأ في إرسال الرمز' } };
-    }
-  };
-
-  const verifyOtp = async (phone: string, code: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('verify-otp', {
-        body: { phone, code },
       });
       if (error) return { error };
       if (data?.error) return { error: { message: data.error } };
@@ -96,13 +81,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return { error: null, isNewUser: data?.isNewUser };
     } catch (err: any) {
-      return { error: { message: err.message || 'خطأ في التحقق' } };
+      return { error: { message: err.message || 'خطأ في تسجيل الدخول' } };
     }
-  };
-
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
   };
 
   const signOut = async () => {
@@ -113,7 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, sendOtp, verifyOtp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, role, loading, phoneLogin, signOut }}>
       {children}
     </AuthContext.Provider>
   );
