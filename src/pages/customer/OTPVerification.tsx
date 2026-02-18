@@ -38,24 +38,26 @@ const OTPVerification = () => {
           </p>
 
           <div className="flex justify-center mb-6" dir="ltr">
-            <InputOTP maxLength={4} value={otp} onChange={setOtp}>
+            <InputOTP maxLength={6} value={otp} onChange={setOtp}>
               <InputOTPGroup>
                 <InputOTPSlot index={0} />
                 <InputOTPSlot index={1} />
                 <InputOTPSlot index={2} />
                 <InputOTPSlot index={3} />
+                <InputOTPSlot index={4} />
+                <InputOTPSlot index={5} />
               </InputOTPGroup>
             </InputOTP>
           </div>
 
           <p className="text-muted-foreground text-sm mb-6">
             <Phone className="w-4 h-4 inline-block ml-1" />
-            للتجربة: أدخل أي 4 أرقام
+            أدخل الرمز المرسل عبر واتساب
           </p>
 
           <Button
             onClick={handleVerify}
-            disabled={otp.length < 4}
+            disabled={otp.length < 6}
             size="lg"
             className="w-full bg-success hover:bg-success/90 text-success-foreground text-lg py-6 rounded-xl"
           >
