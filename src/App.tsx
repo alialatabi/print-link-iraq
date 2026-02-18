@@ -11,6 +11,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/auth/AuthPage";
+import StaffLogin from "./pages/auth/StaffLogin";
 import ServiceSelection from "./pages/customer/ServiceSelection";
 import TemplateSelection from "./pages/customer/TemplateSelection";
 import OrderForm from "./pages/customer/OrderForm";
@@ -44,6 +45,7 @@ const App = () => (
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<AuthPage />} />
+                <Route path="/staff-login" element={<StaffLogin />} />
                 <Route path="/services" element={<ServiceSelection />} />
                 <Route path="/templates/:serviceType" element={<TemplateSelection />} />
                 <Route path="/template/:templateId" element={<TemplateDetails />} />

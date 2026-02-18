@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { TrendingUp, Phone, Lock, ArrowRight, Loader2, Shield, RotateCcw, Timer } from 'lucide-react';
+import { TrendingUp, Phone, ArrowRight, Loader2, Shield, RotateCcw, Timer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const RESEND_COOLDOWN = 60;
@@ -17,16 +17,13 @@ type Step = 'phone' | 'otp';
 const AuthPage = () => {
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const { phoneLogin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Countdown timer effect
   useEffect(() => {
     if (countdown <= 0) return;
     const timer = setInterval(() => setCountdown(prev => prev - 1), 1000);
@@ -46,7 +43,6 @@ const AuthPage = () => {
       if (error || data?.error) {
         toast({ title: 'خطأ', description: data?.error || error?.message || 'فشل إرسال الرمز', variant: 'destructive' });
       } else if (data?.existingUser && data?.session) {
-        // Returning user — auto-login, no OTP needed
         await supabase.auth.setSession({
           access_token: data.session.access_token,
           refresh_token: data.session.refresh_token,
@@ -54,7 +50,6 @@ const AuthPage = () => {
         toast({ title: 'تم تسجيل الدخول بنجاح!' });
         navigate('/');
       } else {
-        // New user — OTP sent
         toast({ title: 'تم إرسال رمز التحقق عبر واتساب' });
         setStep('otp');
         setCountdown(RESEND_COOLDOWN);
@@ -101,23 +96,6 @@ const AuthPage = () => {
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // If password provided (admin/designer), use direct login
-    if (password) {
-      setSubmitting(true);
-      const { error, isNewUser } = await phoneLogin(phone, password);
-      if (error) {
-        toast({ title: 'خطأ في تسجيل الدخول', description: error.message, variant: 'destructive' });
-      } else if (isNewUser) {
-        toast({ title: 'تم إنشاء حسابك بنجاح!' });
-        navigate('/complete-profile');
-      } else {
-        toast({ title: 'تم تسجيل الدخول بنجاح!' });
-        navigate('/');
-      }
-      setSubmitting(false);
-      return;
-    }
-    // Regular customer: send OTP
     await sendOtp();
   };
 
@@ -140,7 +118,7 @@ const AuthPage = () => {
                     تسجيل الدخول
                   </h1>
                   <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-                    أدخل رقم هاتفك وسنرسل لك رمز تحقق عبر واتساب
+                    أدخل رقم هاتفك للدخول إلى حسابك
                   </p>
                 </div>
 
@@ -162,28 +140,13 @@ const AuthPage = () => {
                     />
                   </div>
 
-                  <div>
-                    <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-muted-foreground" />
-                      كلمة المرور <span className="text-muted-foreground">(اختياري - للمشرفين فقط)</span>
-                    </Label>
-                    <Input
-                      type="password"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      placeholder="للمشرفين فقط"
-                      dir="ltr"
-                      className="text-left"
-                    />
-                  </div>
-
                   <div className="pt-3">
                     <Button type="submit" size="lg" disabled={submitting} className="w-full h-12 text-base">
                       {submitting ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
                       ) : (
                         <>
-                          {password ? 'دخول' : 'إرسال رمز التحقق'}
+                          تسجيل الدخول
                           <ArrowRight className="w-5 h-5 mr-2" />
                         </>
                       )}
@@ -206,7 +169,6 @@ const AuthPage = () => {
                   <p className="text-primary text-sm mt-1 font-medium" dir="ltr">{phone}</p>
                 </div>
 
-                {/* Countdown Timer */}
                 {countdown > 0 && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -214,12 +176,8 @@ const AuthPage = () => {
                     className="flex items-center justify-center gap-2 mb-5 py-2.5 px-4 rounded-xl bg-muted/60 border border-border/60"
                   >
                     <Timer className="w-4 h-4 text-primary" />
-                    <span className="text-sm text-muted-foreground">
-                      يمكنك إعادة الإرسال بعد
-                    </span>
-                    <span className="text-sm font-bold text-primary tabular-nums min-w-[2ch] text-center" dir="ltr">
-                      {countdown}
-                    </span>
+                    <span className="text-sm text-muted-foreground">يمكنك إعادة الإرسال بعد</span>
+                    <span className="text-sm font-bold text-primary tabular-nums min-w-[2ch] text-center" dir="ltr">{countdown}</span>
                     <span className="text-sm text-muted-foreground">ثانية</span>
                   </motion.div>
                 )}
@@ -238,31 +196,16 @@ const AuthPage = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <Button
-                    onClick={verifyOtp}
-                    disabled={otp.length < 6 || submitting}
-                    size="lg"
-                    className="w-full h-12 text-base"
-                  >
+                  <Button onClick={verifyOtp} disabled={otp.length < 6 || submitting} size="lg" className="w-full h-12 text-base">
                     {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'تأكيد'}
                   </Button>
-
                   <div className="flex items-center justify-between">
                     <Button variant="ghost" size="sm" onClick={() => { setStep('phone'); setOtp(''); setCountdown(0); }}>
                       <ArrowRight className="w-4 h-4 ml-1" />
                       تغيير الرقم
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleResend}
-                      disabled={resending || countdown > 0}
-                    >
-                      {resending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <RotateCcw className="w-4 h-4 ml-1" />
-                      )}
+                    <Button variant="ghost" size="sm" onClick={handleResend} disabled={resending || countdown > 0}>
+                      {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4 ml-1" />}
                       {countdown > 0 ? `${countdown}` : 'إعادة الإرسال'}
                     </Button>
                   </div>
