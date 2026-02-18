@@ -71,7 +71,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 <TrendingUp className="w-4.5 h-4.5 text-destructive-foreground" />
               </div>
               <span className="text-lg font-extrabold bg-gradient-to-l from-accent to-accent/80 bg-clip-text text-transparent">
-                ترندي
+                مطبعتي
               </span>
             </Link>
 
@@ -272,7 +272,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
               <TrendingUp className="w-3.5 h-3.5 text-destructive-foreground" />
             </div>
             <span className="text-sm font-extrabold bg-gradient-to-l from-accent to-accent/80 bg-clip-text text-transparent">
-              ترندي
+              مطبعتي
             </span>
           </div>
           <p className="text-muted-foreground text-xs">
