@@ -104,7 +104,7 @@ const CartPage = () => {
                     {/* Price */}
                     <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-success/15 border border-success/20">
                       <span className="font-extrabold text-success text-sm">
-                        {(item.unitPrice * item.quantity).toLocaleString('ar-IQ')}
+                        {(item.unitPrice * item.quantity).toLocaleString('en-US')}
                       </span>
                       <span className="text-[10px] font-semibold text-success/80">د.ع</span>
                     </div>
@@ -120,7 +120,7 @@ const CartPage = () => {
           <div className="flex items-center justify-between mb-6">
             <span className="text-muted-foreground font-medium">المجموع الكلي</span>
             <span className="text-2xl font-extrabold text-success">
-              {totalPrice.toLocaleString('ar-IQ')} <span className="text-sm font-bold">د.ع</span>
+              {totalPrice.toLocaleString('en-US')} <span className="text-sm font-bold">د.ع</span>
             </span>
           </div>
           <Button

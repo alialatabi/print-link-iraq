@@ -159,7 +159,7 @@ const OrderForm = () => {
               <p className="text-muted-foreground text-sm">{template.description}</p>
             </div>
             {template.price != null && (
-              <span className="text-sm font-bold text-primary">{template.price.toLocaleString('ar-IQ')} د.ع</span>
+              <span className="text-sm font-bold text-primary">{template.price.toLocaleString('en-US')} د.ع</span>
             )}
           </div>
         )}
