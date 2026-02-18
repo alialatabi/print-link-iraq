@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { SERVICE_LABELS, TEMPLATE_COLORS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
+import { SERVICE_LABELS, TEMPLATE_COLORS, TEMPLATE_ASPECT_RATIOS, SPECIALIZATION_LABELS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Palette } from 'lucide-react';
 
 interface DbTemplate {
@@ -15,34 +15,42 @@ interface DbTemplate {
 }
 
 const TemplateSelection = () => {
-  const { serviceType } = useParams<{ serviceType: string }>();
+  const { serviceType, specialization } = useParams<{ serviceType: string; specialization?: string }>();
   const [templates, setTemplates] = useState<DbTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const colors = TEMPLATE_COLORS[serviceType as ServiceType] || TEMPLATE_COLORS.business_card;
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
+      let query = supabase
         .from('templates')
         .select('*')
-        .eq('service_type', (serviceType || '') as any) as unknown as { data: DbTemplate[] | null };
+        .eq('service_type', (serviceType || '') as any);
+      
+      if (specialization) {
+        query = query.eq('specialization', specialization as any);
+      }
+
+      const { data } = await query as unknown as { data: DbTemplate[] | null };
       setTemplates(data || []);
       setLoading(false);
     };
     load();
-  }, [serviceType]);
+  }, [serviceType, specialization]);
 
   return (
     <div className="section-spacing-sm">
       <div className="container max-w-5xl">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
+        <Link to={specialization ? `/specializations/${serviceType}` : '/'} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
           <ArrowRight className="w-4 h-4" />
-          العودة للرئيسية
+          {specialization ? 'العودة لاختيار التخصص' : 'العودة للرئيسية'}
         </Link>
 
         <div className="text-center mb-12">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2 tracking-tight">
-            اختر قالب {SERVICE_LABELS[serviceType as ServiceType] || 'التصميم'}
+            {specialization
+              ? `قوالب ${SPECIALIZATION_LABELS[specialization] || ''} — ${SERVICE_LABELS[serviceType as ServiceType] || ''}`
+              : `اختر قالب ${SERVICE_LABELS[serviceType as ServiceType] || 'التصميم'}`}
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">اختر القالب المناسب وسنقوم بتعديله حسب بياناتك</p>
         </div>

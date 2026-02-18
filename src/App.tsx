@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/auth/AuthPage";
 import StaffLogin from "./pages/auth/StaffLogin";
 import ServiceSelection from "./pages/customer/ServiceSelection";
+import SpecializationSelection from "./pages/customer/SpecializationSelection";
 import TemplateSelection from "./pages/customer/TemplateSelection";
 import OrderForm from "./pages/customer/OrderForm";
 import OTPVerification from "./pages/customer/OTPVerification";
@@ -47,6 +48,8 @@ const App = () => (
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/staff-login" element={<StaffLogin />} />
                 <Route path="/services" element={<ServiceSelection />} />
+                <Route path="/specializations/:serviceType" element={<SpecializationSelection />} />
+                <Route path="/templates/:serviceType/:specialization" element={<TemplateSelection />} />
                 <Route path="/templates/:serviceType" element={<TemplateSelection />} />
                 <Route path="/template/:templateId" element={<TemplateDetails />} />
                 <Route path="/cart" element={<CartPage />} />
