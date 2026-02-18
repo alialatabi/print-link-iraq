@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { TrendingUp, Mail, Lock, User, LogIn, UserPlus, Phone, MapPin } from 'lucide-react';
+import { TrendingUp, Mail, Lock, User, LogIn, UserPlus, Phone, MapPin, Building2, Navigation, Landmark } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const AuthPage = () => {
@@ -14,7 +14,9 @@ const AuthPage = () => {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
+  const [province, setProvince] = useState('');
+  const [area, setArea] = useState('');
+  const [landmark, setLandmark] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
@@ -37,7 +39,22 @@ const AuthPage = () => {
         setSubmitting(false);
         return;
       }
-      const { error } = await signUp(email, password, displayName, phone, address);
+      if (!province.trim()) {
+        toast({ title: 'المحافظة مطلوبة', variant: 'destructive' });
+        setSubmitting(false);
+        return;
+      }
+      if (!area.trim()) {
+        toast({ title: 'المنطقة مطلوبة', variant: 'destructive' });
+        setSubmitting(false);
+        return;
+      }
+      if (!landmark.trim()) {
+        toast({ title: 'العلامة الدالة مطلوبة', variant: 'destructive' });
+        setSubmitting(false);
+        return;
+      }
+      const { error } = await signUp(email, password, displayName, phone, province, area, landmark);
       if (error) {
         toast({ title: 'خطأ في إنشاء الحساب', description: error.message, variant: 'destructive' });
       } else {
@@ -73,7 +90,7 @@ const AuthPage = () => {
                 <div>
                   <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
                     <User className="w-4 h-4 text-muted-foreground" />
-                    الاسم الكامل
+                    الاسم الكامل <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     value={displayName}
@@ -99,16 +116,51 @@ const AuthPage = () => {
                   />
                 </div>
 
-                <div>
-                  <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                {/* Address fields */}
+                <div className="space-y-4 p-4 rounded-xl bg-muted/30 border border-border/40">
+                  <div className="flex items-center gap-2 text-foreground text-sm font-semibold">
+                    <MapPin className="w-4 h-4 text-primary" />
                     العنوان
-                  </Label>
-                  <Input
-                    value={address}
-                    onChange={e => setAddress(e.target.value)}
-                    placeholder="المحافظة - المنطقة - أقرب نقطة دالة"
-                  />
+                  </div>
+
+                  <div>
+                    <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-muted-foreground" />
+                      المحافظة <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      value={province}
+                      onChange={e => setProvince(e.target.value)}
+                      placeholder="مثال: بغداد"
+                      required={!isLogin}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
+                      <Navigation className="w-4 h-4 text-muted-foreground" />
+                      المنطقة <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      value={area}
+                      onChange={e => setArea(e.target.value)}
+                      placeholder="مثال: الكرادة"
+                      required={!isLogin}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
+                      <Landmark className="w-4 h-4 text-muted-foreground" />
+                      أقرب علامة دالة <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      value={landmark}
+                      onChange={e => setLandmark(e.target.value)}
+                      placeholder="مثال: قرب مول المنصور"
+                      required={!isLogin}
+                    />
+                  </div>
                 </div>
               </>
             )}

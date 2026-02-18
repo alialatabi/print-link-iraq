@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Phone, MapPin, Save } from 'lucide-react';
+import { User, Phone, MapPin, Save, Building2, Navigation, Landmark } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const ProfilePage = () => {
@@ -15,7 +15,9 @@ const ProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
+  const [province, setProvince] = useState('');
+  const [area, setArea] = useState('');
+  const [landmark, setLandmark] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -28,7 +30,9 @@ const ProfilePage = () => {
       if (data) {
         setDisplayName(data.display_name || '');
         setPhone(data.phone || '');
-        setAddress(data.address || '');
+        setProvince(data.province || '');
+        setArea(data.area || '');
+        setLandmark(data.landmark || '');
       }
       setLoading(false);
     };
@@ -40,8 +44,29 @@ const ProfilePage = () => {
     if (!user) return;
 
     const trimmedName = displayName.trim();
+    const trimmedPhone = phone.trim();
+    const trimmedProvince = province.trim();
+    const trimmedArea = area.trim();
+    const trimmedLandmark = landmark.trim();
+
     if (!trimmedName) {
       toast({ title: 'الاسم مطلوب', variant: 'destructive' });
+      return;
+    }
+    if (!trimmedPhone) {
+      toast({ title: 'رقم الهاتف مطلوب', variant: 'destructive' });
+      return;
+    }
+    if (!trimmedProvince) {
+      toast({ title: 'المحافظة مطلوبة', variant: 'destructive' });
+      return;
+    }
+    if (!trimmedArea) {
+      toast({ title: 'المنطقة مطلوبة', variant: 'destructive' });
+      return;
+    }
+    if (!trimmedLandmark) {
+      toast({ title: 'العلامة الدالة مطلوبة', variant: 'destructive' });
       return;
     }
 
@@ -50,8 +75,10 @@ const ProfilePage = () => {
       .from('profiles')
       .update({
         display_name: trimmedName,
-        phone: phone.trim() || null,
-        address: address.trim() || null,
+        phone: trimmedPhone,
+        province: trimmedProvince,
+        area: trimmedArea,
+        landmark: trimmedLandmark,
       })
       .eq('user_id', user.id);
 
@@ -109,30 +136,71 @@ const ProfilePage = () => {
               <div>
                 <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
                   <Phone className="w-4 h-4 text-muted-foreground" />
-                  رقم الهاتف
+                  رقم الهاتف <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   type="tel"
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
-                  placeholder="0770 123 4567"
-                  className="text-right"
+                  placeholder="07xxxxxxxxx"
+                  dir="ltr"
+                  className="text-left"
                   maxLength={20}
+                  required
                 />
               </div>
 
-              <div>
-                <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
+              {/* Address section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-foreground text-sm font-semibold">
+                  <MapPin className="w-4 h-4 text-primary" />
                   العنوان
-                </Label>
-                <Input
-                  value={address}
-                  onChange={e => setAddress(e.target.value)}
-                  placeholder="بغداد - الكرادة"
-                  className="text-right"
-                  maxLength={200}
-                />
+                </div>
+
+                <div>
+                  <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
+                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                    المحافظة <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={province}
+                    onChange={e => setProvince(e.target.value)}
+                    placeholder="مثال: بغداد"
+                    className="text-right"
+                    maxLength={100}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
+                    <Navigation className="w-4 h-4 text-muted-foreground" />
+                    المنطقة <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={area}
+                    onChange={e => setArea(e.target.value)}
+                    placeholder="مثال: الكرادة"
+                    className="text-right"
+                    maxLength={150}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
+                    <Landmark className="w-4 h-4 text-muted-foreground" />
+                    أقرب علامة دالة <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={landmark}
+                    onChange={e => setLandmark(e.target.value)}
+                    placeholder="مثال: قرب مول المنصور"
+                    className="text-right"
+                    maxLength={200}
+                    required
+                  />
+                </div>
               </div>
 
               <div className="pt-3">

@@ -9,7 +9,7 @@ interface AuthState {
   session: Session | null;
   role: AppRole | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName: string, phone?: string, address?: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, displayName: string, phone?: string, province?: string, area?: string, landmark?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -33,7 +33,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', userId);
-    // Prioritize: admin > designer > customer
     const roles = (data || []).map(r => r.role);
     if (roles.includes('admin')) setRole('admin');
     else if (roles.includes('designer')) setRole('designer');
@@ -41,13 +40,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Set up auth listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          // Use setTimeout to avoid Supabase client deadlock
           setTimeout(() => fetchRole(session.user.id), 0);
         } else {
           setRole(null);
@@ -56,7 +53,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // THEN get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -69,26 +65,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName: string, phone?: string, address?: string) => {
+  const signUp = async (email: string, password: string, displayName: string, phone?: string, province?: string, area?: string, landmark?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { display_name: displayName, phone, address },
+        data: { display_name: displayName, phone },
         emailRedirectTo: window.location.origin,
       },
     });
 
-    // Create/update profile with phone & address
     if (!error && data.user) {
       await supabase.from('profiles').upsert({
         user_id: data.user.id,
         display_name: displayName,
         phone: phone || null,
-        address: address || null,
+        province: province || null,
+        area: area || null,
+        landmark: landmark || null,
       } as any, { onConflict: 'user_id' });
 
-      // Add customer role (ignore if already exists)
       await supabase.from('user_roles').insert({
         user_id: data.user.id,
         role: 'customer' as any,
