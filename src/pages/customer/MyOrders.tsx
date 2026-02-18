@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
-import { FileText, Eye, ShoppingBag } from 'lucide-react';
+import { FileText, Eye, ShoppingBag, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const MyOrders = () => {
@@ -18,7 +18,7 @@ const MyOrders = () => {
       if (!user) return;
       const { data } = await supabase
         .from('orders')
-        .select('*, templates(name, service_type)')
+        .select('*, templates(name, service_type, price)')
         .eq('customer_id', user.id)
         .order('created_at', { ascending: false });
       setOrders(data || []);
@@ -26,6 +26,12 @@ const MyOrders = () => {
     };
     load();
   }, [user]);
+
+  const formatPrice = (price: number | null, quantity: number) => {
+    if (!price) return '-';
+    const total = (price / 1000) * quantity;
+    return `${total.toLocaleString('ar-IQ')} د.ع`;
+  };
 
   if (loading) return (
     <div className="py-24 text-center">
@@ -72,11 +78,19 @@ const MyOrders = () => {
                       <h3 className="font-bold text-foreground text-sm">{order.templates?.name || '-'}</h3>
                       <p className="text-muted-foreground text-xs mt-0.5">
                         {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
+                        {' · '}
+                        الكمية: {(order.details as any)?.quantity?.toLocaleString('ar-IQ') || '-'}
                       </p>
-                      <p className="text-muted-foreground text-[11px] mt-1">{new Date(order.created_at).toLocaleDateString('ar')}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-muted-foreground text-[11px]">{new Date(order.created_at).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                        <span className="text-muted-foreground/40 text-[11px]">·</span>
+                        <p className="text-[11px] font-semibold text-foreground">
+                          {formatPrice(order.templates?.price, (order.details as any)?.quantity || 1000)}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge status={order.status as OrderStatus} />
                     <Link to={`/track-order/${order.id}`}>
                       <Button size="sm" variant="outline" className="gap-1.5">
@@ -84,6 +98,14 @@ const MyOrders = () => {
                         تتبع
                       </Button>
                     </Link>
+                    {order.template_id && (
+                      <Link to={`/template/${order.template_id}`}>
+                        <Button size="sm" variant="ghost" className="gap-1.5 text-primary">
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          طلب مرة أخرى
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </div>
               </motion.div>
