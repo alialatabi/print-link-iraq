@@ -3,7 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Clock, Layers, Info, Check } from 'lucide-react';
+import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Clock, Layers, Info, Check, Tag } from 'lucide-react';
+import { useSpecializations } from '@/hooks/useServices';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +16,7 @@ interface DbTemplate {
   service_type: string;
   preview_url: string | null;
   price: number | null;
+  specializations: string[];
 }
 
 const PREPARATION_DAYS: Record<string, number> = {
@@ -31,6 +33,7 @@ const TemplateDetails = () => {
   const navigate = useNavigate();
   const { addItem, items } = useCart();
   const { toast } = useToast();
+  const { specializations: allSpecs } = useSpecializations();
   const [template, setTemplate] = useState<DbTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -171,6 +174,26 @@ const TemplateDetails = () => {
                 </div>
               </div>
             </div>
+
+            {/* Specializations */}
+            {template.specializations && template.specializations.length > 0 && (
+              <div className="p-4 rounded-2xl bg-muted/40 border border-border/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Tag className="w-4 h-4 text-primary" />
+                  <p className="text-xs font-bold text-foreground">التخصصات</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {template.specializations.map(specId => {
+                    const spec = allSpecs.find(s => s.id === specId);
+                    return (
+                      <span key={specId} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/8 text-primary text-xs font-semibold">
+                        {spec?.icon} {spec?.label || specId}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Price per 1000 */}
             <div className="p-5 rounded-2xl bg-success/10 border-2 border-success/25">

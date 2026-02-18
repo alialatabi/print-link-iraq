@@ -28,7 +28,7 @@ const TemplateSelection = () => {
         .eq('service_type', (serviceType || '') as any);
       
       if (specialization) {
-        query = query.eq('specialization', specialization as any);
+        query = query.contains('specializations', [specialization]);
       }
 
       const { data } = await query as unknown as { data: DbTemplate[] | null };
