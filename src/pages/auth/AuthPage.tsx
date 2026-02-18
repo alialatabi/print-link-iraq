@@ -45,7 +45,16 @@ const AuthPage = () => {
       });
       if (error || data?.error) {
         toast({ title: 'خطأ', description: data?.error || error?.message || 'فشل إرسال الرمز', variant: 'destructive' });
+      } else if (data?.existingUser && data?.session) {
+        // Returning user — auto-login, no OTP needed
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+        toast({ title: 'تم تسجيل الدخول بنجاح!' });
+        navigate('/');
       } else {
+        // New user — OTP sent
         toast({ title: 'تم إرسال رمز التحقق عبر واتساب' });
         setStep('otp');
         setCountdown(RESEND_COOLDOWN);
