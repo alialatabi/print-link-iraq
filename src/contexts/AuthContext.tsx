@@ -9,7 +9,7 @@ interface AuthState {
   session: Session | null;
   role: AppRole | null;
   loading: boolean;
-  phoneLogin: (phone: string) => Promise<{ error: any; isNewUser?: boolean }>;
+  phoneLogin: (phone: string, password?: string) => Promise<{ error: any; isNewUser?: boolean }>;
   signOut: () => Promise<void>;
 }
 
@@ -64,10 +64,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const phoneLogin = async (phone: string) => {
+  const phoneLogin = async (phone: string, password?: string) => {
     try {
+      const body: any = { phone };
+      if (password) body.password = password;
       const { data, error } = await supabase.functions.invoke('phone-login', {
-        body: { phone },
+        body,
       });
       if (error) return { error };
       if (data?.error) return { error: { message: data.error } };
