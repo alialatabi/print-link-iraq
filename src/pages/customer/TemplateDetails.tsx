@@ -173,13 +173,13 @@ const TemplateDetails = () => {
             </div>
 
             {/* Price per 1000 */}
-            <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10">
-              <div className="flex items-center gap-2 mb-1">
-                <Info className="w-4 h-4 text-primary" />
-                <p className="text-xs text-muted-foreground">سعر الألف نسخة</p>
+            <div className="p-5 rounded-2xl bg-success/10 border-2 border-success/25">
+              <div className="flex items-center gap-2 mb-2">
+                <Info className="w-4 h-4 text-success" />
+                <p className="text-xs font-medium text-success/80">سعر الألف نسخة</p>
               </div>
-              <p className="text-2xl font-extrabold text-primary">
-                {unitPrice.toLocaleString('ar-IQ')} <span className="text-sm font-medium">د.ع</span>
+              <p className="text-3xl font-extrabold text-success">
+                {unitPrice.toLocaleString('ar-IQ')} <span className="text-base font-bold">د.ع</span>
               </p>
             </div>
 
@@ -216,8 +216,8 @@ const TemplateDetails = () => {
             <div className="p-5 rounded-2xl bg-muted/30 border border-border/50">
               <div className="flex items-center justify-between mb-5">
                 <span className="text-muted-foreground font-medium text-sm">المجموع الكلي</span>
-                <span className="text-2xl font-extrabold text-primary">
-                  {totalPrice.toLocaleString('ar-IQ')} <span className="text-sm font-medium">د.ع</span>
+                <span className="text-2xl font-extrabold text-success">
+                  {totalPrice.toLocaleString('ar-IQ')} <span className="text-sm font-bold">د.ع</span>
                 </span>
               </div>
               <div className="flex gap-3">

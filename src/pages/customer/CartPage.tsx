@@ -102,9 +102,12 @@ const CartPage = () => {
                     </div>
 
                     {/* Price */}
-                    <span className="font-bold text-primary text-sm">
-                      {(item.unitPrice * item.quantity).toLocaleString('ar-IQ')} د.ع
-                    </span>
+                    <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-success/15 border border-success/20">
+                      <span className="font-extrabold text-success text-sm">
+                        {(item.unitPrice * item.quantity).toLocaleString('ar-IQ')}
+                      </span>
+                      <span className="text-[10px] font-semibold text-success/80">د.ع</span>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -116,8 +119,8 @@ const CartPage = () => {
         <div className="p-6 rounded-2xl bg-card border border-border/60 shadow-card">
           <div className="flex items-center justify-between mb-6">
             <span className="text-muted-foreground font-medium">المجموع الكلي</span>
-            <span className="text-2xl font-extrabold text-primary">
-              {totalPrice.toLocaleString('ar-IQ')} <span className="text-sm font-medium">د.ع</span>
+            <span className="text-2xl font-extrabold text-success">
+              {totalPrice.toLocaleString('ar-IQ')} <span className="text-sm font-bold">د.ع</span>
             </span>
           </div>
           <Button
