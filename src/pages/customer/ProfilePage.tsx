@@ -76,21 +76,21 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="py-8 sm:py-14">
+    <div className="section-spacing-sm">
       <div className="container max-w-lg">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-4 mb-10">
             <div className="w-12 h-12 rounded-2xl bg-primary/8 flex items-center justify-center">
               <User className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">الملف الشخصي</h1>
+              <h1 className="text-2xl font-extrabold text-foreground tracking-tight">الملف الشخصي</h1>
               <p className="text-muted-foreground text-sm">عدّل بياناتك الشخصية</p>
             </div>
           </div>
 
-          <div className="bg-card rounded-2xl border border-border/60 p-6 sm:p-7 shadow-sm">
-            <form onSubmit={handleSave} className="space-y-5">
+          <div className="bg-card rounded-2xl border border-border/60 p-6 sm:p-8 shadow-card">
+            <form onSubmit={handleSave} className="space-y-6">
               <div>
                 <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
                   <User className="w-4 h-4 text-muted-foreground" />
@@ -136,7 +136,7 @@ const ProfilePage = () => {
               </div>
 
               <div className="pt-3">
-                <p className="text-xs text-muted-foreground mb-4">
+                <p className="text-xs text-muted-foreground mb-5">
                   البريد: {user?.email || '—'}
                 </p>
                 <Button

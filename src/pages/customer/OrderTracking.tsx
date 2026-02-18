@@ -129,11 +129,11 @@ const OrderTracking = () => {
   };
 
   if (loading) return (
-    <div className="py-20 text-center">
+    <div className="py-24 text-center">
       <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
     </div>
   );
-  if (!order) return <div className="py-20 text-center"><p className="text-muted-foreground text-base">لم يتم العثور على الطلب</p></div>;
+  if (!order) return <div className="py-24 text-center"><p className="text-muted-foreground text-sm">لم يتم العثور على الطلب</p></div>;
 
   const currentStepIndex = STEPS.findIndex(s => s.status === order.status);
   const details = (order.details || {}) as Record<string, any>;
@@ -142,20 +142,20 @@ const OrderTracking = () => {
   const showDesignReview = ['waiting_approval', 'design_uploaded'].includes(order.status) || designs.length > 0;
 
   return (
-    <div className="py-8 sm:py-14">
+    <div className="section-spacing-sm">
       <div className="container max-w-3xl">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+          <div className="flex items-center justify-between mb-10 flex-wrap gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">تتبع الطلب</h1>
+              <h1 className="text-2xl font-extrabold text-foreground tracking-tight">تتبع الطلب</h1>
               <p className="text-muted-foreground text-sm mt-1">رقم الطلب: {order.id?.slice(0, 8)}...</p>
             </div>
             <StatusBadge status={order.status as OrderStatus} />
           </div>
 
           {/* Order Info */}
-          <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-sm mb-5">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-card mb-6">
+            <div className="grid grid-cols-2 gap-5 text-sm">
               <div>
                 <span className="text-muted-foreground text-xs">القالب</span>
                 <p className="font-semibold text-foreground mt-0.5">{order.templates?.name || '-'}</p>
@@ -176,7 +176,7 @@ const OrderTracking = () => {
           </div>
 
           {/* Progress Steps */}
-          <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-sm mb-5">
+          <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-card mb-6">
             <h3 className="font-bold text-foreground text-sm mb-5">مراحل الطلب</h3>
             <div className="space-y-3">
               {STEPS.map((step, i) => {
@@ -201,12 +201,12 @@ const OrderTracking = () => {
 
           {/* Design Review Section */}
           {showDesignReview && (
-            <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-sm mb-5">
-              <h3 className="font-bold text-foreground text-sm mb-4">التصميم</h3>
+            <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-card mb-6">
+              <h3 className="font-bold text-foreground text-sm mb-5">التصميم</h3>
 
               {previewUrl && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4">
-                  <div className="rounded-xl overflow-hidden border border-border/60 bg-muted/30">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-5">
+                  <div className="rounded-xl overflow-hidden border border-border/50 bg-muted/30">
                     <img
                       src={previewUrl}
                       alt="معاينة التصميم"
@@ -221,14 +221,14 @@ const OrderTracking = () => {
               )}
 
               {designs.length > 0 ? (
-                <div className="space-y-2 mb-4">
+                <div className="space-y-3 mb-5">
                   {designs.map((design, i) => (
                     <div
                       key={design.id}
                       className={`rounded-xl p-4 flex items-center justify-between gap-3 ${
                         i === 0
-                          ? 'bg-primary/5 border border-primary/15'
-                          : 'bg-muted/40 border border-border/60'
+                          ? 'bg-primary/5 border border-primary/10'
+                          : 'bg-muted/40 border border-border/50'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -271,7 +271,7 @@ const OrderTracking = () => {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-10 text-muted-foreground">
+                <div className="text-center py-12 text-muted-foreground">
                   <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3">
                     <RefreshCw className="w-5 h-5 text-muted-foreground/40" />
                   </div>
@@ -280,7 +280,7 @@ const OrderTracking = () => {
               )}
 
               {order.status === 'waiting_approval' && (
-                <div className="space-y-3 mt-4">
+                <div className="space-y-3 mt-5">
                   <Button
                     onClick={handleApprove}
                     disabled={submitting}
@@ -332,7 +332,7 @@ const OrderTracking = () => {
               )}
 
               {order.status === 'approved' && (
-                <div className="bg-success/8 rounded-xl p-5 text-center mt-4">
+                <div className="bg-success/8 rounded-xl p-5 text-center mt-5">
                   <CheckCircle className="w-6 h-6 text-success mx-auto mb-2" />
                   <p className="font-medium text-foreground text-sm">تمت الموافقة على التصميم!</p>
                   <p className="text-muted-foreground text-xs mt-1">سيتم تحضير طلبك للطباعة</p>
@@ -343,11 +343,11 @@ const OrderTracking = () => {
 
           {/* Revision History */}
           {revisions.length > 0 && (
-            <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-sm">
-              <h3 className="font-bold text-foreground text-sm mb-4">سجل التعديلات</h3>
-              <div className="space-y-2">
+            <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-card">
+              <h3 className="font-bold text-foreground text-sm mb-5">سجل التعديلات</h3>
+              <div className="space-y-3">
                 {revisions.map((rev: any, i: number) => (
-                  <div key={i} className="bg-muted/40 rounded-xl p-4 border border-border/60">
+                  <div key={i} className="bg-muted/40 rounded-xl p-4 border border-border/50">
                     <div className="flex items-center gap-2 mb-1.5">
                       <MessageSquare className="w-3 h-3 text-muted-foreground" />
                       <span className="text-[11px] text-muted-foreground font-medium">

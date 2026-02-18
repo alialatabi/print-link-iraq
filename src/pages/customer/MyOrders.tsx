@@ -28,25 +28,25 @@ const MyOrders = () => {
   }, [user]);
 
   if (loading) return (
-    <div className="py-20 text-center">
+    <div className="py-24 text-center">
       <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
     </div>
   );
 
   return (
-    <div className="py-8 sm:py-14">
+    <div className="section-spacing-sm">
       <div className="container max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-foreground">طلباتي</h1>
+        <div className="mb-10">
+          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">طلباتي</h1>
           <p className="text-muted-foreground text-sm mt-1">{orders.length} طلب</p>
         </div>
 
         {orders.length === 0 ? (
-          <div className="text-center py-24">
+          <div className="text-center py-28">
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
               <ShoppingBag className="w-8 h-8 text-muted-foreground/40" />
             </div>
-            <p className="text-muted-foreground text-base mb-5">لا توجد طلبات حتى الآن</p>
+            <p className="text-muted-foreground text-sm mb-6">لا توجد طلبات حتى الآن</p>
             <Link to="/services">
               <Button className="bg-success hover:bg-success/90 text-success-foreground">
                 ابدأ طلبك الأول
@@ -54,14 +54,14 @@ const MyOrders = () => {
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {orders.map((order, i) => (
               <motion.div
                 key={order.id}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="bg-card rounded-2xl p-5 border border-border/60 shadow-sm hover:shadow-md transition-shadow duration-200"
+                transition={{ delay: i * 0.04 }}
+                className="bg-card rounded-2xl p-5 border border-border/60 shadow-card hover:shadow-card-hover transition-all duration-200"
               >
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-4">
@@ -79,7 +79,7 @@ const MyOrders = () => {
                   <div className="flex items-center gap-3">
                     <StatusBadge status={order.status as OrderStatus} />
                     <Link to={`/track-order/${order.id}`}>
-                      <Button size="sm" variant="outline" className="gap-1">
+                      <Button size="sm" variant="outline" className="gap-1.5">
                         <Eye className="w-3.5 h-3.5" />
                         تتبع
                       </Button>
