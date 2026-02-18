@@ -158,11 +158,11 @@ const Layout = ({ children }: { children: ReactNode }) => {
           <div className="container">
             <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide py-3 px-1">
               {SERVICES.map((service) => {
-                const isActive = pathname === `/templates/${service.type}`;
+                const isActive = pathname.includes(`/specializations/${service.type}`) || pathname.includes(`/templates/${service.type}`);
                 return (
                   <Link
                     key={service.type}
-                    to={`/templates/${service.type}`}
+                    to={`/specializations/${service.type}`}
                     className="flex flex-col items-center gap-1.5 min-w-[60px] group"
                   >
                     <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${
@@ -217,7 +217,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                   {SERVICES.map(service => (
                     <Link
                       key={service.type}
-                      to={`/templates/${service.type}`}
+                      to={`/specializations/${service.type}`}
                       onClick={closeMobile}
                       className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150"
                     >
