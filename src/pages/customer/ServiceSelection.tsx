@@ -42,8 +42,8 @@ const ServiceSelection = () => {
 
   const formatPrice = (range: { min: number; max: number } | undefined) => {
     if (!range) return null;
-    if (range.min === range.max) return `${range.min.toLocaleString('ar-IQ')} د.ع`;
-    return `${range.min.toLocaleString('ar-IQ')} - ${range.max.toLocaleString('ar-IQ')} د.ع`;
+    if (range.min === range.max) return `${range.min.toLocaleString('en-US')} د.ع`;
+    return `${range.min.toLocaleString('en-US')} - ${range.max.toLocaleString('en-US')} د.ع`;
   };
 
   return (

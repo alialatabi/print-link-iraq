@@ -132,7 +132,7 @@ const Index = () => {
                       <h4 className="font-bold text-foreground text-sm truncate mb-2">{template.name}</h4>
                       {template.price != null && (
                         <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success/15 border border-success/20 mb-2">
-                          <span className="text-sm font-extrabold text-success">{template.price.toLocaleString('ar-IQ')}</span>
+                          <span className="text-sm font-extrabold text-success">{template.price.toLocaleString('en-US')}</span>
                           <span className="text-[10px] font-semibold text-success/80">د.ع</span>
                         </div>
                       )}

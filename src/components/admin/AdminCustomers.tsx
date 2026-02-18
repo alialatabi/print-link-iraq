@@ -68,7 +68,7 @@ const AdminCustomers = () => {
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
 
-  const fmt = (n: number) => n.toLocaleString('ar-IQ');
+  const fmt = (n: number) => n.toLocaleString('en-US');
 
   let filtered = customers;
   if (searchQuery.trim()) {

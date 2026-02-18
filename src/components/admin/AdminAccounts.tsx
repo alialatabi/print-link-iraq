@@ -135,7 +135,7 @@ const AdminAccounts = () => {
     };
   }).filter(s => s.count > 0).sort((a, b) => b.total - a.total);
 
-  const fmt = (n: number) => n.toLocaleString('ar-IQ');
+  const fmt = (n: number) => n.toLocaleString('en-US');
   const collectionRate = totalRevenue > 0 ? Math.round((totalPaid / totalRevenue) * 100) : 0;
 
   if (loading) return <div className="py-10 text-center text-muted-foreground">جاري التحميل...</div>;

@@ -179,7 +179,7 @@ const TemplateDetails = () => {
                 <p className="text-xs font-medium text-success/80">سعر الألف نسخة</p>
               </div>
               <p className="text-3xl font-extrabold text-success">
-                {unitPrice.toLocaleString('ar-IQ')} <span className="text-base font-bold">د.ع</span>
+                {unitPrice.toLocaleString('en-US')} <span className="text-base font-bold">د.ع</span>
               </p>
             </div>
 
@@ -199,7 +199,7 @@ const TemplateDetails = () => {
                 <div className="flex-1 text-center">
                   <span className="text-3xl font-extrabold text-foreground">{quantity}</span>
                   <span className="text-muted-foreground text-sm mr-1">ألف</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">({(quantity * 1000).toLocaleString('ar-IQ')} نسخة)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">({(quantity * 1000).toLocaleString('en-US')} نسخة)</p>
                 </div>
                 <Button
                   variant="outline"
@@ -217,7 +217,7 @@ const TemplateDetails = () => {
               <div className="flex items-center justify-between mb-5">
                 <span className="text-muted-foreground font-medium text-sm">المجموع الكلي</span>
                 <span className="text-2xl font-extrabold text-success">
-                  {totalPrice.toLocaleString('ar-IQ')} <span className="text-sm font-bold">د.ع</span>
+                  {totalPrice.toLocaleString('en-US')} <span className="text-sm font-bold">د.ع</span>
                 </span>
               </div>
               <div className="flex gap-3">

@@ -35,7 +35,7 @@ const MyOrders = () => {
   const formatPrice = (price: number | null, quantity: number) => {
     if (!price) return '-';
     const total = (price / 1000) * quantity;
-    return `${total.toLocaleString('ar-IQ')} د.ع`;
+    return `${total.toLocaleString('en-US')} د.ع`;
   };
 
   if (loading) return (
@@ -84,7 +84,7 @@ const MyOrders = () => {
                       <p className="text-muted-foreground text-xs mt-0.5">
                         {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
                         {' · '}
-                        الكمية: {(order.details as any)?.quantity?.toLocaleString('ar-IQ') || '-'}
+                        الكمية: {(order.details as any)?.quantity?.toLocaleString('en-US') || '-'}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <p className="text-muted-foreground text-[11px]">{new Date(order.created_at).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric' })}</p>

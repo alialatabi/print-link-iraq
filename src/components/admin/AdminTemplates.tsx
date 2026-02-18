@@ -332,7 +332,7 @@ const AdminTemplates = () => {
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-foreground text-sm truncate">{t.name}</h4>
                   {t.price != null && (
-                    <span className="text-xs font-bold text-primary whitespace-nowrap">{t.price.toLocaleString('ar-IQ')} د.ع</span>
+                    <span className="text-xs font-bold text-primary whitespace-nowrap">{t.price.toLocaleString('en-US')} د.ع</span>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{SERVICE_LABELS[t.service_type as ServiceType]}</p>
