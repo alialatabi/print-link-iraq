@@ -48,30 +48,30 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="py-16">
+    <div className="py-12 sm:py-20">
       <div className="container max-w-md">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card rounded-2xl p-8 shadow-card border border-border"
+          className="bg-card rounded-2xl p-7 sm:p-8 shadow-sm border border-border/60"
         >
           <div className="text-center mb-8">
-            <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
               <TrendingUp className="w-7 h-7 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground">
               {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
             </h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="text-muted-foreground text-sm mt-2">
               {isLogin ? 'أدخل بياناتك لتسجيل الدخول' : 'أنشئ حسابك للبدء'}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <>
                 <div>
-                  <Label className="text-foreground mb-2 flex items-center gap-2">
+                  <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
                     <User className="w-4 h-4 text-muted-foreground" />
                     الاسم الكامل
                   </Label>
@@ -84,9 +84,9 @@ const AuthPage = () => {
                 </div>
 
                 <div>
-                  <Label className="text-foreground mb-2 flex items-center gap-2">
+                  <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
                     <Phone className="w-4 h-4 text-muted-foreground" />
-                    رقم الهاتف *
+                    رقم الهاتف <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     type="tel"
@@ -100,7 +100,7 @@ const AuthPage = () => {
                 </div>
 
                 <div>
-                  <Label className="text-foreground mb-2 flex items-center gap-2">
+                  <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-muted-foreground" />
                     العنوان
                   </Label>
@@ -114,7 +114,7 @@ const AuthPage = () => {
             )}
 
             <div>
-              <Label className="text-foreground mb-2 flex items-center gap-2">
+              <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
                 <Mail className="w-4 h-4 text-muted-foreground" />
                 البريد الإلكتروني
               </Label>
@@ -130,7 +130,7 @@ const AuthPage = () => {
             </div>
 
             <div>
-              <Label className="text-foreground mb-2 flex items-center gap-2">
+              <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
                 <Lock className="w-4 h-4 text-muted-foreground" />
                 كلمة المرور
               </Label>
@@ -144,32 +144,34 @@ const AuthPage = () => {
               />
             </div>
 
-            <Button
-              type="submit"
-              size="lg"
-              disabled={submitting}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6 rounded-xl"
-            >
-              {submitting ? (
-                'جاري التحميل...'
-              ) : isLogin ? (
-                <>
-                  <LogIn className="w-5 h-5 ml-2" />
-                  تسجيل الدخول
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-5 h-5 ml-2" />
-                  إنشاء حساب
-                </>
-              )}
-            </Button>
+            <div className="pt-2">
+              <Button
+                type="submit"
+                size="lg"
+                disabled={submitting}
+                className="w-full h-12 text-base"
+              >
+                {submitting ? (
+                  'جاري التحميل...'
+                ) : isLogin ? (
+                  <>
+                    <LogIn className="w-5 h-5 ml-2" />
+                    تسجيل الدخول
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-5 h-5 ml-2" />
+                    إنشاء حساب
+                  </>
+                )}
+              </Button>
+            </div>
           </form>
 
           <div className="mt-6 text-center">
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline text-sm font-medium"
+              className="text-primary hover:underline text-sm font-medium transition-colors duration-200"
             >
               {isLogin ? 'ليس لديك حساب؟ أنشئ حساباً جديداً' : 'لديك حساب بالفعل؟ سجل الدخول'}
             </button>

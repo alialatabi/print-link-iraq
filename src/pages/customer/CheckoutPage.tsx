@@ -52,7 +52,6 @@ const CheckoutPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load template text_fields for all cart items
   useEffect(() => {
     if (items.length === 0) { navigate('/cart'); return; }
     const load = async () => {
@@ -173,7 +172,11 @@ const CheckoutPage = () => {
   };
 
   if (loading) {
-    return <div className="py-20 text-center"><p className="text-muted-foreground">جاري التحميل...</p></div>;
+    return (
+      <div className="py-20 text-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+      </div>
+    );
   }
 
   if (!currentItem || !currentTemplate) return null;
@@ -182,9 +185,9 @@ const CheckoutPage = () => {
   const vals = formData[currentItem.templateId] || {};
 
   return (
-    <div className="py-8 sm:py-12">
+    <div className="py-8 sm:py-14">
       <div className="container max-w-2xl">
-        <Link to="/cart" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors">
+        <Link to="/cart" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-all duration-200">
           <ArrowRight className="w-4 h-4" />
           العودة للسلة
         </Link>
@@ -193,14 +196,14 @@ const CheckoutPage = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-bold text-foreground">تفاصيل التصميم</h1>
-            <span className="text-sm text-muted-foreground">{currentStep + 1} من {totalSteps}</span>
+            <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">{currentStep + 1} من {totalSteps}</span>
           </div>
           <div className="flex gap-1.5">
             {items.map((_, i) => (
               <div
                 key={i}
-                className={`h-2 flex-1 rounded-full transition-colors ${
-                  i < currentStep ? 'bg-primary' : i === currentStep ? 'bg-primary/60' : 'bg-muted'
+                className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                  i < currentStep ? 'bg-primary' : i === currentStep ? 'bg-primary/50' : 'bg-muted'
                 }`}
               />
             ))}
@@ -214,17 +217,17 @@ const CheckoutPage = () => {
           animate={{ opacity: 1, x: 0 }}
           className="mb-6"
         >
-          <div className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border shadow-sm">
-            <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted shrink-0 flex items-center justify-center">
+          <div className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border/60 shadow-sm">
+            <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0 flex items-center justify-center">
               {currentItem.previewUrl ? (
                 <img src={currentItem.previewUrl} alt={currentItem.templateName} className="w-full h-full object-cover" />
               ) : (
-                <Palette className="w-6 h-6 text-muted-foreground" />
+                <Palette className="w-6 h-6 text-muted-foreground/40" />
               )}
             </div>
             <div>
-              <h3 className="font-bold text-foreground">{currentItem.templateName}</h3>
-              <p className="text-xs text-muted-foreground">
+              <h3 className="font-bold text-foreground text-sm">{currentItem.templateName}</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {SERVICE_LABELS[currentItem.serviceType as ServiceType]} · {currentItem.quantity} ألف نسخة
               </p>
             </div>
@@ -234,7 +237,7 @@ const CheckoutPage = () => {
           {currentStep > 0 && (
             <button
               onClick={copyFromPrevious}
-              className="flex items-center gap-2 mt-3 text-sm text-primary hover:text-primary/80 transition-colors"
+              className="flex items-center gap-2 mt-3 text-sm text-primary hover:text-primary/80 transition-colors duration-200 font-medium"
             >
               <Copy className="w-4 h-4" />
               نسخ البيانات من القالب السابق
@@ -256,7 +259,7 @@ const CheckoutPage = () => {
             const required = isRequired(f.key);
             return (
               <div key={f.key}>
-                <Label className="text-foreground font-medium flex items-center gap-2 mb-2">
+                <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
                   <Icon className="w-4 h-4 text-muted-foreground" />
                   {f.label} {required && <span className="text-destructive">*</span>}
                 </Label>
@@ -273,7 +276,7 @@ const CheckoutPage = () => {
           })}
 
           <div>
-            <Label className="text-foreground font-medium flex items-center gap-2 mb-2">
+            <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
               <FileText className="w-4 h-4 text-muted-foreground" />
               ملاحظات إضافية
             </Label>
@@ -282,13 +285,14 @@ const CheckoutPage = () => {
               onChange={e => setNotes(prev => ({ ...prev, [currentItem.templateId]: e.target.value }))}
               placeholder="أي تفاصيل إضافية..."
               rows={3}
+              className="rounded-xl"
             />
           </div>
 
           {/* Navigation */}
           <div className="flex gap-3 pt-4">
             {currentStep > 0 && (
-              <Button type="button" variant="outline" onClick={goPrev} className="flex-1 h-12 rounded-xl gap-2">
+              <Button type="button" variant="outline" onClick={goPrev} className="flex-1 h-12 gap-2">
                 <ChevronRight className="w-4 h-4" />
                 السابق
               </Button>
@@ -296,7 +300,7 @@ const CheckoutPage = () => {
             <Button
               type="submit"
               disabled={submitting}
-              className={`flex-1 h-12 rounded-xl text-base font-bold gap-2 ${
+              className={`flex-1 h-12 text-base font-bold gap-2 ${
                 currentStep === totalSteps - 1 ? 'bg-success hover:bg-success/90 text-success-foreground' : ''
               }`}
             >

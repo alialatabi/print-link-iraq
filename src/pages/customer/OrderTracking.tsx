@@ -58,7 +58,6 @@ const OrderTracking = () => {
       .order('version', { ascending: false });
     const designs = (data as DesignVersion[]) || [];
     setDesigns(designs);
-    // Auto-load preview for the latest design
     if (designs.length > 0 && designs[0].file_url) {
       const url = await getDesignSignedUrl(designs[0].file_url);
       if (url) setPreviewUrl(url);
@@ -70,7 +69,6 @@ const OrderTracking = () => {
     loadDesigns();
   }, [loadOrder, loadDesigns]);
 
-  // Realtime: listen for new designs uploaded by designer
   useEffect(() => {
     if (!orderId) return;
     const channel = supabase
@@ -99,7 +97,6 @@ const OrderTracking = () => {
   const handleApprove = async () => {
     if (!orderId) return;
     setSubmitting(true);
-    // Mark latest design as approved
     if (designs.length > 0) {
       await supabase.from('designs').update({ approved: true }).eq('id', designs[0].id);
     }
@@ -113,7 +110,6 @@ const OrderTracking = () => {
   const handleRequestRevision = async () => {
     if (!orderId || !revisionNote.trim()) return;
     setSubmitting(true);
-    // Store revision note in order details and revert to assigned
     const currentDetails = (order?.details || {}) as Record<string, any>;
     const revisions = currentDetails.revisions || [];
     revisions.push({
@@ -132,8 +128,12 @@ const OrderTracking = () => {
     setSubmitting(false);
   };
 
-  if (loading) return <div className="py-20 text-center"><p className="text-muted-foreground">جاري التحميل...</p></div>;
-  if (!order) return <div className="py-20 text-center"><p className="text-muted-foreground text-lg">لم يتم العثور على الطلب</p></div>;
+  if (loading) return (
+    <div className="py-20 text-center">
+      <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+    </div>
+  );
+  if (!order) return <div className="py-20 text-center"><p className="text-muted-foreground text-base">لم يتم العثور على الطلب</p></div>;
 
   const currentStepIndex = STEPS.findIndex(s => s.status === order.status);
   const details = (order.details || {}) as Record<string, any>;
@@ -142,57 +142,57 @@ const OrderTracking = () => {
   const showDesignReview = ['waiting_approval', 'design_uploaded'].includes(order.status) || designs.length > 0;
 
   return (
-    <div className="py-8">
+    <div className="py-8 sm:py-14">
       <div className="container max-w-3xl">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold text-foreground">تتبع الطلب</h1>
-              <p className="text-muted-foreground text-sm">رقم الطلب: {order.id?.slice(0, 8)}...</p>
+              <p className="text-muted-foreground text-sm mt-1">رقم الطلب: {order.id?.slice(0, 8)}...</p>
             </div>
             <StatusBadge status={order.status as OrderStatus} />
           </div>
 
           {/* Order Info */}
-          <div className="bg-card rounded-xl p-6 border border-border mb-6">
+          <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-sm mb-5">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">القالب:</span>
-                <p className="font-semibold text-foreground">{order.templates?.name || '-'}</p>
+                <span className="text-muted-foreground text-xs">القالب</span>
+                <p className="font-semibold text-foreground mt-0.5">{order.templates?.name || '-'}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">الاسم:</span>
-                <p className="font-semibold text-foreground">{order.customer_name}</p>
+                <span className="text-muted-foreground text-xs">الاسم</span>
+                <p className="font-semibold text-foreground mt-0.5">{order.customer_name}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">الهاتف:</span>
-                <p className="font-semibold text-foreground" dir="ltr">{order.customer_phone}</p>
+                <span className="text-muted-foreground text-xs">الهاتف</span>
+                <p className="font-semibold text-foreground mt-0.5" dir="ltr">{order.customer_phone}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">التاريخ:</span>
-                <p className="font-semibold text-foreground">{new Date(order.created_at).toLocaleDateString('ar')}</p>
+                <span className="text-muted-foreground text-xs">التاريخ</span>
+                <p className="font-semibold text-foreground mt-0.5">{new Date(order.created_at).toLocaleDateString('ar')}</p>
               </div>
             </div>
           </div>
 
           {/* Progress Steps */}
-          <div className="bg-card rounded-xl p-6 border border-border mb-6">
-            <h3 className="font-bold text-foreground mb-6">مراحل الطلب</h3>
-            <div className="space-y-4">
+          <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-sm mb-5">
+            <h3 className="font-bold text-foreground text-sm mb-5">مراحل الطلب</h3>
+            <div className="space-y-3">
               {STEPS.map((step, i) => {
                 const isComplete = i <= currentStepIndex;
                 const isCurrent = i === currentStepIndex;
                 return (
                   <div key={step.status} className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
                       isComplete ? 'bg-success text-success-foreground' : 'bg-muted text-muted-foreground'
-                    } ${isCurrent ? 'ring-2 ring-success ring-offset-2' : ''}`}>
-                      <step.icon className="w-5 h-5" />
+                    } ${isCurrent ? 'ring-2 ring-success/30 ring-offset-2 ring-offset-background' : ''}`}>
+                      <step.icon className="w-4 h-4" />
                     </div>
-                    <p className={`font-medium flex-1 ${isComplete ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    <p className={`font-medium text-sm flex-1 ${isComplete ? 'text-foreground' : 'text-muted-foreground'}`}>
                       {step.label}
                     </p>
-                    {isComplete && <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />}
+                    {isComplete && <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />}
                   </div>
                 );
               })}
@@ -201,13 +201,12 @@ const OrderTracking = () => {
 
           {/* Design Review Section */}
           {showDesignReview && (
-            <div className="bg-card rounded-xl p-6 border border-border mb-6">
-              <h3 className="font-bold text-foreground mb-4">التصميم</h3>
+            <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-sm mb-5">
+              <h3 className="font-bold text-foreground text-sm mb-4">التصميم</h3>
 
-              {/* Inline Preview */}
               {previewUrl && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4">
-                  <div className="rounded-xl overflow-hidden border border-border bg-muted/30">
+                  <div className="rounded-xl overflow-hidden border border-border/60 bg-muted/30">
                     <img
                       src={previewUrl}
                       alt="معاينة التصميم"
@@ -221,75 +220,72 @@ const OrderTracking = () => {
                 </motion.div>
               )}
 
-              {/* Design versions */}
               {designs.length > 0 ? (
-                <div className="space-y-3 mb-4">
-                  {designs.map((design, i) => {
-                    const isSelected = previewUrl !== null && i === 0; // simplified
-                    return (
-                      <div
-                        key={design.id}
-                        className={`rounded-lg p-4 flex items-center justify-between gap-3 ${
-                          i === 0
-                            ? 'bg-primary/5 border border-primary/20'
-                            : 'bg-muted/50 border border-border'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <FileText className={`w-5 h-5 ${i === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-                          <div>
-                            <p className="font-medium text-foreground text-sm">
-                              الإصدار {design.version}
-                              {i === 0 && <span className="text-primary text-xs mr-2">(الأحدث)</span>}
-                            </p>
-                            <p className="text-muted-foreground text-xs">
-                              {new Date(design.uploaded_at).toLocaleDateString('ar')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {design.approved && (
-                            <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3" /> معتمد
-                            </span>
-                          )}
-                          {design.file_url && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs rounded-lg"
-                              disabled={loadingPreview}
-                              onClick={async () => {
-                                setLoadingPreview(true);
-                                const url = await getDesignSignedUrl(design.file_url!);
-                                if (url) setPreviewUrl(url);
-                                else toast({ title: 'فشل تحميل المعاينة', variant: 'destructive' });
-                                setLoadingPreview(false);
-                              }}
-                            >
-                              <Eye className="w-3 h-3 ml-1" /> {loadingPreview ? '...' : 'عرض'}
-                            </Button>
-                          )}
+                <div className="space-y-2 mb-4">
+                  {designs.map((design, i) => (
+                    <div
+                      key={design.id}
+                      className={`rounded-xl p-4 flex items-center justify-between gap-3 ${
+                        i === 0
+                          ? 'bg-primary/5 border border-primary/15'
+                          : 'bg-muted/40 border border-border/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className={`w-4 h-4 ${i === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <div>
+                          <p className="font-medium text-foreground text-sm">
+                            الإصدار {design.version}
+                            {i === 0 && <span className="text-primary text-[11px] mr-2">(الأحدث)</span>}
+                          </p>
+                          <p className="text-muted-foreground text-[11px] mt-0.5">
+                            {new Date(design.uploaded_at).toLocaleDateString('ar')}
+                          </p>
                         </div>
                       </div>
-                    );
-                  })}
+                      <div className="flex items-center gap-2">
+                        {design.approved && (
+                          <span className="text-[11px] bg-success/10 text-success px-2.5 py-1 rounded-lg flex items-center gap-1 font-medium">
+                            <CheckCircle className="w-3 h-3" /> معتمد
+                          </span>
+                        )}
+                        {design.file_url && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            disabled={loadingPreview}
+                            onClick={async () => {
+                              setLoadingPreview(true);
+                              const url = await getDesignSignedUrl(design.file_url!);
+                              if (url) setPreviewUrl(url);
+                              else toast({ title: 'فشل تحميل المعاينة', variant: 'destructive' });
+                              setLoadingPreview(false);
+                            }}
+                          >
+                            <Eye className="w-3 h-3 ml-1" /> {loadingPreview ? '...' : 'عرض'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <RefreshCw className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
-                  <p>المصمم يعمل على تصميمك...</p>
+                <div className="text-center py-10 text-muted-foreground">
+                  <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3">
+                    <RefreshCw className="w-5 h-5 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-sm">المصمم يعمل على تصميمك...</p>
                 </div>
               )}
 
-              {/* Approval / Revision Actions */}
               {order.status === 'waiting_approval' && (
                 <div className="space-y-3 mt-4">
                   <Button
                     onClick={handleApprove}
                     disabled={submitting}
                     size="lg"
-                    className="w-full bg-success hover:bg-success/90 text-success-foreground text-lg py-6 rounded-xl"
+                    className="w-full bg-success hover:bg-success/90 text-success-foreground h-12"
                   >
                     <ThumbsUp className="w-5 h-5 ml-2" />
                     {submitting ? 'جاري الإرسال...' : 'الموافقة على التصميم'}
@@ -300,7 +296,7 @@ const OrderTracking = () => {
                       onClick={() => setShowRevisionForm(true)}
                       variant="outline"
                       size="lg"
-                      className="w-full text-lg py-6 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/5"
+                      className="w-full h-12 border-destructive/20 text-destructive hover:bg-destructive/5"
                     >
                       <MessageSquare className="w-5 h-5 ml-2" />
                       طلب تعديل
@@ -311,14 +307,14 @@ const OrderTracking = () => {
                         value={revisionNote}
                         onChange={e => setRevisionNote(e.target.value)}
                         placeholder="اكتب ملاحظاتك للمصمم... مثال: أريد تغيير لون الخلفية"
-                        className="min-h-[100px] rounded-xl"
+                        className="min-h-[100px]"
                         dir="rtl"
                       />
                       <div className="flex gap-2">
                         <Button
                           onClick={handleRequestRevision}
                           disabled={submitting || !revisionNote.trim()}
-                          className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl"
+                          className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                         >
                           <MessageSquare className="w-4 h-4 ml-1" />
                           {submitting ? 'جاري الإرسال...' : 'إرسال طلب التعديل'}
@@ -326,7 +322,6 @@ const OrderTracking = () => {
                         <Button
                           onClick={() => { setShowRevisionForm(false); setRevisionNote(''); }}
                           variant="outline"
-                          className="rounded-xl"
                         >
                           إلغاء
                         </Button>
@@ -337,10 +332,10 @@ const OrderTracking = () => {
               )}
 
               {order.status === 'approved' && (
-                <div className="bg-success/10 rounded-lg p-4 text-center mt-4">
+                <div className="bg-success/8 rounded-xl p-5 text-center mt-4">
                   <CheckCircle className="w-6 h-6 text-success mx-auto mb-2" />
-                  <p className="font-medium text-foreground">تمت الموافقة على التصميم!</p>
-                  <p className="text-muted-foreground text-sm mt-1">سيتم تحضير طلبك للطباعة</p>
+                  <p className="font-medium text-foreground text-sm">تمت الموافقة على التصميم!</p>
+                  <p className="text-muted-foreground text-xs mt-1">سيتم تحضير طلبك للطباعة</p>
                 </div>
               )}
             </div>
@@ -348,14 +343,14 @@ const OrderTracking = () => {
 
           {/* Revision History */}
           {revisions.length > 0 && (
-            <div className="bg-card rounded-xl p-6 border border-border">
-              <h3 className="font-bold text-foreground mb-4">سجل التعديلات</h3>
-              <div className="space-y-3">
+            <div className="bg-card rounded-2xl p-6 border border-border/60 shadow-sm">
+              <h3 className="font-bold text-foreground text-sm mb-4">سجل التعديلات</h3>
+              <div className="space-y-2">
                 {revisions.map((rev: any, i: number) => (
-                  <div key={i} className="bg-muted/50 rounded-lg p-3 border border-border">
-                    <div className="flex items-center gap-2 mb-1">
+                  <div key={i} className="bg-muted/40 rounded-xl p-4 border border-border/60">
+                    <div className="flex items-center gap-2 mb-1.5">
                       <MessageSquare className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[11px] text-muted-foreground font-medium">
                         الإصدار {rev.version} — {new Date(rev.date).toLocaleDateString('ar')}
                       </span>
                     </div>
