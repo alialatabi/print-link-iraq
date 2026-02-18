@@ -8,6 +8,3 @@ verify_jwt = false
 
 [functions.phone-login]
 verify_jwt = false
-
-[functions.setup-user]
-verify_jwt = false
