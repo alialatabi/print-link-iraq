@@ -9,8 +9,7 @@ interface AuthState {
   session: Session | null;
   role: AppRole | null;
   loading: boolean;
-  sendOtp: (phone: string) => Promise<{ error: any }>;
-  verifyOtp: (phone: string, code: string) => Promise<{ error: any; isNewUser?: boolean }>;
+  signUp: (email: string, password: string, displayName: string, phone?: string, province?: string, area?: string, landmark?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -66,42 +65,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const sendOtp = async (phone: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('send-otp', {
-        body: { phone },
-      });
-      if (error) return { error };
-      if (data?.error) return { error: { message: data.error } };
-      return { error: null };
-    } catch (err: any) {
-      return { error: { message: err.message || 'خطأ في إرسال الرمز' } };
+  const signUp = async (email: string, password: string, displayName: string, phone?: string, province?: string, area?: string, landmark?: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { display_name: displayName, phone },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+
+    if (!error && data.user) {
+      await supabase.from('profiles').upsert({
+        user_id: data.user.id,
+        display_name: displayName,
+        phone: phone || null,
+        province: province || null,
+        area: area || null,
+        landmark: landmark || null,
+      } as any, { onConflict: 'user_id' });
+
+      await supabase.from('user_roles').insert({
+        user_id: data.user.id,
+        role: 'customer' as any,
+      } as any);
     }
+
+    return { error };
   };
 
-  const verifyOtp = async (phone: string, code: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('verify-otp', {
-        body: { phone, code },
-      });
-      if (error) return { error };
-      if (data?.error) return { error: { message: data.error } };
-
-      // Set session from the response
-      if (data?.session) {
-        await supabase.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        });
-      }
-
-      return { error: null, isNewUser: data?.isNewUser };
-    } catch (err: any) {
-      return { error: { message: err.message || 'خطأ في التحقق' } };
-    }
-  };
-
-  // Keep signIn for designer/admin login via email
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
@@ -115,7 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, sendOtp, verifyOtp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, role, loading, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
