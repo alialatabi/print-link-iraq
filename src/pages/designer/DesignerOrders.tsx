@@ -8,7 +8,7 @@ import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
 import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+
 
 const DesignerOrders = () => {
   const { user } = useAuth();
@@ -48,17 +48,22 @@ const DesignerOrders = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user, loadOrders]);
 
-  const activeStatuses: OrderStatus[] = ['assigned', 'design_uploaded', 'waiting_approval'];
-  const completedStatuses: OrderStatus[] = ['approved', 'print_ready', 'printed', 'delivered'];
+  // Hide approved, printed, delivered from designer view
+  const hiddenStatuses: OrderStatus[] = ['approved', 'printed', 'delivered'];
+  const visibleOrders = orders.filter(o => !hiddenStatuses.includes(o.status));
 
-  const activeOrders = orders.filter(o => activeStatuses.includes(o.status));
-  const completedOrders = orders.filter(o => completedStatuses.includes(o.status));
+  const sections: { label: string; status: OrderStatus; icon: typeof Inbox; color: string }[] = [
+    { label: 'بانتظار رفع التصميم', status: 'assigned', icon: Upload, color: 'text-cmyk-magenta' },
+    { label: 'تم رفع التصميم', status: 'design_uploaded', icon: FileText, color: 'text-primary' },
+    { label: 'بانتظار موافقة العميل', status: 'waiting_approval', icon: Clock, color: 'text-cmyk-yellow' },
+    { label: 'جاهز للطباعة', status: 'print_ready', icon: CheckCircle2, color: 'text-success' },
+  ];
 
   const stats = [
-    { label: 'الكل', value: orders.length, icon: Inbox, color: 'text-primary' },
-    { label: 'نشطة', value: activeOrders.length, icon: Clock, color: 'text-cmyk-yellow' },
-    { label: 'بانتظار رفع', value: orders.filter(o => o.status === 'assigned').length, icon: Upload, color: 'text-cmyk-magenta' },
-    { label: 'مكتملة', value: completedOrders.length, icon: CheckCircle2, color: 'text-success' },
+    { label: 'الكل', value: visibleOrders.length, icon: Inbox, color: 'text-primary' },
+    { label: 'بانتظار رفع', value: visibleOrders.filter(o => o.status === 'assigned').length, icon: Upload, color: 'text-cmyk-magenta' },
+    { label: 'بانتظار موافقة', value: visibleOrders.filter(o => o.status === 'waiting_approval').length, icon: Clock, color: 'text-cmyk-yellow' },
+    { label: 'جاهز للطباعة', value: visibleOrders.filter(o => o.status === 'print_ready').length, icon: CheckCircle2, color: 'text-success' },
   ];
 
   if (loading) return <div className="py-20 text-center"><p className="text-muted-foreground">جاري التحميل...</p></div>;
@@ -123,44 +128,26 @@ const DesignerOrders = () => {
           ))}
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="active" dir="rtl">
-          <TabsList className="w-full mb-4">
-            <TabsTrigger value="active" className="flex-1">
-              نشطة ({activeOrders.length})
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="flex-1">
-              مكتملة ({completedOrders.length})
-            </TabsTrigger>
-            <TabsTrigger value="all" className="flex-1">
-              الكل ({orders.length})
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="active">
-            {activeOrders.length === 0 ? <EmptyState message="لا توجد طلبات نشطة حالياً" /> : (
-              <div className="space-y-3">
-                {activeOrders.map((order, i) => <OrderCard key={order.id} order={order} i={i} />)}
+        {/* Sections grouped by status */}
+        {sections.map((section) => {
+          const sectionOrders = visibleOrders.filter(o => o.status === section.status);
+          if (sectionOrders.length === 0) return null;
+          return (
+            <div key={section.status} className="mb-8">
+              <div className="flex items-center gap-2 mb-3">
+                <section.icon className={`w-5 h-5 ${section.color}`} />
+                <h2 className="text-lg font-bold text-foreground">{section.label}</h2>
+                <span className="bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
+                  {sectionOrders.length}
+                </span>
               </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="completed">
-            {completedOrders.length === 0 ? <EmptyState message="لا توجد طلبات مكتملة" /> : (
               <div className="space-y-3">
-                {completedOrders.map((order, i) => <OrderCard key={order.id} order={order} i={i} />)}
+                {sectionOrders.map((order, i) => <OrderCard key={order.id} order={order} i={i} />)}
               </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="all">
-            {orders.length === 0 ? <EmptyState message="لا توجد طلبات حالياً" /> : (
-              <div className="space-y-3">
-                {orders.map((order, i) => <OrderCard key={order.id} order={order} i={i} />)}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+            </div>
+          );
+        })}
+        {visibleOrders.length === 0 && <EmptyState message="لا توجد طلبات حالياً" />}
       </div>
     </div>
   );
