@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { SERVICE_LABELS, SPECIALIZATIONS, ServiceType } from '@/data/mockData';
+import { useServices, useSpecializations, buildLabelMap } from '@/hooks/useServices';
 import { ArrowRight } from 'lucide-react';
 
 const SpecializationSelection = () => {
   const { serviceType } = useParams<{ serviceType: string }>();
+  const { services } = useServices();
+  const { specializations, loading: specsLoading } = useSpecializations();
   const [availableSpecs, setAvailableSpecs] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+
+  const serviceLabel = services.find(s => s.id === serviceType)?.label || 'التصميم';
 
   useEffect(() => {
     const load = async () => {
@@ -29,9 +33,10 @@ const SpecializationSelection = () => {
     load();
   }, [serviceType]);
 
-  // Show all specializations but highlight ones with templates
-  const specsWithTemplates = SPECIALIZATIONS.filter(s => availableSpecs.has(s.id));
-  const specsWithout = SPECIALIZATIONS.filter(s => !availableSpecs.has(s.id));
+  const isLoading = loading || specsLoading;
+
+  const specsWithTemplates = specializations.filter(s => availableSpecs.has(s.id));
+  const specsWithout = specializations.filter(s => !availableSpecs.has(s.id));
 
   return (
     <div className="section-spacing-sm">
@@ -46,11 +51,11 @@ const SpecializationSelection = () => {
             اختر التخصص
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
-            {SERVICE_LABELS[serviceType as ServiceType] || 'التصميم'} — حدد مجال عملك لعرض القوالب المناسبة
+            {serviceLabel} — حدد مجال عملك لعرض القوالب المناسبة
           </p>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="text-center py-24">
             <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 animate-pulse">
               <span className="text-xl">📂</span>
