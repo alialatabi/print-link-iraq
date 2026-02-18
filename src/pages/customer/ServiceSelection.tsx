@@ -63,7 +63,7 @@ const ServiceSelection = () => {
               transition={{ delay: i * 0.07 }}
             >
               <Link
-                to={`/templates/${service.type}`}
+                to={`/specializations/${service.type}`}
                 className="group block bg-card rounded-2xl p-6 sm:p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60"
               >
                 <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center text-primary mx-auto mb-5 group-hover:scale-105 transition-transform duration-200">

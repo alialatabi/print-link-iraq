@@ -163,3 +163,32 @@ export const TEMPLATE_ASPECT_RATIOS: Record<ServiceType, string> = {
   menu: '3/4',              // portrait menu
   invitation: '4/5',        // portrait invitation
 };
+
+export interface Specialization {
+  id: string;
+  label: string;
+  icon: string;
+}
+
+export const SPECIALIZATIONS: Specialization[] = [
+  { id: 'lawyer', label: 'محامين', icon: '⚖️' },
+  { id: 'doctor', label: 'أطباء', icon: '🩺' },
+  { id: 'fashion', label: 'أزياء وموضة', icon: '👗' },
+  { id: 'handmade', label: 'أعمال يدوية', icon: '🧶' },
+  { id: 'pajama', label: 'بيجامات', icon: '👕' },
+  { id: 'retail', label: 'محلات تجارية', icon: '🏪' },
+  { id: 'restaurant', label: 'مطاعم ومقاهي', icon: '☕' },
+  { id: 'real_estate', label: 'عقارات', icon: '🏠' },
+  { id: 'education', label: 'تعليم وتدريب', icon: '📚' },
+  { id: 'tech', label: 'تكنولوجيا', icon: '💻' },
+  { id: 'beauty', label: 'تجميل وعناية', icon: '💄' },
+  { id: 'fitness', label: 'رياضة ولياقة', icon: '🏋️' },
+  { id: 'photography', label: 'تصوير', icon: '📷' },
+  { id: 'construction', label: 'مقاولات وبناء', icon: '🏗️' },
+  { id: 'automotive', label: 'سيارات', icon: '🚗' },
+  { id: 'other', label: 'أخرى', icon: '📋' },
+];
+
+export const SPECIALIZATION_LABELS: Record<string, string> = Object.fromEntries(
+  SPECIALIZATIONS.map(s => [s.id, s.label])
+);

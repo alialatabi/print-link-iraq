@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
+import { SERVICE_LABELS, SPECIALIZATIONS, ServiceType } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +21,7 @@ interface Template {
   preview_url: string | null;
   price: number | null;
   text_fields: TextField[];
+  specialization: string | null;
 }
 
 interface TemplateFormData {
@@ -28,6 +29,7 @@ interface TemplateFormData {
   description: string;
   service_type: string;
   price: string;
+  specialization: string;
 }
 
 const AdminTemplates = () => {
@@ -36,7 +38,7 @@ const AdminTemplates = () => {
   const [filterService, setFilterService] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [form, setForm] = useState<TemplateFormData>({ name: '', description: '', service_type: 'business_card', price: '' });
+  const [form, setForm] = useState<TemplateFormData>({ name: '', description: '', service_type: 'business_card', price: '', specialization: '' });
   const [textFields, setTextFields] = useState<TextField[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -60,7 +62,7 @@ const AdminTemplates = () => {
 
   const openAdd = () => {
     setEditingTemplate(null);
-    setForm({ name: '', description: '', service_type: 'business_card', price: '' });
+    setForm({ name: '', description: '', service_type: 'business_card', price: '', specialization: '' });
     setTextFields([]);
     setPreviewFile(null);
     setPreviewLocalUrl(null);
@@ -70,7 +72,7 @@ const AdminTemplates = () => {
 
   const openEdit = (t: Template) => {
     setEditingTemplate(t);
-    setForm({ name: t.name, description: t.description || '', service_type: t.service_type, price: t.price?.toString() || '' });
+    setForm({ name: t.name, description: t.description || '', service_type: t.service_type, price: t.price?.toString() || '', specialization: t.specialization || '' });
     setTextFields(t.text_fields || []);
     setPreviewFile(null);
     setPreviewLocalUrl(t.preview_url);
@@ -199,7 +201,8 @@ const AdminTemplates = () => {
             preview_url: previewUrl,
             price: priceVal,
             text_fields: textFields as any,
-          })
+            specialization: form.specialization || null,
+          } as any)
           .eq('id', editingTemplate.id);
         if (error) throw error;
         toast.success('تم تحديث القالب');
@@ -213,7 +216,8 @@ const AdminTemplates = () => {
             service_type: form.service_type as any,
             price: priceVal,
             text_fields: textFields as any,
-          })
+            specialization: form.specialization || null,
+          } as any)
           .select()
           .single();
         if (error) throw error;
@@ -433,7 +437,21 @@ const AdminTemplates = () => {
               </Select>
             </div>
 
-            {/* Price */}
+            {/* Specialization */}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">التخصص</label>
+              <Select value={form.specialization || '_none'} onValueChange={v => setForm(f => ({ ...f, specialization: v === '_none' ? '' : v }))}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="بدون تخصص" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">بدون تخصص</SelectItem>
+                  {SPECIALIZATIONS.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.icon} {s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1 block">السعر (د.ع)</label>
               <Input
