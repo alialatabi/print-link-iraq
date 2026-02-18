@@ -29,30 +29,33 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check if user already exists — if so, auto-login (no OTP needed for returning users)
+    // Check if user already exists by looking up their account
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
     const deterministicPassword = `PHONE_AUTH_${normalizedPhone}_SECRET_KEY_2024`;
 
-    const { data: signInData } = await supabaseAdmin.auth.signInWithPassword({
-      email: syntheticEmail,
-      password: deterministicPassword,
-    });
+    // Look up user by email to check existence (works regardless of password)
+    const { data: profileData } = await supabaseAdmin
+      .from("profiles")
+      .select("user_id")
+      .eq("phone", normalizedPhone)
+      .limit(1)
+      .maybeSingle();
 
-    if (signInData?.session) {
+    const existingUser = profileData;
+
+    if (existingUser) {
       // Check if user is staff (designer or admin)
       const { data: roles } = await supabaseAdmin
         .from("user_roles")
         .select("role")
-        .eq("user_id", signInData.user.id);
+        .eq("user_id", existingUser.user_id);
 
       const isStaff = (roles || []).some(
         (r: { role: string }) => r.role === "designer" || r.role === "admin"
       );
 
       if (isStaff) {
-        // Staff must login via staff-login page with password — don't auto-login
-        // Sign them out since we used signInWithPassword to check
-        await supabaseAdmin.auth.admin.signOut(signInData.session.access_token);
+        // Staff must login via staff-login page with password
         return new Response(
           JSON.stringify({
             success: true,
@@ -64,17 +67,24 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Regular returning customer — return session directly, skip OTP
-      return new Response(
-        JSON.stringify({
-          success: true,
-          existingUser: true,
-          isStaff: false,
-          session: signInData.session,
-          phone: normalizedPhone,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      // Regular returning customer — auto-login with deterministic password
+      const { data: signInData } = await supabaseAdmin.auth.signInWithPassword({
+        email: syntheticEmail,
+        password: deterministicPassword,
+      });
+
+      if (signInData?.session) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            existingUser: true,
+            isStaff: false,
+            session: signInData.session,
+            phone: normalizedPhone,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // New user — send OTP for first-time verification
