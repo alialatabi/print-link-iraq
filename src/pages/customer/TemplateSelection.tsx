@@ -77,12 +77,13 @@ const TemplateSelection = () => {
                     )}
                   </div>
                   <div className="p-4 sm:p-5 bg-card">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <h4 className="font-bold text-foreground text-sm truncate">{template.name}</h4>
-                      {template.price != null && (
-                        <span className="text-xs font-bold text-primary whitespace-nowrap">{template.price.toLocaleString('ar-IQ')} د.ع</span>
-                      )}
-                    </div>
+                    <h4 className="font-bold text-foreground text-sm truncate mb-2">{template.name}</h4>
+                    {template.price != null && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success/15 border border-success/20 mb-2">
+                        <span className="text-sm font-extrabold text-success">{template.price.toLocaleString('ar-IQ')}</span>
+                        <span className="text-[10px] font-semibold text-success/80">د.ع</span>
+                      </div>
+                    )}
                     <p className="text-muted-foreground text-xs mt-1 line-clamp-1">{template.description}</p>
                   </div>
                 </Link>
