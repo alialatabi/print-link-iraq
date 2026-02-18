@@ -263,7 +263,7 @@ export type Database = {
           preview_url: string | null
           price: number | null
           service_type: string
-          specialization: string | null
+          specializations: string[] | null
           text_fields: Json
         }
         Insert: {
@@ -274,7 +274,7 @@ export type Database = {
           preview_url?: string | null
           price?: number | null
           service_type: string
-          specialization?: string | null
+          specializations?: string[] | null
           text_fields?: Json
         }
         Update: {
@@ -285,7 +285,7 @@ export type Database = {
           preview_url?: string | null
           price?: number | null
           service_type?: string
-          specialization?: string | null
+          specializations?: string[] | null
           text_fields?: Json
         }
         Relationships: []

@@ -18,13 +18,16 @@ const SpecializationSelection = () => {
     const load = async () => {
       const { data } = await supabase
         .from('templates')
-        .select('specialization')
+        .select('specializations')
         .eq('service_type', (serviceType || '') as any);
 
       const specs = new Set<string>();
       if (data) {
         for (const row of data) {
-          if ((row as any).specialization) specs.add((row as any).specialization);
+          const arr = (row as any).specializations;
+          if (Array.isArray(arr)) {
+            arr.forEach((s: string) => specs.add(s));
+          }
         }
       }
       setAvailableSpecs(specs);

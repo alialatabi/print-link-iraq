@@ -21,7 +21,7 @@ interface Template {
   preview_url: string | null;
   price: number | null;
   text_fields: TextField[];
-  specialization: string | null;
+  specializations: string[];
 }
 
 interface TemplateFormData {
@@ -29,7 +29,7 @@ interface TemplateFormData {
   description: string;
   service_type: string;
   price: string;
-  specialization: string;
+  specializations: string[];
 }
 
 const AdminTemplates = () => {
@@ -41,7 +41,7 @@ const AdminTemplates = () => {
   const [filterService, setFilterService] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [form, setForm] = useState<TemplateFormData>({ name: '', description: '', service_type: 'business_card', price: '', specialization: '' });
+  const [form, setForm] = useState<TemplateFormData>({ name: '', description: '', service_type: 'business_card', price: '', specializations: [] });
   const [textFields, setTextFields] = useState<TextField[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -65,7 +65,7 @@ const AdminTemplates = () => {
 
   const openAdd = () => {
     setEditingTemplate(null);
-    setForm({ name: '', description: '', service_type: 'business_card', price: '', specialization: '' });
+    setForm({ name: '', description: '', service_type: 'business_card', price: '', specializations: [] });
     setTextFields([]);
     setPreviewFile(null);
     setPreviewLocalUrl(null);
@@ -75,7 +75,7 @@ const AdminTemplates = () => {
 
   const openEdit = (t: Template) => {
     setEditingTemplate(t);
-    setForm({ name: t.name, description: t.description || '', service_type: t.service_type, price: t.price?.toString() || '', specialization: t.specialization || '' });
+    setForm({ name: t.name, description: t.description || '', service_type: t.service_type, price: t.price?.toString() || '', specializations: t.specializations || [] });
     setTextFields(t.text_fields || []);
     setPreviewFile(null);
     setPreviewLocalUrl(t.preview_url);
@@ -204,7 +204,7 @@ const AdminTemplates = () => {
             preview_url: previewUrl,
             price: priceVal,
             text_fields: textFields as any,
-            specialization: form.specialization || null,
+            specializations: form.specializations,
           } as any)
           .eq('id', editingTemplate.id);
         if (error) throw error;
@@ -219,7 +219,7 @@ const AdminTemplates = () => {
             service_type: form.service_type as any,
             price: priceVal,
             text_fields: textFields as any,
-            specialization: form.specialization || null,
+            specializations: form.specializations,
           } as any)
           .select()
           .single();
@@ -440,20 +440,39 @@ const AdminTemplates = () => {
               </Select>
             </div>
 
-            {/* Specialization */}
+            {/* Specializations (multi-select) */}
             <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">التخصص</label>
-              <Select value={form.specialization || '_none'} onValueChange={v => setForm(f => ({ ...f, specialization: v === '_none' ? '' : v }))}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="بدون تخصص" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">بدون تخصص</SelectItem>
-                  {specializations.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.icon} {s.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium text-foreground mb-1 block">التخصصات</label>
+              <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-border bg-background min-h-[44px]">
+                {specializations.map(s => {
+                  const selected = form.specializations.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setForm(f => ({
+                        ...f,
+                        specializations: selected
+                          ? f.specializations.filter(id => id !== s.id)
+                          : [...f.specializations, s.id]
+                      }))}
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        selected
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      {s.icon} {s.label}
+                    </button>
+                  );
+                })}
+                {specializations.length === 0 && (
+                  <span className="text-xs text-muted-foreground">لا توجد تخصصات</span>
+                )}
+              </div>
+              {form.specializations.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">{form.specializations.length} تخصص محدد</p>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1 block">السعر (د.ع)</label>
