@@ -42,6 +42,10 @@ const AuthPage = () => {
       });
       if (error || data?.error) {
         toast({ title: 'خطأ', description: data?.error || error?.message || 'فشل إرسال الرمز', variant: 'destructive' });
+      } else if (data?.existingUser && data?.isStaff) {
+        // Staff member — redirect to staff login page
+        navigate('/staff-login');
+        toast({ title: 'يرجى تسجيل الدخول بكلمة المرور' });
       } else if (data?.existingUser && data?.session) {
         await supabase.auth.setSession({
           access_token: data.session.access_token,

@@ -39,11 +39,37 @@ Deno.serve(async (req) => {
     });
 
     if (signInData?.session) {
-      // Existing user — return session directly, skip OTP
+      // Check if user is staff (designer or admin)
+      const { data: roles } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", signInData.user.id);
+
+      const isStaff = (roles || []).some(
+        (r: { role: string }) => r.role === "designer" || r.role === "admin"
+      );
+
+      if (isStaff) {
+        // Staff must login via staff-login page with password — don't auto-login
+        // Sign them out since we used signInWithPassword to check
+        await supabaseAdmin.auth.admin.signOut(signInData.session.access_token);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            existingUser: true,
+            isStaff: true,
+            phone: normalizedPhone,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Regular returning customer — return session directly, skip OTP
       return new Response(
         JSON.stringify({
           success: true,
           existingUser: true,
+          isStaff: false,
           session: signInData.session,
           phone: normalizedPhone,
         }),
