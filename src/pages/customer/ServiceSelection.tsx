@@ -1,20 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { SERVICES, SERVICE_LABELS } from '@/data/mockData';
 import { supabase } from '@/integrations/supabase/client';
-import { CreditCard, FileText, Receipt, ClipboardList, UtensilsCrossed, Mail } from 'lucide-react';
-
-const ICONS: Record<string, React.ReactNode> = {
-  business_card: <CreditCard className="w-10 h-10" />,
-  flyer: <FileText className="w-10 h-10" />,
-  receipt: <Receipt className="w-10 h-10" />,
-  letterhead: <ClipboardList className="w-10 h-10" />,
-  menu: <UtensilsCrossed className="w-10 h-10" />,
-  invitation: <Mail className="w-10 h-10" />,
-};
+import { useServices } from '@/hooks/useServices';
 
 const ServiceSelection = () => {
+  const { services, loading: servicesLoading } = useServices();
   const [priceRanges, setPriceRanges] = useState<Record<string, { min: number; max: number } | null>>({});
 
   useEffect(() => {
@@ -46,6 +37,16 @@ const ServiceSelection = () => {
     return `${range.min.toLocaleString('en-US')} - ${range.max.toLocaleString('en-US')} د.ع`;
   };
 
+  if (servicesLoading) {
+    return (
+      <div className="section-spacing-sm">
+        <div className="container max-w-4xl text-center py-24">
+          <p className="text-muted-foreground text-sm">جاري التحميل...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="section-spacing-sm">
       <div className="container max-w-4xl">
@@ -55,25 +56,25 @@ const ServiceSelection = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-5 sm:gap-6">
-          {SERVICES.map((service, i) => (
+          {services.map((service, i) => (
             <motion.div
-              key={service.type}
+              key={service.id}
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.07 }}
             >
               <Link
-                to={`/specializations/${service.type}`}
+                to={`/specializations/${service.id}`}
                 className="group block bg-card rounded-2xl p-6 sm:p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60"
               >
-                <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center text-primary mx-auto mb-5 group-hover:scale-105 transition-transform duration-200">
-                  {ICONS[service.type]}
+                <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-5 group-hover:scale-105 transition-transform duration-200">
+                  <span className="text-3xl">{service.icon}</span>
                 </div>
-                <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{SERVICE_LABELS[service.type]}</h3>
+                <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{service.label}</h3>
                 <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">{service.description}</p>
-                {priceRanges[service.type] && (
+                {priceRanges[service.id] && (
                   <p className="text-primary font-bold text-sm mt-4">
-                    {formatPrice(priceRanges[service.type]!)}
+                    {formatPrice(priceRanges[service.id]!)}
                   </p>
                 )}
               </Link>

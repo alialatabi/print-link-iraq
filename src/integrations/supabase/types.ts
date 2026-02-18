@@ -203,6 +203,57 @@ export type Database = {
         }
         Relationships: []
       }
+      services: {
+        Row: {
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          icon?: string
+          id: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      specializations: {
+        Row: {
+          created_at: string
+          icon: string
+          id: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          icon?: string
+          id: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          icon?: string
+          id?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       templates: {
         Row: {
           created_at: string
@@ -211,7 +262,7 @@ export type Database = {
           name: string
           preview_url: string | null
           price: number | null
-          service_type: Database["public"]["Enums"]["service_type"]
+          service_type: string
           specialization: string | null
           text_fields: Json
         }
@@ -222,7 +273,7 @@ export type Database = {
           name: string
           preview_url?: string | null
           price?: number | null
-          service_type: Database["public"]["Enums"]["service_type"]
+          service_type: string
           specialization?: string | null
           text_fields?: Json
         }
@@ -233,7 +284,7 @@ export type Database = {
           name?: string
           preview_url?: string | null
           price?: number | null
-          service_type?: Database["public"]["Enums"]["service_type"]
+          service_type?: string
           specialization?: string | null
           text_fields?: Json
         }
@@ -285,13 +336,6 @@ export type Database = {
         | "print_ready"
         | "printed"
         | "delivered"
-      service_type:
-        | "business_card"
-        | "flyer"
-        | "receipt"
-        | "letterhead"
-        | "menu"
-        | "invitation"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -430,14 +474,6 @@ export const Constants = {
         "print_ready",
         "printed",
         "delivered",
-      ],
-      service_type: [
-        "business_card",
-        "flyer",
-        "receipt",
-        "letterhead",
-        "menu",
-        "invitation",
       ],
     },
   },

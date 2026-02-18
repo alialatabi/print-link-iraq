@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
-import { SERVICE_LABELS, STATUS_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
+import { STATUS_LABELS, OrderStatus } from '@/data/mockData';
+import { useServices, buildLabelMap } from '@/hooks/useServices';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,6 +22,7 @@ import {
 import AdminTemplates from '@/components/admin/AdminTemplates';
 import AdminAccounts from '@/components/admin/AdminAccounts';
 import AdminCustomers from '@/components/admin/AdminCustomers';
+import AdminServicesSpecs from '@/components/admin/AdminServicesSpecs';
 
 const ORDER_STATUSES: OrderStatus[] = [
   'draft', 'submitted', 'assigned', 'design_uploaded',
@@ -29,6 +31,8 @@ const ORDER_STATUSES: OrderStatus[] = [
 
 const AdminPanel = () => {
   const { role } = useAuth();
+  const { services } = useServices();
+  const SERVICE_LABELS = buildLabelMap(services);
   const [orders, setOrders] = useState<any[]>([]);
   const [designers, setDesigners] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -153,7 +157,7 @@ const AdminPanel = () => {
         'رقم الهاتف': o.customer_phone || details.phone || '-',
         'العنوان': details.address || '-',
         'البريد الإلكتروني': details.email || '-',
-        'نوع الخدمة': SERVICE_LABELS[o.templates?.service_type as ServiceType] || '-',
+        'نوع الخدمة': SERVICE_LABELS[o.templates?.service_type] || '-',
         'اسم القالب': o.templates?.name || '-',
         'الحالة': STATUS_LABELS[o.status as OrderStatus] || o.status,
         'تاريخ الطلب': new Date(o.created_at).toLocaleDateString('ar'),
@@ -260,7 +264,7 @@ const AdminPanel = () => {
         </div>
 
         <Tabs defaultValue="orders" dir="rtl">
-          <TabsList className="grid w-full grid-cols-6 mb-6">
+          <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ClipboardList className="w-4 h-4" />
               <span className="hidden sm:inline">الطلبات</span>
@@ -272,6 +276,10 @@ const AdminPanel = () => {
             <TabsTrigger value="templates" className="flex items-center gap-2">
               <LayoutGrid className="w-4 h-4" />
               <span className="hidden sm:inline">القوالب</span>
+            </TabsTrigger>
+            <TabsTrigger value="services" className="flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              <span className="hidden sm:inline">الخدمات</span>
             </TabsTrigger>
             <TabsTrigger value="designers" className="flex items-center gap-2">
               <Palette className="w-4 h-4" />
@@ -386,7 +394,7 @@ const AdminPanel = () => {
                           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                             <span>{order.customer_name || '-'}</span>
                             <span dir="ltr">{order.customer_phone || '-'}</span>
-                            <span>{SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}</span>
+                            <span>{SERVICE_LABELS[order.templates?.service_type] || ''}</span>
                             <span>{new Date(order.created_at).toLocaleDateString('ar')}</span>
                           </div>
                         </div>
@@ -469,6 +477,11 @@ const AdminPanel = () => {
           {/* TEMPLATES TAB */}
           <TabsContent value="templates">
             <AdminTemplates />
+          </TabsContent>
+
+          {/* SERVICES & SPECIALIZATIONS TAB */}
+          <TabsContent value="services">
+            <AdminServicesSpecs />
           </TabsContent>
 
           {/* DESIGNERS TAB */}

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { SERVICE_LABELS, SPECIALIZATIONS, ServiceType } from '@/data/mockData';
+import { useServices, useSpecializations } from '@/hooks/useServices';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,6 +33,9 @@ interface TemplateFormData {
 }
 
 const AdminTemplates = () => {
+  const { services } = useServices();
+  const { specializations } = useSpecializations();
+  const serviceLabels = Object.fromEntries(services.map(s => [s.id, s.label]));
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterService, setFilterService] = useState<string>('all');
@@ -255,7 +258,7 @@ const AdminTemplates = () => {
   };
 
   const filtered = filterService === 'all' ? templates : templates.filter(t => t.service_type === filterService);
-  const serviceCounts = Object.keys(SERVICE_LABELS).reduce((acc, key) => {
+  const serviceCounts = Object.keys(serviceLabels).reduce((acc, key) => {
     acc[key] = templates.filter(t => t.service_type === key).length;
     return acc;
   }, {} as Record<string, number>);
@@ -273,9 +276,9 @@ const AdminTemplates = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">جميع الأقسام ({templates.length})</SelectItem>
-              {Object.entries(SERVICE_LABELS).map(([key, label]) => (
+              {Object.entries(serviceLabels).map(([key, label]) => (
                 <SelectItem key={key} value={key}>
-                  {label} ({serviceCounts[key] || 0})
+                  {label as string} ({serviceCounts[key] || 0})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -339,7 +342,7 @@ const AdminTemplates = () => {
                     <span className="text-xs font-bold text-primary whitespace-nowrap">{t.price.toLocaleString('en-US')} د.ع</span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{SERVICE_LABELS[t.service_type as ServiceType]}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{serviceLabels[t.service_type] || t.service_type}</p>
                 {t.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.description}</p>}
               </div>
             </motion.div>
@@ -430,8 +433,8 @@ const AdminTemplates = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(SERVICE_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  {services.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -446,7 +449,7 @@ const AdminTemplates = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">بدون تخصص</SelectItem>
-                  {SPECIALIZATIONS.map(s => (
+                  {specializations.map(s => (
                     <SelectItem key={s.id} value={s.id}>{s.icon} {s.label}</SelectItem>
                   ))}
                 </SelectContent>

@@ -1,27 +1,19 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon, CreditCard, FileText, Receipt, ClipboardList, UtensilsCrossed, Mail, ShoppingCart } from 'lucide-react';
+import { TrendingUp, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon, ShoppingCart } from 'lucide-react';
 import NotificationBell from '@/components/NotificationBell';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SERVICES, SERVICE_LABELS } from '@/data/mockData';
-import type { ServiceType } from '@/data/mockData';
+import { useServices } from '@/hooks/useServices';
 
-const SERVICE_ICONS: Record<string, React.ReactNode> = {
-  business_card: <CreditCard className="w-6 h-6" />,
-  flyer: <FileText className="w-6 h-6" />,
-  receipt: <Receipt className="w-6 h-6" />,
-  letterhead: <ClipboardList className="w-6 h-6" />,
-  menu: <UtensilsCrossed className="w-6 h-6" />,
-  invitation: <Mail className="w-6 h-6" />,
-};
 
 const Layout = ({ children }: { children: ReactNode }) => {
   const { pathname } = useLocation();
   const { user, role, signOut, loading } = useAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
+  const { services } = useServices();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dark, setDark] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -157,12 +149,12 @@ const Layout = ({ children }: { children: ReactNode }) => {
         <div className="bg-card/50 backdrop-blur-sm border-b border-border/30">
           <div className="container">
             <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide py-3 px-1">
-              {SERVICES.map((service) => {
-                const isActive = pathname.includes(`/specializations/${service.type}`) || pathname.includes(`/templates/${service.type}`);
+              {services.map((service) => {
+                const isActive = pathname.includes(`/specializations/${service.id}`) || pathname.includes(`/templates/${service.id}`);
                 return (
                   <Link
-                    key={service.type}
-                    to={`/specializations/${service.type}`}
+                    key={service.id}
+                    to={`/specializations/${service.id}`}
                     className="flex flex-col items-center gap-1.5 min-w-[60px] group"
                   >
                     <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${
@@ -170,12 +162,12 @@ const Layout = ({ children }: { children: ReactNode }) => {
                         ? 'bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30'
                         : 'bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary group-hover:shadow-sm'
                     }`}>
-                      {SERVICE_ICONS[service.type]}
+                      <span className="text-xl">{service.icon}</span>
                     </div>
                     <span className={`text-[11px] font-semibold whitespace-nowrap transition-colors duration-150 ${
                       isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
                     }`}>
-                      {SERVICE_LABELS[service.type as ServiceType]}
+                      {service.label}
                     </span>
                   </Link>
                 );
@@ -214,15 +206,15 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 {/* Services links mobile */}
                 <div className="pt-3 border-t border-border/30 mt-3">
                   <p className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">خدماتنا</p>
-                  {SERVICES.map(service => (
+                  {services.map(service => (
                     <Link
-                      key={service.type}
-                      to={`/specializations/${service.type}`}
+                      key={service.id}
+                      to={`/specializations/${service.id}`}
                       onClick={closeMobile}
                       className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150"
                     >
-                      <span className="text-primary">{SERVICE_ICONS[service.type]}</span>
-                      {SERVICE_LABELS[service.type as ServiceType]}
+                      <span className="text-primary text-lg">{service.icon}</span>
+                      {service.label}
                     </Link>
                   ))}
                 </div>
