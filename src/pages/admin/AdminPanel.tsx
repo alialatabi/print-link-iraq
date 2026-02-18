@@ -20,6 +20,7 @@ import {
 
 import AdminTemplates from '@/components/admin/AdminTemplates';
 import AdminAccounts from '@/components/admin/AdminAccounts';
+import AdminCustomers from '@/components/admin/AdminCustomers';
 
 const ORDER_STATUSES: OrderStatus[] = [
   'draft', 'submitted', 'assigned', 'design_uploaded',
@@ -259,7 +260,7 @@ const AdminPanel = () => {
         </div>
 
         <Tabs defaultValue="orders" dir="rtl">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ClipboardList className="w-4 h-4" />
               <span className="hidden sm:inline">الطلبات</span>
@@ -275,6 +276,10 @@ const AdminPanel = () => {
             <TabsTrigger value="designers" className="flex items-center gap-2">
               <Palette className="w-4 h-4" />
               <span className="hidden sm:inline">المصممين</span>
+            </TabsTrigger>
+            <TabsTrigger value="customers" className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">الزبائن</span>
             </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -549,16 +554,22 @@ const AdminPanel = () => {
             </div>
           </TabsContent>
 
-          {/* USERS TAB */}
+          {/* CUSTOMERS TAB */}
+          <TabsContent value="customers">
+            <AdminCustomers />
+          </TabsContent>
+
+          {/* USERS TAB - Designers & Admins only */}
           <TabsContent value="users">
             <div className="space-y-3">
-              {allUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground mb-4">إدارة صلاحيات المصممين والأدمن</p>
+              {allUsers.filter(u => u.roles.includes('designer') || u.roles.includes('admin')).length === 0 ? (
                 <div className="text-center py-16">
                   <Users className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-                  <p className="text-muted-foreground text-lg">لا يوجد مستخدمين</p>
+                  <p className="text-muted-foreground text-lg">لا يوجد مصممين أو أدمن</p>
                 </div>
               ) : (
-                allUsers.map((u, i) => (
+                allUsers.filter(u => u.roles.includes('designer') || u.roles.includes('admin')).map((u, i) => (
                   <motion.div
                     key={u.user_id}
                     initial={{ opacity: 0, y: 12 }}
