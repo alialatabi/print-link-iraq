@@ -26,6 +26,7 @@ import AdminPanel from "./pages/admin/AdminPanel";
 import TemplateDetails from "./pages/customer/TemplateDetails";
 import CartPage from "./pages/customer/CartPage";
 import CheckoutPage from "./pages/customer/CheckoutPage";
+import CompleteProfile from "./pages/customer/CompleteProfile";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => (
 
                 {/* Authenticated customer routes */}
                 <Route path="/order/:templateId" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
+                <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
                 <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
                 <Route path="/verify-otp" element={<ProtectedRoute><OTPVerification /></ProtectedRoute>} />
                 <Route path="/order-success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />

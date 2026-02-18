@@ -26,8 +26,11 @@ const AuthPage = () => {
     const { error, isNewUser } = await phoneLogin(phone, password || undefined);
     if (error) {
       toast({ title: 'خطأ في تسجيل الدخول', description: error.message, variant: 'destructive' });
+    } else if (isNewUser) {
+      toast({ title: 'تم إنشاء حسابك بنجاح!' });
+      navigate('/complete-profile');
     } else {
-      toast({ title: isNewUser ? 'تم إنشاء حسابك بنجاح!' : 'تم تسجيل الدخول بنجاح!' });
+      toast({ title: 'تم تسجيل الدخول بنجاح!' });
       navigate('/');
     }
     setSubmitting(false);
