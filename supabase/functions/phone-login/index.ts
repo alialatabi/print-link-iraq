@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { phone } = await req.json();
+    const { phone, password } = await req.json();
 
     if (!phone || typeof phone !== "string" || phone.length < 10) {
       return new Response(
@@ -31,13 +31,13 @@ Deno.serve(async (req) => {
 
     // Create synthetic email for Supabase Auth
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
-    const deterministicPassword = `PHONE_AUTH_${normalizedPhone}_SECRET_KEY_2024`;
+    const loginPassword = password || `PHONE_AUTH_${normalizedPhone}_SECRET_KEY_2024`;
 
     // Try to sign in first (existing user)
     const { data: signInData } =
       await supabaseAdmin.auth.signInWithPassword({
         email: syntheticEmail,
-        password: deterministicPassword,
+        password: loginPassword,
       });
 
     if (signInData?.session) {
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const { data: signUpData, error: signUpError } =
       await supabaseAdmin.auth.admin.createUser({
         email: syntheticEmail,
-        password: deterministicPassword,
+        password: loginPassword,
         phone: normalizedPhone,
         email_confirm: true,
         user_metadata: { display_name: normalizedPhone, phone: normalizedPhone },
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     const { data: newSession, error: newSignInError } =
       await supabaseAdmin.auth.signInWithPassword({
         email: syntheticEmail,
-        password: deterministicPassword,
+        password: loginPassword,
       });
 
     if (newSignInError || !newSession?.session) {

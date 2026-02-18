@@ -5,11 +5,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { TrendingUp, Phone, ArrowRight, Loader2 } from 'lucide-react';
+import { TrendingUp, Phone, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const AuthPage = () => {
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { phoneLogin } = useAuth();
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ const AuthPage = () => {
       return;
     }
     setSubmitting(true);
-    const { error, isNewUser } = await phoneLogin(phone);
+    const { error, isNewUser } = await phoneLogin(phone, password || undefined);
     if (error) {
       toast({ title: 'خطأ في تسجيل الدخول', description: error.message, variant: 'destructive' });
     } else {
@@ -72,6 +73,21 @@ const AuthPage = () => {
                 className="text-left text-lg tracking-wider"
                 required
                 autoFocus
+              />
+            </div>
+
+            <div>
+              <Label className="text-foreground text-sm mb-2 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-muted-foreground" />
+                كلمة المرور <span className="text-muted-foreground">(اختياري)</span>
+              </Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="للمشرفين فقط"
+                dir="ltr"
+                className="text-left"
               />
             </div>
 
