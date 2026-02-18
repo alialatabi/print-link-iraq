@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { TrendingUp, Phone, Lock, ArrowRight, Loader2, Shield, RotateCcw } from 'lucide-react';
+import { TrendingUp, Phone, Lock, ArrowRight, Loader2, Shield, RotateCcw, Timer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+const RESEND_COOLDOWN = 60;
 
 type Step = 'phone' | 'otp';
 
@@ -19,9 +21,17 @@ const AuthPage = () => {
   const [otp, setOtp] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const { phoneLogin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => setCountdown(prev => prev - 1), 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
 
   const sendOtp = async () => {
     if (!phone.trim() || phone.length < 10) {
@@ -38,6 +48,7 @@ const AuthPage = () => {
       } else {
         toast({ title: 'تم إرسال رمز التحقق عبر واتساب' });
         setStep('otp');
+        setCountdown(RESEND_COOLDOWN);
       }
     } catch {
       toast({ title: 'خطأ غير متوقع', variant: 'destructive' });
@@ -186,6 +197,24 @@ const AuthPage = () => {
                   <p className="text-primary text-sm mt-1 font-medium" dir="ltr">{phone}</p>
                 </div>
 
+                {/* Countdown Timer */}
+                {countdown > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center justify-center gap-2 mb-5 py-2.5 px-4 rounded-xl bg-muted/60 border border-border/60"
+                  >
+                    <Timer className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-muted-foreground">
+                      يمكنك إعادة الإرسال بعد
+                    </span>
+                    <span className="text-sm font-bold text-primary tabular-nums min-w-[2ch] text-center" dir="ltr">
+                      {countdown}
+                    </span>
+                    <span className="text-sm text-muted-foreground">ثانية</span>
+                  </motion.div>
+                )}
+
                 <div className="flex justify-center mb-6" dir="ltr">
                   <InputOTP maxLength={6} value={otp} onChange={setOtp}>
                     <InputOTPGroup>
@@ -210,13 +239,22 @@ const AuthPage = () => {
                   </Button>
 
                   <div className="flex items-center justify-between">
-                    <Button variant="ghost" size="sm" onClick={() => { setStep('phone'); setOtp(''); }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setStep('phone'); setOtp(''); setCountdown(0); }}>
                       <ArrowRight className="w-4 h-4 ml-1" />
                       تغيير الرقم
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={handleResend} disabled={resending}>
-                      {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4 ml-1" />}
-                      إعادة الإرسال
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleResend}
+                      disabled={resending || countdown > 0}
+                    >
+                      {resending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RotateCcw className="w-4 h-4 ml-1" />
+                      )}
+                      {countdown > 0 ? `${countdown}` : 'إعادة الإرسال'}
                     </Button>
                   </div>
                 </div>
