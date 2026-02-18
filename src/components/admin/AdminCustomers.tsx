@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Search, Users, Phone, MapPin, Package, DollarSign } from 'lucide-react';
+import { Search, Users, Phone, MapPin, Package, DollarSign, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface CustomerData {
   user_id: string;
@@ -19,11 +19,15 @@ interface CustomerData {
   totalSpent: number;
 }
 
+type SortKey = 'display_name' | 'phone' | 'orderCount' | 'totalSpent';
+type SortDir = 'asc' | 'desc';
+
 const AdminCustomers = () => {
   const [customers, setCustomers] = useState<CustomerData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-
+  const [sortKey, setSortKey] = useState<SortKey>('orderCount');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const loadCustomers = useCallback(async () => {
     // Get all customer role user_ids
     const { data: roleData } = await supabase
@@ -70,6 +74,20 @@ const AdminCustomers = () => {
 
   const fmt = (n: number) => n.toLocaleString('en-US');
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
+    return sortDir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />;
+  };
+
   let filtered = customers;
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
@@ -80,6 +98,17 @@ const AdminCustomers = () => {
       (c.area || '').toLowerCase().includes(q)
     );
   }
+
+  // Apply sorting
+  filtered = [...filtered].sort((a, b) => {
+    let valA: any, valB: any;
+    if (sortKey === 'display_name') { valA = (a.display_name || '').toLowerCase(); valB = (b.display_name || '').toLowerCase(); }
+    else if (sortKey === 'phone') { valA = a.phone || ''; valB = b.phone || ''; }
+    else { valA = a[sortKey]; valB = b[sortKey]; }
+    if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   const totalCustomers = customers.length;
   const totalSpentAll = customers.reduce((s, c) => s + c.totalSpent, 0);
@@ -131,11 +160,19 @@ const AdminCustomers = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="text-right text-[11px] font-semibold">الاسم</TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold">الهاتف</TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold cursor-pointer select-none" onClick={() => handleSort('display_name')}>
+                    <span className="inline-flex items-center gap-1">الاسم <SortIcon col="display_name" /></span>
+                  </TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold cursor-pointer select-none" onClick={() => handleSort('phone')}>
+                    <span className="inline-flex items-center gap-1">الهاتف <SortIcon col="phone" /></span>
+                  </TableHead>
                   <TableHead className="text-right text-[11px] font-semibold">العنوان</TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold w-[80px]">الطلبات</TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold w-[100px]">المبلغ المدفوع</TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold w-[80px] cursor-pointer select-none" onClick={() => handleSort('orderCount')}>
+                    <span className="inline-flex items-center gap-1">الطلبات <SortIcon col="orderCount" /></span>
+                  </TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold w-[100px] cursor-pointer select-none" onClick={() => handleSort('totalSpent')}>
+                    <span className="inline-flex items-center gap-1">المبلغ المدفوع <SortIcon col="totalSpent" /></span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
