@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
 type AppRole = 'customer' | 'designer' | 'admin';
+type SignOutCallback = () => void;
 
 interface AuthState {
   user: User | null;
@@ -88,10 +89,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setRole(null);
+    await supabase.auth.signOut();
   };
 
   return (
