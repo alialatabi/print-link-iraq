@@ -116,7 +116,7 @@ const Index = () => {
                   custom={i + 1}
                 >
                   <Link
-                    to={`/order/${template.id}`}
+                    to={`/template/${template.id}`}
                     className="group block rounded-2xl overflow-hidden border border-border/60 hover:border-primary/20 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 bg-card"
                   >
                     <div className="aspect-[3/4] bg-muted/40 flex items-center justify-center overflow-hidden">
