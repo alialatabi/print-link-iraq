@@ -24,15 +24,37 @@ Deno.serve(async (req) => {
     // Normalize phone: ensure it starts with country code
     const normalizedPhone = phone.replace(/\s+/g, "").replace(/^0/, "964");
 
-    // Generate 6-digit OTP
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-    // Save OTP to database
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    // Check if user already exists — if so, auto-login (no OTP needed for returning users)
+    const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
+    const deterministicPassword = `PHONE_AUTH_${normalizedPhone}_SECRET_KEY_2024`;
+
+    const { data: signInData } = await supabaseAdmin.auth.signInWithPassword({
+      email: syntheticEmail,
+      password: deterministicPassword,
+    });
+
+    if (signInData?.session) {
+      // Existing user — return session directly, skip OTP
+      return new Response(
+        JSON.stringify({
+          success: true,
+          existingUser: true,
+          session: signInData.session,
+          phone: normalizedPhone,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // New user — send OTP for first-time verification
+    // Generate 6-digit OTP
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     // Invalidate previous unused codes for this phone
     await supabaseAdmin
@@ -96,7 +118,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, phone: normalizedPhone }),
+      JSON.stringify({ success: true, existingUser: false, phone: normalizedPhone }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
