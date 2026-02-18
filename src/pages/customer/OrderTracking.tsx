@@ -210,13 +210,15 @@ const OrderTracking = () => {
                     <img
                       src={previewUrl}
                       alt="معاينة التصميم"
-                      className="w-full max-h-[500px] object-contain"
+                      className="w-full object-contain cursor-pointer"
+                      onClick={() => window.open(previewUrl!, '_blank')}
                       onError={() => {
                         setPreviewUrl(null);
                         toast({ title: 'فشل تحميل المعاينة', variant: 'destructive' });
                       }}
                     />
                   </div>
+                  <p className="text-center text-muted-foreground text-[11px] mt-2">اضغط على الصورة لفتحها بالحجم الكامل</p>
                 </motion.div>
               )}
 
