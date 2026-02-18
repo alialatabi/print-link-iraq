@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
     // Generate 6-digit OTP
     const code = String(Math.floor(100000 + Math.random() * 900000));
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     // Save OTP to database
     const supabaseAdmin = createClient(
@@ -54,50 +54,43 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Send via WhatsApp Business API
-    const accessToken = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
-    const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
+    // Send via Twilio WhatsApp
+    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    const fromNumber = Deno.env.get("TWILIO_WHATSAPP_FROM");
 
-    if (!accessToken || !phoneNumberId) {
-      console.error("WhatsApp credentials not configured");
+    if (!accountSid || !authToken || !fromNumber) {
+      console.error("Twilio credentials not configured");
       return new Response(
         JSON.stringify({ error: "خدمة الرسائل غير مهيأة" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const waResponse = await fetch(
-      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: normalizedPhone,
-          type: "template",
-          template: {
-            name: "otp_code",
-            language: { code: "ar" },
-            components: [
-              {
-                type: "body",
-                parameters: [{ type: "text", text: code }],
-              },
-            ],
-          },
-        }),
-      }
-    );
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+    const credentials = btoa(`${accountSid}:${authToken}`);
 
-    const waData = await waResponse.json();
+    const body = new URLSearchParams({
+      From: `whatsapp:${fromNumber}`,
+      To: `whatsapp:+${normalizedPhone}`,
+      Body: `رمز التحقق الخاص بك هو: ${code}\n\nصالح لمدة 5 دقائق.`,
+    });
 
-    if (!waResponse.ok) {
-      console.error("WhatsApp API error:", JSON.stringify(waData));
+    const twilioResponse = await fetch(twilioUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+    });
+
+    const twilioData = await twilioResponse.json();
+
+    if (!twilioResponse.ok) {
+      console.error("Twilio API error:", JSON.stringify(twilioData));
       return new Response(
-        JSON.stringify({ error: "فشل إرسال رمز التحقق", details: waData }),
+        JSON.stringify({ error: "فشل إرسال رمز التحقق", details: twilioData }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
