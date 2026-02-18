@@ -9,24 +9,29 @@ import { FileText, Eye, ShoppingBag, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const MyOrders = () => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       if (!user) return;
-      const { data } = await supabase
+      let query = supabase
         .from('orders')
         .select('*, templates(name, service_type, price)')
-        .eq('customer_id', user.id)
         .order('created_at', { ascending: false });
+      
+      // Admins see all orders, customers see only their own
+      if (role !== 'admin') {
+        query = query.eq('customer_id', user.id);
+      }
+      
+      const { data } = await query;
       setOrders(data || []);
       setLoading(false);
     };
     load();
-  }, [user]);
-
+  }, [user, role]);
   const formatPrice = (price: number | null, quantity: number) => {
     if (!price) return '-';
     const total = (price / 1000) * quantity;
