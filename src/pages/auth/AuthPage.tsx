@@ -48,26 +48,26 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="py-12 sm:py-20">
+    <div className="py-16 sm:py-24">
       <div className="container max-w-md">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card rounded-2xl p-7 sm:p-8 shadow-sm border border-border/60"
+          className="bg-card rounded-2xl p-7 sm:p-9 shadow-card border border-border/60"
         >
           <div className="text-center mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-5">
               <TrendingUp className="w-7 h-7 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
               {isLogin ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
             </h1>
-            <p className="text-muted-foreground text-sm mt-2">
+            <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
               {isLogin ? 'أدخل بياناتك لتسجيل الدخول' : 'أنشئ حسابك للبدء'}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {!isLogin && (
               <>
                 <div>
@@ -144,7 +144,7 @@ const AuthPage = () => {
               />
             </div>
 
-            <div className="pt-2">
+            <div className="pt-3">
               <Button
                 type="submit"
                 size="lg"
@@ -168,10 +168,10 @@ const AuthPage = () => {
             </div>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-8 text-center">
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline text-sm font-medium transition-colors duration-200"
+              className="text-primary hover:underline text-sm font-medium transition-colors duration-150"
             >
               {isLogin ? 'ليس لديك حساب؟ أنشئ حساباً جديداً' : 'لديك حساب بالفعل؟ سجل الدخول'}
             </button>

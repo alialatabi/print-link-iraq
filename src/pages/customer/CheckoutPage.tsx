@@ -173,7 +173,7 @@ const CheckoutPage = () => {
 
   if (loading) {
     return (
-      <div className="py-20 text-center">
+      <div className="py-24 text-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
       </div>
     );
@@ -185,18 +185,18 @@ const CheckoutPage = () => {
   const vals = formData[currentItem.templateId] || {};
 
   return (
-    <div className="py-8 sm:py-14">
+    <div className="section-spacing-sm">
       <div className="container max-w-2xl">
-        <Link to="/cart" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-all duration-200">
+        <Link to="/cart" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
           <ArrowRight className="w-4 h-4" />
           العودة للسلة
         </Link>
 
         {/* Progress */}
-        <div className="mb-8">
+        <div className="mb-10">
           <div className="flex items-center justify-between mb-3">
-            <h1 className="text-xl font-bold text-foreground">تفاصيل التصميم</h1>
-            <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-lg">{currentStep + 1} من {totalSteps}</span>
+            <h1 className="text-xl font-extrabold text-foreground tracking-tight">تفاصيل التصميم</h1>
+            <span className="text-xs font-medium text-muted-foreground bg-muted px-3 py-1 rounded-lg">{currentStep + 1} من {totalSteps}</span>
           </div>
           <div className="flex gap-1.5">
             {items.map((_, i) => (
@@ -215,9 +215,9 @@ const CheckoutPage = () => {
           key={currentItem.templateId}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="mb-6"
+          className="mb-8"
         >
-          <div className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border/60 shadow-sm">
+          <div className="flex items-center gap-4 p-5 rounded-2xl bg-card border border-border/60 shadow-card">
             <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0 flex items-center justify-center">
               {currentItem.previewUrl ? (
                 <img src={currentItem.previewUrl} alt={currentItem.templateName} className="w-full h-full object-cover" />
@@ -237,7 +237,7 @@ const CheckoutPage = () => {
           {currentStep > 0 && (
             <button
               onClick={copyFromPrevious}
-              className="flex items-center gap-2 mt-3 text-sm text-primary hover:text-primary/80 transition-colors duration-200 font-medium"
+              className="flex items-center gap-2 mt-3 text-sm text-primary hover:text-primary/80 transition-colors duration-150 font-medium"
             >
               <Copy className="w-4 h-4" />
               نسخ البيانات من القالب السابق
@@ -250,7 +250,7 @@ const CheckoutPage = () => {
           key={`form-${currentItem.templateId}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
+          className="space-y-5"
           onSubmit={e => { e.preventDefault(); currentStep === totalSteps - 1 ? handleSubmit() : goNext(); }}
         >
           {fields.map((f: any) => {
@@ -290,7 +290,7 @@ const CheckoutPage = () => {
           </div>
 
           {/* Navigation */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-6">
             {currentStep > 0 && (
               <Button type="button" variant="outline" onClick={goPrev} className="flex-1 h-12 gap-2">
                 <ChevronRight className="w-4 h-4" />

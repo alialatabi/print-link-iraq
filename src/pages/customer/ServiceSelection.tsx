@@ -6,12 +6,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { CreditCard, FileText, Receipt, ClipboardList, UtensilsCrossed, Mail } from 'lucide-react';
 
 const ICONS: Record<string, React.ReactNode> = {
-  business_card: <CreditCard className="w-12 h-12" />,
-  flyer: <FileText className="w-12 h-12" />,
-  receipt: <Receipt className="w-12 h-12" />,
-  letterhead: <ClipboardList className="w-12 h-12" />,
-  menu: <UtensilsCrossed className="w-12 h-12" />,
-  invitation: <Mail className="w-12 h-12" />,
+  business_card: <CreditCard className="w-10 h-10" />,
+  flyer: <FileText className="w-10 h-10" />,
+  receipt: <Receipt className="w-10 h-10" />,
+  letterhead: <ClipboardList className="w-10 h-10" />,
+  menu: <UtensilsCrossed className="w-10 h-10" />,
+  invitation: <Mail className="w-10 h-10" />,
 };
 
 const ServiceSelection = () => {
@@ -47,32 +47,32 @@ const ServiceSelection = () => {
   };
 
   return (
-    <div className="py-12">
+    <div className="section-spacing-sm">
       <div className="container max-w-4xl">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-foreground mb-3">اختر نوع الخدمة</h1>
-          <p className="text-muted-foreground">حدد نوع المطبوعة التي تريد تصميمها</p>
+        <div className="text-center mb-12">
+          <h1 className="text-3xl font-extrabold text-foreground mb-3 tracking-tight">اختر نوع الخدمة</h1>
+          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">حدد نوع المطبوعة التي تريد تصميمها</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-5 sm:gap-6">
           {SERVICES.map((service, i) => (
             <motion.div
               key={service.type}
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.08 }}
+              transition={{ delay: i * 0.07 }}
             >
               <Link
                 to={`/templates/${service.type}`}
-                className="group block bg-card rounded-xl p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border"
+                className="group block bg-card rounded-2xl p-6 sm:p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60"
               >
-                <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4 group-hover:scale-105 transition-transform">
+                <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center text-primary mx-auto mb-5 group-hover:scale-105 transition-transform duration-200">
                   {ICONS[service.type]}
                 </div>
-                <h3 className="font-bold text-lg text-foreground mb-2">{SERVICE_LABELS[service.type]}</h3>
-                <p className="text-muted-foreground text-sm">{service.description}</p>
+                <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{SERVICE_LABELS[service.type]}</h3>
+                <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">{service.description}</p>
                 {priceRanges[service.type] && (
-                  <p className="text-primary font-bold text-sm mt-3">
+                  <p className="text-primary font-bold text-sm mt-4">
                     {formatPrice(priceRanges[service.type]!)}
                   </p>
                 )}

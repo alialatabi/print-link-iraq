@@ -81,7 +81,7 @@ const TemplateDetails = () => {
 
   if (loading) {
     return (
-      <div className="py-20 text-center">
+      <div className="py-24 text-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
       </div>
     );
@@ -89,11 +89,11 @@ const TemplateDetails = () => {
 
   if (!template) {
     return (
-      <div className="py-20 text-center">
+      <div className="py-24 text-center">
         <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
           <Palette className="w-8 h-8 text-muted-foreground" />
         </div>
-        <p className="text-muted-foreground text-lg mb-3">القالب غير موجود</p>
+        <p className="text-muted-foreground text-base mb-3">القالب غير موجود</p>
         <Link to="/" className="text-primary hover:underline text-sm">العودة للرئيسية</Link>
       </div>
     );
@@ -102,19 +102,19 @@ const TemplateDetails = () => {
   const serviceLabel = SERVICE_LABELS[template.service_type as ServiceType] || 'تصميم';
 
   return (
-    <div className="py-8 sm:py-14">
+    <div className="section-spacing-sm">
       <div className="container max-w-5xl">
-        <Link to={`/templates/${template.service_type}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-all duration-200">
+        <Link to={`/templates/${template.service_type}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
           <ArrowRight className="w-4 h-4" />
           العودة للقوالب
         </Link>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12">
           {/* Template Image */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="rounded-2xl overflow-hidden border border-border/60 shadow-sm bg-card"
+            className="rounded-2xl overflow-hidden border border-border/60 shadow-card bg-card"
           >
             {template.preview_url ? (
               <div style={{ aspectRatio: TEMPLATE_ASPECT_RATIOS[template.service_type as ServiceType] || '3/4' }} className="overflow-hidden">
@@ -125,7 +125,7 @@ const TemplateDetails = () => {
                 />
               </div>
             ) : (
-              <div className="bg-gradient-to-br from-muted/50 to-muted flex items-center justify-center" style={{ aspectRatio: TEMPLATE_ASPECT_RATIOS[template.service_type as ServiceType] || '3/4' }}>
+              <div className="bg-muted/40 flex items-center justify-center" style={{ aspectRatio: TEMPLATE_ASPECT_RATIOS[template.service_type as ServiceType] || '3/4' }}>
                 <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center">
                   <Palette className="w-10 h-10 text-primary" />
                 </div>
@@ -137,22 +137,22 @@ const TemplateDetails = () => {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex flex-col gap-5"
+            className="flex flex-col gap-6"
           >
             {/* Title & Service Badge */}
             <div>
               <span className="inline-block px-3 py-1 rounded-lg bg-primary/8 text-primary text-xs font-semibold mb-3">
                 {serviceLabel}
               </span>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{template.name}</h1>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">{template.name}</h1>
               {template.description && (
-                <p className="text-muted-foreground mt-2 leading-relaxed text-sm sm:text-base">{template.description}</p>
+                <p className="text-muted-foreground mt-3 leading-relaxed text-sm sm:text-base">{template.description}</p>
               )}
             </div>
 
             {/* Info Cards */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/40 border border-border/60">
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-muted/40 border border-border/50">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                   <Layers className="w-5 h-5 text-primary" />
                 </div>
@@ -161,7 +161,7 @@ const TemplateDetails = () => {
                   <p className="font-bold text-foreground text-sm">{serviceLabel}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/40 border border-border/60">
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-muted/40 border border-border/50">
                 <div className="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center shrink-0">
                   <Clock className="w-5 h-5 text-accent-foreground" />
                 </div>
@@ -173,18 +173,18 @@ const TemplateDetails = () => {
             </div>
 
             {/* Price per 1000 */}
-            <div className="p-5 rounded-xl bg-primary/5 border border-primary/15">
+            <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10">
               <div className="flex items-center gap-2 mb-1">
                 <Info className="w-4 h-4 text-primary" />
                 <p className="text-xs text-muted-foreground">سعر الألف نسخة</p>
               </div>
-              <p className="text-2xl font-bold text-primary">
+              <p className="text-2xl font-extrabold text-primary">
                 {unitPrice.toLocaleString('ar-IQ')} <span className="text-sm font-medium">د.ع</span>
               </p>
             </div>
 
             {/* Quantity Selector */}
-            <div className="p-5 rounded-xl bg-card border border-border/60">
+            <div className="p-5 rounded-2xl bg-card border border-border/60">
               <label className="text-sm font-bold text-foreground mb-3 block">الكمية (بالآلاف)</label>
               <div className="flex items-center gap-4">
                 <Button
@@ -197,7 +197,7 @@ const TemplateDetails = () => {
                   <Minus className="w-5 h-5" />
                 </Button>
                 <div className="flex-1 text-center">
-                  <span className="text-3xl font-bold text-foreground">{quantity}</span>
+                  <span className="text-3xl font-extrabold text-foreground">{quantity}</span>
                   <span className="text-muted-foreground text-sm mr-1">ألف</span>
                   <p className="text-xs text-muted-foreground mt-0.5">({(quantity * 1000).toLocaleString('ar-IQ')} نسخة)</p>
                 </div>
@@ -213,10 +213,10 @@ const TemplateDetails = () => {
             </div>
 
             {/* Total & Order Buttons */}
-            <div className="p-5 rounded-xl bg-muted/30 border border-border/60">
+            <div className="p-5 rounded-2xl bg-muted/30 border border-border/50">
               <div className="flex items-center justify-between mb-5">
                 <span className="text-muted-foreground font-medium text-sm">المجموع الكلي</span>
-                <span className="text-2xl font-bold text-primary">
+                <span className="text-2xl font-extrabold text-primary">
                   {totalPrice.toLocaleString('ar-IQ')} <span className="text-sm font-medium">د.ع</span>
                 </span>
               </div>

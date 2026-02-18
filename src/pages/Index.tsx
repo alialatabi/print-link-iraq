@@ -43,11 +43,11 @@ const FEATURES = [
 ];
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
+  hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.08, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] as const },
+    transition: { delay: i * 0.07, duration: 0.45, ease: [0.25, 0.1, 0.25, 1] as const },
   }),
 };
 
@@ -84,28 +84,28 @@ const Index = () => {
   return (
     <div className="overflow-hidden">
       {/* Best Selling Templates */}
-      <section className="py-16 sm:py-24 bg-background">
+      <section className="section-spacing bg-background">
         <div className="container max-w-5xl">
           <motion.div
-            className="text-center mb-12"
+            className="text-center mb-14"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: '-50px' }}
             variants={fadeUp}
             custom={0}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/8 text-primary text-sm font-semibold mb-4">
-              <ShoppingBag className="w-4 h-4" />
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/8 text-primary text-xs font-semibold mb-5">
+              <ShoppingBag className="w-3.5 h-3.5" />
               الأكثر طلباً
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-3 tracking-tight">
               القوالب المفضلة لعملائنا
             </h2>
-            <p className="text-muted-foreground text-base sm:text-lg max-w-md mx-auto">اختر من بين الأكثر شعبية واطلب مباشرة</p>
+            <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto leading-relaxed">اختر من بين الأكثر شعبية واطلب مباشرة</p>
           </motion.div>
 
           {popularTemplates.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-5 sm:gap-7">
               {popularTemplates.map((template, i) => (
                 <motion.div
                   key={template.id}
@@ -117,29 +117,29 @@ const Index = () => {
                 >
                   <Link
                     to={`/order/${template.id}`}
-                    className="group block rounded-2xl overflow-hidden border border-border/60 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1 bg-card"
+                    className="group block rounded-2xl overflow-hidden border border-border/60 hover:border-primary/20 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 bg-card"
                   >
-                    <div className="aspect-[3/4] bg-gradient-to-br from-muted/50 to-muted flex items-center justify-center overflow-hidden">
+                    <div className="aspect-[3/4] bg-muted/40 flex items-center justify-center overflow-hidden">
                       {template.preview_url ? (
-                        <img src={template.preview_url} alt={template.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <img src={template.preview_url} alt={template.name} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500" />
                       ) : (
                         <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                           <Palette className="w-7 h-7 text-primary" />
                         </div>
                       )}
                     </div>
-                    <div className="p-4">
+                    <div className="p-4 sm:p-5">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <h4 className="font-bold text-foreground text-sm truncate">{template.name}</h4>
                         {template.price != null && (
                           <span className="text-xs font-bold text-primary whitespace-nowrap">{template.price.toLocaleString('ar-IQ')} د.ع</span>
                         )}
                       </div>
-                      <p className="text-muted-foreground text-xs mb-2.5 line-clamp-1">{template.description}</p>
+                      <p className="text-muted-foreground text-xs mb-3 line-clamp-1">{template.description}</p>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">{SERVICE_LABELS[template.service_type as ServiceType]}</span>
+                        <span className="text-[11px] text-muted-foreground">{SERVICE_LABELS[template.service_type as ServiceType]}</span>
                         {template.order_count > 0 && (
-                          <span className="text-[11px] bg-primary/8 text-primary px-2.5 py-0.5 rounded-full font-medium">{template.order_count} طلب</span>
+                          <span className="text-[10px] bg-primary/8 text-primary px-2.5 py-0.5 rounded-full font-medium">{template.order_count} طلب</span>
                         )}
                       </div>
                     </div>
@@ -148,15 +148,15 @@ const Index = () => {
               ))}
             </div>
           ) : (
-            <div className="text-center py-16">
+            <div className="text-center py-20">
               <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3">
                 <ShoppingBag className="w-6 h-6 text-muted-foreground" />
               </div>
-              <p className="text-muted-foreground">جاري تحميل القوالب...</p>
+              <p className="text-muted-foreground text-sm">جاري تحميل القوالب...</p>
             </div>
           )}
 
-          <div className="text-center mt-10">
+          <div className="text-center mt-12">
             <Link to="/services">
               <Button variant="outline" size="lg" className="gap-2">
                 عرض جميع الخدمات
@@ -168,21 +168,21 @@ const Index = () => {
       </section>
 
       {/* How it works */}
-      <section className="py-16 sm:py-24 bg-muted/30">
+      <section className="section-spacing bg-muted/30">
         <div className="container max-w-4xl">
           <motion.div
-            className="text-center mb-12"
+            className="text-center mb-14"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: '-50px' }}
             variants={fadeUp}
             custom={0}
           >
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">كيف يعمل؟</h2>
-            <p className="text-muted-foreground text-base sm:text-lg">أربع خطوات بسيطة للحصول على تصميمك</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-3 tracking-tight">كيف يعمل؟</h2>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">أربع خطوات بسيطة للحصول على تصميمك</p>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5 sm:gap-8">
             {STEPS.map((s, i) => (
               <motion.div
                 key={i}
@@ -193,7 +193,7 @@ const Index = () => {
                 variants={fadeUp}
                 custom={i + 1}
               >
-                <div className={`w-14 h-14 rounded-2xl ${s.color} flex items-center justify-center mx-auto mb-4 text-base font-bold transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg ${s.color === 'bg-cmyk-yellow' ? 'text-foreground' : 'text-primary-foreground'}`}>
+                <div className={`w-14 h-14 rounded-2xl ${s.color} flex items-center justify-center mx-auto mb-4 text-base font-bold transition-all duration-300 group-hover:scale-110 group-hover:shadow-elevated ${s.color === 'bg-cmyk-yellow' ? 'text-foreground' : 'text-primary-foreground'}`}>
                   {s.step}
                 </div>
                 <h3 className="font-bold text-foreground mb-1.5 text-sm sm:text-base">{s.label}</h3>
@@ -205,32 +205,32 @@ const Index = () => {
       </section>
 
       {/* Features */}
-      <section className="py-16 sm:py-24 bg-background">
+      <section className="section-spacing bg-background">
         <div className="container max-w-4xl">
           <motion.div
-            className="text-center mb-12"
+            className="text-center mb-14"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: '-50px' }}
             variants={fadeUp}
             custom={0}
           >
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">لماذا ترندي؟</h2>
-            <p className="text-muted-foreground text-base sm:text-lg">نسهّل عليك عملية التصميم من البداية للنهاية</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-3 tracking-tight">لماذا ترندي؟</h2>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">نسهّل عليك عملية التصميم من البداية للنهاية</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid md:grid-cols-3 gap-5 sm:gap-7">
             {FEATURES.map((f, i) => (
               <motion.div
                 key={i}
-                className="bg-card rounded-2xl p-7 border border-border/60 text-center hover:shadow-lg hover:border-border transition-all duration-300 hover:-translate-y-1"
+                className="bg-card rounded-2xl p-7 sm:p-8 border border-border/60 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1"
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true, margin: '-20px' }}
                 variants={fadeUp}
                 custom={i + 1}
               >
-                <div className={`w-12 h-12 rounded-2xl ${f.bg} flex items-center justify-center ${f.color} mx-auto mb-4`}>
+                <div className={`w-12 h-12 rounded-2xl ${f.bg} flex items-center justify-center ${f.color} mx-auto mb-5`}>
                   <f.icon className="w-6 h-6" />
                 </div>
                 <h4 className="font-bold text-foreground text-base mb-2">{f.title}</h4>
@@ -242,7 +242,7 @@ const Index = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 sm:py-24 bg-secondary">
+      <section className="section-spacing bg-secondary">
         <div className="container max-w-3xl text-center">
           <motion.div
             initial="hidden"
@@ -251,14 +251,14 @@ const Index = () => {
             variants={fadeUp}
             custom={0}
           >
-            <h2 className="text-3xl sm:text-4xl font-bold text-secondary-foreground mb-4">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-secondary-foreground mb-4 tracking-tight">
               جاهز تبدأ؟
             </h2>
-            <p className="text-secondary-foreground/50 text-base sm:text-lg mb-8 max-w-md mx-auto">
+            <p className="text-secondary-foreground/50 text-sm sm:text-base mb-10 max-w-md mx-auto leading-relaxed">
               اطلب تصميمك الآن واحصل عليه بأسرع وقت وبأعلى جودة
             </p>
             <Link to="/services">
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-10 h-14 text-lg shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5">
+              <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-10 h-14 text-lg shadow-elevated transition-all duration-200 hover:-translate-y-0.5">
                 ابدأ الآن
                 <ArrowLeft className="w-5 h-5 mr-2" />
               </Button>

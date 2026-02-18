@@ -11,12 +11,12 @@ const CartPage = () => {
 
   if (items.length === 0) {
     return (
-      <div className="py-24 text-center">
+      <div className="py-28 text-center">
         <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center mx-auto mb-5">
           <ShoppingCart className="w-9 h-9 text-muted-foreground/40" />
         </div>
         <h2 className="text-xl font-bold text-foreground mb-2">السلة فارغة</h2>
-        <p className="text-muted-foreground text-sm mb-6">أضف قوالب من الخدمات المختلفة لبدء الطلب</p>
+        <p className="text-muted-foreground text-sm mb-8">أضف قوالب من الخدمات المختلفة لبدء الطلب</p>
         <Link to="/">
           <Button variant="outline" className="gap-2">
             <ArrowRight className="w-4 h-4" />
@@ -28,18 +28,18 @@ const CartPage = () => {
   }
 
   return (
-    <div className="py-8 sm:py-14">
+    <div className="section-spacing-sm">
       <div className="container max-w-3xl">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-all duration-200">
+        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
           <ArrowRight className="w-4 h-4" />
           متابعة التسوق
         </Link>
 
-        <h1 className="text-2xl font-bold text-foreground mb-6">
-          سلة المشتريات <span className="text-muted-foreground font-normal text-base">({items.length})</span>
+        <h1 className="text-2xl font-extrabold text-foreground mb-8 tracking-tight">
+          سلة المشتريات <span className="text-muted-foreground font-normal text-base mr-2">({items.length})</span>
         </h1>
 
-        <div className="space-y-3 mb-8">
+        <div className="space-y-4 mb-8">
           <AnimatePresence>
             {items.map(item => (
               <motion.div
@@ -48,7 +48,7 @@ const CartPage = () => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: 100 }}
-                className="flex gap-4 p-4 rounded-2xl bg-card border border-border/60 shadow-sm hover:shadow-md transition-shadow duration-200"
+                className="flex gap-4 p-5 rounded-2xl bg-card border border-border/60 shadow-card hover:shadow-card-hover transition-all duration-200"
               >
                 {/* Thumbnail */}
                 <div className="w-20 h-20 rounded-xl overflow-hidden bg-muted shrink-0 flex items-center justify-center">
@@ -70,7 +70,7 @@ const CartPage = () => {
                     </div>
                     <button
                       onClick={() => removeItem(item.templateId)}
-                      className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-all duration-200 shrink-0"
+                      className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-all duration-150 shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -113,10 +113,10 @@ const CartPage = () => {
         </div>
 
         {/* Summary */}
-        <div className="p-6 rounded-2xl bg-card border border-border/60 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
+        <div className="p-6 rounded-2xl bg-card border border-border/60 shadow-card">
+          <div className="flex items-center justify-between mb-6">
             <span className="text-muted-foreground font-medium">المجموع الكلي</span>
-            <span className="text-2xl font-bold text-primary">
+            <span className="text-2xl font-extrabold text-primary">
               {totalPrice.toLocaleString('ar-IQ')} <span className="text-sm font-medium">د.ع</span>
             </span>
           </div>
@@ -129,7 +129,7 @@ const CartPage = () => {
           </Button>
           <button
             onClick={clearCart}
-            className="w-full text-center text-xs text-muted-foreground hover:text-destructive mt-4 transition-colors duration-200"
+            className="w-full text-center text-xs text-muted-foreground hover:text-destructive mt-4 transition-colors duration-150"
           >
             تفريغ السلة
           </button>
