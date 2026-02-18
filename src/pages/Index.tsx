@@ -215,7 +215,7 @@ const Index = () => {
             variants={fadeUp}
             custom={0}
           >
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-3 tracking-tight">لماذا ترندي؟</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-3 tracking-tight">لماذا مطبعتي؟</h2>
             <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">نسهّل عليك عملية التصميم من البداية للنهاية</p>
           </motion.div>
 
