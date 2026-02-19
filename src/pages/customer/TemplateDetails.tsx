@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Clock, Info, Check } from 'lucide-react';
+import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Info, Check } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -17,15 +17,6 @@ interface DbTemplate {
   price: number | null;
   specializations: string[];
 }
-
-const PREPARATION_DAYS: Record<string, number> = {
-  business_card: 3,
-  flyer: 4,
-  receipt: 2,
-  letterhead: 3,
-  menu: 5,
-  invitation: 4,
-};
 
 const TemplateDetails = () => {
   const { templateId } = useParams<{ templateId: string }>();
@@ -52,7 +43,6 @@ const TemplateDetails = () => {
 
   const unitPrice = template?.price || 0;
   const totalPrice = unitPrice * quantity;
-  const prepDays = PREPARATION_DAYS[template?.service_type || ''] || 3;
 
   const decreaseQty = () => {
     if (quantity > 1) setQuantity(q => q - 1);
@@ -141,7 +131,7 @@ const TemplateDetails = () => {
             animate={{ opacity: 1, x: 0 }}
             className="flex flex-col gap-6"
           >
-            {/* Title & Service Badge */}
+            {/* Service Badge & ID */}
             <div>
               <span className="inline-block px-3 py-1 rounded-lg bg-primary/8 text-primary text-xs font-semibold mb-3">
                 {serviceLabel}
@@ -162,6 +152,13 @@ const TemplateDetails = () => {
                 {unitPrice.toLocaleString('en-US')} <span className="text-base font-bold">د.ع</span>
               </p>
             </div>
+
+            {/* Description */}
+            {template.description && (
+              <div className="p-4 rounded-2xl bg-muted/40 border border-border/50">
+                <p className="text-sm text-muted-foreground leading-relaxed">{template.description}</p>
+              </div>
+            )}
 
             {/* Quantity Selector */}
             <div className="p-5 rounded-2xl bg-card border border-border/60">
