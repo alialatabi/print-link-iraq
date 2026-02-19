@@ -63,7 +63,7 @@ const TemplateSelection = () => {
             <p className="text-muted-foreground text-sm">جاري التحميل...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {templates.map((template, i) => (
               <motion.div
                 key={template.id}

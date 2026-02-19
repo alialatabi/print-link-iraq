@@ -105,7 +105,7 @@ const Index = () => {
           </motion.div>
 
           {popularTemplates.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 sm:gap-7">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-7">
               {popularTemplates.map((template, i) => (
                 <motion.div
                   key={template.id}
