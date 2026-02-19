@@ -170,7 +170,7 @@ const DesignerOrderDetails = () => {
   const details = (order.details || {}) as Record<string, any>;
   const revisions: { note: string; date: string; version: number }[] = details.revisions || [];
   const canUpload = ['assigned', 'design_uploaded'].includes(order.status);
-  const canSendApproval = order.status === 'design_uploaded' && designs.length > 0;
+  const canSendApproval = ['assigned', 'design_uploaded'].includes(order.status) && designs.length > 0;
   const latestDesign = designs[0];
 
   const statusFlow: { status: OrderStatus; label: string; icon: typeof Clock }[] = [
