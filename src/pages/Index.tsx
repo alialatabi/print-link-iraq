@@ -128,21 +128,14 @@ const Index = () => {
                         </div>
                       )}
                     </div>
-                    <div className="p-4 sm:p-5">
-                      <h4 className="font-bold text-foreground text-sm truncate mb-2">{template.name}</h4>
+                    <div className="p-3 sm:p-4">
+                      <p className="font-mono font-bold text-primary text-xs tracking-widest mb-1">{template.id.slice(0, 8).toUpperCase()}</p>
                       {template.price != null && (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success/15 border border-success/20 mb-2">
-                          <span className="text-sm font-extrabold text-success">{template.price.toLocaleString('en-US')}</span>
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-success/15 border border-success/20">
+                          <span className="text-xs font-extrabold text-success">{template.price.toLocaleString('en-US')}</span>
                           <span className="text-[10px] font-semibold text-success/80">د.ع</span>
                         </div>
                       )}
-                      <p className="text-muted-foreground text-xs line-clamp-1">{template.description}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-muted-foreground">{SERVICE_LABELS[template.service_type as ServiceType]}</span>
-                        {template.order_count > 0 && (
-                          <span className="text-[10px] bg-primary/8 text-primary px-2.5 py-0.5 rounded-full font-medium">{template.order_count} طلب</span>
-                        )}
-                      </div>
                     </div>
                   </Link>
                 </motion.div>
