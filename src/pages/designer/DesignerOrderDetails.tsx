@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink } from 'lucide-react';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { OrderStatus } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
@@ -283,11 +284,57 @@ const DesignerOrderDetails = () => {
 
           {/* Customer Details */}
           <div className="bg-card rounded-xl p-6 border border-border mb-6">
+            {/* Ready Design Badge */}
+            {details.order_type === 'ready_design' && (
+              <div className="flex items-center gap-2 bg-cmyk-cyan/10 text-cmyk-cyan border border-cmyk-cyan/20 rounded-xl px-4 py-2.5 mb-4 text-sm font-semibold">
+                <Upload className="w-4 h-4" />
+                تصميم جاهز للمراجعة — نوع الطباعة: {details.service_type || '—'}
+              </div>
+            )}
+
             <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
               <FileText className="w-4 h-4 text-primary" />
-              تفاصيل التصميم من الزبون
+              {details.order_type === 'ready_design' ? 'ملف التصميم الجاهز' : 'تفاصيل التصميم من الزبون'}
             </h3>
-            {details.details ? (
+
+            {/* Ready design: show the file prominently */}
+            {details.order_type === 'ready_design' && Array.isArray(details.attachment_urls) && details.attachment_urls.length > 0 ? (
+              <div className="space-y-3">
+                {(details.attachment_urls as string[]).map((url: string, i: number) => {
+                  const ext = url.split('.').pop()?.toLowerCase() || '';
+                  const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(ext);
+                  return (
+                    <a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-xl overflow-hidden border border-border/60 bg-muted/20 group hover:border-primary/40 transition-colors"
+                    >
+                      {isImage ? (
+                        <div className="relative">
+                          <img src={url} alt="" className="w-full max-h-80 object-contain" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <ExternalLink className="w-8 h-8 text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 p-4">
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <FileText className="w-6 h-6 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground text-sm">{ext.toUpperCase()} — ملف التصميم</p>
+                            <p className="text-muted-foreground text-xs">اضغط لفتح الملف</p>
+                          </div>
+                          <ExternalLink className="w-4 h-4 text-muted-foreground mr-auto group-hover:text-primary transition-colors" />
+                        </div>
+                      )}
+                    </a>
+                  );
+                })}
+              </div>
+            ) : details.details ? (
               <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap bg-muted/30 rounded-xl p-4 border border-border/50">
                 {details.details}
               </p>
@@ -295,8 +342,8 @@ const DesignerOrderDetails = () => {
               <p className="text-muted-foreground text-sm">لا توجد تفاصيل</p>
             )}
 
-            {/* Customer attachments */}
-            {Array.isArray(details.attachment_urls) && details.attachment_urls.length > 0 && (
+            {/* Non-ready-design attachments */}
+            {details.order_type !== 'ready_design' && Array.isArray(details.attachment_urls) && details.attachment_urls.length > 0 && (
               <div className="mt-4 pt-4 border-t border-border">
                 <p className="text-xs font-bold text-foreground mb-3 flex items-center gap-2">
                   <Image className="w-4 h-4 text-primary" />
