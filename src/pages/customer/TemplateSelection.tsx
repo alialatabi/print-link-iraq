@@ -84,15 +84,14 @@ const TemplateSelection = () => {
                       </div>
                     )}
                   </div>
-                  <div className="p-4 sm:p-5 bg-card">
-                    <h4 className="font-bold text-foreground text-sm truncate mb-2">{template.name}</h4>
+                  <div className="p-3 sm:p-4 bg-card">
+                    <p className="font-mono font-bold text-primary text-xs tracking-widest mb-1">{template.id.slice(0, 8).toUpperCase()}</p>
                     {template.price != null && (
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success/15 border border-success/20 mb-2">
-                        <span className="text-sm font-extrabold text-success">{template.price.toLocaleString('en-US')}</span>
+                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-success/15 border border-success/20">
+                        <span className="text-xs font-extrabold text-success">{template.price.toLocaleString('en-US')}</span>
                         <span className="text-[10px] font-semibold text-success/80">د.ع</span>
                       </div>
                     )}
-                    <p className="text-muted-foreground text-xs mt-1 line-clamp-1">{template.description}</p>
                   </div>
                 </Link>
               </motion.div>

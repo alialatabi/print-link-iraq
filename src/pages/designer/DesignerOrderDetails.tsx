@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Upload, Send, User, Phone, MapPin, Briefcase, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle } from 'lucide-react';
+import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { OrderStatus } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
@@ -30,7 +30,7 @@ const DesignerOrderDetails = () => {
   const loadOrder = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('*, templates(name, service_type)')
+      .select('*, templates(name, service_type, preview_url)')
       .eq('id', orderId || '')
       .maybeSingle();
     setOrder(data);
@@ -230,64 +230,78 @@ const DesignerOrderDetails = () => {
             </div>
           </div>
 
+          {/* Template Info with copyable ID */}
+          <div className="bg-card rounded-xl border border-border mb-6 overflow-hidden">
+            {order.templates?.preview_url ? (
+              <img src={order.templates.preview_url} alt="القالب" className="w-full max-h-64 object-contain bg-muted/20" />
+            ) : (
+              <div className="h-32 bg-muted/20 flex items-center justify-center">
+                <Image className="w-10 h-10 text-muted-foreground/30" />
+              </div>
+            )}
+            <div className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">رقم القالب</p>
+                <p className="font-mono font-bold text-primary text-xl tracking-widest">
+                  {order.template_id ? order.template_id.slice(0, 8).toUpperCase() : '—'}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  if (order.template_id) {
+                    navigator.clipboard.writeText(order.template_id.slice(0, 8).toUpperCase());
+                    toast({ title: 'تم نسخ رقم القالب' });
+                  }
+                }}
+              >
+                <Copy className="w-4 h-4" />
+                نسخ الرقم
+              </Button>
+            </div>
+          </div>
+
           {/* Customer Details */}
           <div className="bg-card rounded-xl p-6 border border-border mb-6">
-            <h3 className="font-bold text-foreground mb-4">بيانات العميل</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              {details.name && (
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">الاسم:</span>
-                  <span className="font-medium text-foreground">{details.name}</span>
-                </div>
-              )}
-              {details.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">الهاتف:</span>
-                  <span className="font-medium text-foreground" dir="ltr">{details.phone}</span>
-                </div>
-              )}
-              {details.job_title && (
-                <div className="flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">الوظيفة:</span>
-                  <span className="font-medium text-foreground">{details.job_title}</span>
-                </div>
-              )}
-              {details.address && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">العنوان:</span>
-                  <span className="font-medium text-foreground">{details.address}</span>
-                </div>
-              )}
-            </div>
-            {details.notes && (
+            <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              تفاصيل التصميم من الزبون
+            </h3>
+            {details.details ? (
+              <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap bg-muted/30 rounded-xl p-4 border border-border/50">
+                {details.details}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-sm">لا توجد تفاصيل</p>
+            )}
+
+            {/* Customer attachments */}
+            {Array.isArray(details.attachment_urls) && details.attachment_urls.length > 0 && (
               <div className="mt-4 pt-4 border-t border-border">
-                <div className="flex items-start gap-2">
-                  <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
-                  <div>
-                    <span className="text-muted-foreground text-sm">ملاحظات:</span>
-                    <p className="text-foreground text-sm mt-1">{details.notes}</p>
-                  </div>
+                <p className="text-xs font-bold text-foreground mb-3 flex items-center gap-2">
+                  <Image className="w-4 h-4 text-primary" />
+                  صور / لوغوهات الزبون ({details.attachment_urls.length})
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(details.attachment_urls as string[]).map((url: string, i: number) => (
+                    <a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative rounded-xl overflow-hidden border border-border/60 aspect-square bg-muted/20 group hover:border-primary/40 transition-colors"
+                    >
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <ExternalLink className="w-5 h-5 text-white" />
+                      </div>
+                    </a>
+                  ))}
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Template Info */}
-          <div className="bg-card rounded-xl p-6 border border-border mb-6">
-            <h3 className="font-bold text-foreground mb-4">القالب</h3>
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-24 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-center">
-                <Image className="w-8 h-8 text-primary/40" />
-              </div>
-              <div>
-                <p className="font-bold text-foreground">{order.templates?.name}</p>
-                <p className="text-muted-foreground text-sm">{order.templates?.service_type}</p>
-              </div>
-            </div>
           </div>
 
           {/* Upload Section */}
