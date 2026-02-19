@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, CreditCard, FileText, Receipt,
-  Zap, Star, Users, ArrowLeft, CheckCircle, Palette, Truck, ShoppingBag
+  Zap, Star, Users, ArrowLeft, CheckCircle, Palette, Truck, ShoppingBag, Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SERVICES, SERVICE_LABELS } from '@/data/mockData';
@@ -83,6 +83,33 @@ const Index = () => {
 
   return (
     <div className="overflow-hidden">
+      {/* Upload Ready Design Banner */}
+      <section className="bg-primary/5 border-b border-primary/10">
+        <div className="container max-w-5xl py-8">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col sm:flex-row items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center flex-shrink-0">
+                <Upload className="w-6 h-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground text-base sm:text-lg">عندك تصميم جاهز؟</h3>
+                <p className="text-muted-foreground text-xs sm:text-sm">ارفع ملفك (PNG, PDF, PSD) وسنراجعه ونرسله للطباعة مباشرة</p>
+              </div>
+            </div>
+            <Link to="/upload-design">
+              <Button size="lg" className="gap-2 flex-shrink-0">
+                <Upload className="w-4 h-4" />
+                ارفع تصميمك الآن
+              </Button>
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Best Selling Templates */}
       <section className="section-spacing bg-background">
         <div className="container max-w-5xl">
