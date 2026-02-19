@@ -3,11 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Clock, Layers, Info, Check, Tag } from 'lucide-react';
-import { useSpecializations } from '@/hooks/useServices';
-import { Button } from '@/components/ui/button';
+import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Clock, Info, Check } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
 
 interface DbTemplate {
   id: string;
@@ -33,7 +32,7 @@ const TemplateDetails = () => {
   const navigate = useNavigate();
   const { addItem, items } = useCart();
   const { toast } = useToast();
-  const { specializations: allSpecs } = useSpecializations();
+  
   const [template, setTemplate] = useState<DbTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -147,53 +146,11 @@ const TemplateDetails = () => {
               <span className="inline-block px-3 py-1 rounded-lg bg-primary/8 text-primary text-xs font-semibold mb-3">
                 {serviceLabel}
               </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">{template.name}</h1>
-              {template.description && (
-                <p className="text-muted-foreground mt-3 leading-relaxed text-sm sm:text-base">{template.description}</p>
-              )}
-            </div>
-
-            {/* Info Cards */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 p-4 rounded-2xl bg-muted/40 border border-border/50">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Layers className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground">نوع الخدمة</p>
-                  <p className="font-bold text-foreground text-sm">{serviceLabel}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-4 rounded-2xl bg-muted/40 border border-border/50">
-                <div className="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center shrink-0">
-                  <Clock className="w-5 h-5 text-accent-foreground" />
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground">مدة التجهيز</p>
-                  <p className="font-bold text-foreground text-sm">{prepDays} أيام عمل</p>
-                </div>
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-muted-foreground">رقم القالب</p>
+                <p className="font-mono font-bold text-foreground text-xl tracking-widest">{templateId?.slice(0, 8).toUpperCase()}</p>
               </div>
             </div>
-
-            {/* Specializations */}
-            {template.specializations && template.specializations.length > 0 && (
-              <div className="p-4 rounded-2xl bg-muted/40 border border-border/50">
-                <div className="flex items-center gap-2 mb-3">
-                  <Tag className="w-4 h-4 text-primary" />
-                  <p className="text-xs font-bold text-foreground">التخصصات</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {template.specializations.map(specId => {
-                    const spec = allSpecs.find(s => s.id === specId);
-                    return (
-                      <span key={specId} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/8 text-primary text-xs font-semibold">
-                        {spec?.icon} {spec?.label || specId}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Price per 1000 */}
             <div className="p-5 rounded-2xl bg-success/10 border-2 border-success/25">
