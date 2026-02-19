@@ -25,7 +25,6 @@ interface Template {
 }
 
 interface TemplateFormData {
-  name: string;
   description: string;
   service_type: string;
   price: string;
@@ -41,7 +40,7 @@ const AdminTemplates = () => {
   const [filterService, setFilterService] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [form, setForm] = useState<TemplateFormData>({ name: '', description: '', service_type: 'business_card', price: '', specializations: [] });
+  const [form, setForm] = useState<TemplateFormData>({ description: '', service_type: 'business_card', price: '', specializations: [] });
   const [textFields, setTextFields] = useState<TextField[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -65,7 +64,7 @@ const AdminTemplates = () => {
 
   const openAdd = () => {
     setEditingTemplate(null);
-    setForm({ name: '', description: '', service_type: 'business_card', price: '', specializations: [] });
+    setForm({ description: '', service_type: 'business_card', price: '', specializations: [] });
     setTextFields([]);
     setPreviewFile(null);
     setPreviewLocalUrl(null);
@@ -75,7 +74,7 @@ const AdminTemplates = () => {
 
   const openEdit = (t: Template) => {
     setEditingTemplate(t);
-    setForm({ name: t.name, description: t.description || '', service_type: t.service_type, price: t.price?.toString() || '', specializations: t.specializations || [] });
+    setForm({ description: t.description || '', service_type: t.service_type, price: t.price?.toString() || '', specializations: t.specializations || [] });
     setTextFields(t.text_fields || []);
     setPreviewFile(null);
     setPreviewLocalUrl(t.preview_url);
@@ -186,7 +185,7 @@ const AdminTemplates = () => {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('اسم القالب مطلوب'); return; }
+    if (!form.service_type) { toast.error('القسم مطلوب'); return; }
     setSaving(true);
     setUploadProgress(0);
     setUploadStage(previewFile ? 'بدء الرفع...' : 'جاري الحفظ...');
@@ -198,7 +197,7 @@ const AdminTemplates = () => {
         const { error } = await supabase
           .from('templates')
           .update({
-            name: form.name,
+            name: editingTemplate.id.slice(0, 8).toUpperCase(),
             description: form.description || null,
             service_type: form.service_type as any,
             preview_url: previewUrl,
@@ -214,7 +213,7 @@ const AdminTemplates = () => {
         const { data: newTemplate, error } = await supabase
           .from('templates')
           .insert({
-            name: form.name,
+            name: 'template',
             description: form.description || null,
             service_type: form.service_type as any,
             price: priceVal,
@@ -225,9 +224,11 @@ const AdminTemplates = () => {
           .single();
         if (error) throw error;
 
-        if (previewFile && newTemplate) {
-          const previewUrl = await uploadPreviewImage(newTemplate.id);
-          await supabase.from('templates').update({ preview_url: previewUrl }).eq('id', newTemplate.id);
+        if (newTemplate) {
+          // Update name to be the short ID after creation
+          const shortId = newTemplate.id.slice(0, 8).toUpperCase();
+          const previewUrl = previewFile ? await uploadPreviewImage(newTemplate.id) : null;
+          await supabase.from('templates').update({ name: shortId, ...(previewUrl ? { preview_url: previewUrl } : {}) }).eq('id', newTemplate.id);
         }
         toast.success('تم إضافة القالب');
       }
@@ -242,7 +243,7 @@ const AdminTemplates = () => {
   };
 
   const handleDelete = async (t: Template) => {
-    if (!confirm(`حذف القالب "${t.name}"؟`)) return;
+    if (!confirm(`حذف القالب "${t.id.slice(0, 8).toUpperCase()}"؟`)) return;
     try {
       if (t.preview_url) {
         const path = t.preview_url.split('/template-previews/')[1];
@@ -336,14 +337,13 @@ const AdminTemplates = () => {
                 </div>
               </div>
               <div className="p-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-foreground text-sm truncate">{t.name}</h4>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-mono font-bold text-primary text-xs tracking-widest">{t.id.slice(0, 8).toUpperCase()}</p>
                   {t.price != null && (
                     <span className="text-xs font-bold text-primary whitespace-nowrap">{t.price.toLocaleString('en-US')} د.ع</span>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{serviceLabels[t.service_type] || t.service_type}</p>
-                {t.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.description}</p>}
               </div>
             </motion.div>
           ))}
@@ -414,16 +414,7 @@ const AdminTemplates = () => {
               </div>
             )}
 
-            {/* Name */}
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">اسم القالب *</label>
-              <Input
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="مثال: كارت بزنس كلاسيكي"
-                className="rounded-xl"
-              />
-            </div>
+
 
             {/* Service Type */}
             <div>
