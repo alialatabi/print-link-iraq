@@ -81,12 +81,16 @@ const SpecializationSelection = () => {
                       to={`/templates/${serviceType}/${spec.id}`}
                       className="group block bg-card rounded-2xl p-5 sm:p-6 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60 hover:border-primary/30"
                     >
-                      <div className="text-3xl sm:text-4xl mb-3">{spec.icon}</div>
+                      <div className="text-3xl sm:text-4xl mb-3">
+                        {spec.icon_url ? <img src={spec.icon_url} alt={spec.label} className="w-12 h-12 mx-auto rounded-lg object-cover" /> : spec.icon}
+                      </div>
                       <h3 className="font-bold text-sm sm:text-base text-foreground">{spec.label}</h3>
                     </Link>
                   ) : (
                     <div className="block bg-card/50 rounded-2xl p-5 sm:p-6 text-center border border-border/40 opacity-50 cursor-not-allowed">
-                      <div className="text-3xl sm:text-4xl mb-3 grayscale">{spec.icon}</div>
+                      <div className="text-3xl sm:text-4xl mb-3 grayscale">
+                        {spec.icon_url ? <img src={spec.icon_url} alt={spec.label} className="w-12 h-12 mx-auto rounded-lg object-cover opacity-50" /> : spec.icon}
+                      </div>
                       <h3 className="font-bold text-sm sm:text-base text-muted-foreground">{spec.label}</h3>
                       <p className="text-[10px] text-muted-foreground mt-1">قريباً</p>
                     </div>
