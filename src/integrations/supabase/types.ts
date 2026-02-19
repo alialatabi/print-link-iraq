@@ -208,6 +208,7 @@ export type Database = {
           created_at: string
           description: string
           icon: string
+          icon_url: string | null
           id: string
           label: string
           sort_order: number
@@ -216,6 +217,7 @@ export type Database = {
           created_at?: string
           description?: string
           icon?: string
+          icon_url?: string | null
           id: string
           label: string
           sort_order?: number
@@ -224,6 +226,7 @@ export type Database = {
           created_at?: string
           description?: string
           icon?: string
+          icon_url?: string | null
           id?: string
           label?: string
           sort_order?: number
@@ -234,6 +237,7 @@ export type Database = {
         Row: {
           created_at: string
           icon: string
+          icon_url: string | null
           id: string
           label: string
           sort_order: number
@@ -241,6 +245,7 @@ export type Database = {
         Insert: {
           created_at?: string
           icon?: string
+          icon_url?: string | null
           id: string
           label: string
           sort_order?: number
@@ -248,6 +253,7 @@ export type Database = {
         Update: {
           created_at?: string
           icon?: string
+          icon_url?: string | null
           id?: string
           label?: string
           sort_order?: number

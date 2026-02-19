@@ -5,6 +5,7 @@ export interface DbService {
   id: string;
   label: string;
   icon: string;
+  icon_url: string | null;
   description: string;
   sort_order: number;
 }
@@ -13,6 +14,7 @@ export interface DbSpecialization {
   id: string;
   label: string;
   icon: string;
+  icon_url: string | null;
   sort_order: number;
 }
 
