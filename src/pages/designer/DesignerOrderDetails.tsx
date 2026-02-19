@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink, Printer, XCircle } from 'lucide-react';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { OrderStatus } from '@/data/mockData';
@@ -26,6 +27,9 @@ const DesignerOrderDetails = () => {
   const [designs, setDesigns] = useState<DesignVersion[]>([]);
   const [uploading, setUploading] = useState(false);
   const [sendingApproval, setSendingApproval] = useState(false);
+  const [sendingPrint, setSendingPrint] = useState(false);
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectNote, setRejectNote] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadOrder = useCallback(async () => {
@@ -135,6 +139,36 @@ const DesignerOrderDetails = () => {
     setSendingApproval(true);
     await supabase.from('orders').update({ status: 'waiting_approval' as any }).eq('id', orderId);
     toast({ title: 'تم إرسال التصميم للعميل للموافقة' });
+    loadOrder();
+    setSendingApproval(false);
+  };
+
+  // For ready_design orders: send directly to print
+  const handleSendToPrint = async () => {
+    if (!orderId) return;
+    setSendingPrint(true);
+    await supabase.from('orders').update({ status: 'print_ready' as any }).eq('id', orderId);
+    toast({ title: '✅ تم تحويل الطلب للطبع' });
+    loadOrder();
+    setSendingPrint(false);
+  };
+
+  // For ready_design orders: reject with revision note
+  const handleRejectDesign = async () => {
+    if (!orderId || !rejectNote.trim()) return;
+    setSendingApproval(true);
+    const currentRevisions = ((order?.details as any)?.revisions || []) as any[];
+    const newRevision = { note: rejectNote.trim(), date: new Date().toISOString(), version: designs.length };
+    await supabase.from('orders').update({
+      status: 'assigned' as any,
+      details: {
+        ...(order?.details as any || {}),
+        revisions: [...currentRevisions, newRevision],
+      } as any,
+    }).eq('id', orderId);
+    toast({ title: 'تم إرسال ملاحظات التعديل للزبون' });
+    setRejectNote('');
+    setShowRejectForm(false);
     loadOrder();
     setSendingApproval(false);
   };
@@ -249,38 +283,40 @@ const DesignerOrderDetails = () => {
             </div>
           </div>
 
-          {/* Template Info with copyable ID */}
-          <div className="bg-card rounded-xl border border-border mb-6 overflow-hidden">
-            {order.templates?.preview_url ? (
-              <img src={order.templates.preview_url} alt="القالب" className="w-full max-h-64 object-contain bg-muted/20" />
-            ) : (
-              <div className="h-32 bg-muted/20 flex items-center justify-center">
-                <Image className="w-10 h-10 text-muted-foreground/30" />
+          {/* Template Info — hidden for ready_design orders */}
+          {details.order_type !== 'ready_design' && (
+            <div className="bg-card rounded-xl border border-border mb-6 overflow-hidden">
+              {order.templates?.preview_url ? (
+                <img src={order.templates.preview_url} alt="القالب" className="w-full max-h-64 object-contain bg-muted/20" />
+              ) : (
+                <div className="h-32 bg-muted/20 flex items-center justify-center">
+                  <Image className="w-10 h-10 text-muted-foreground/30" />
+                </div>
+              )}
+              <div className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">رقم القالب</p>
+                  <p className="font-mono font-bold text-primary text-xl tracking-widest">
+                    {order.template_id ? order.template_id.slice(0, 8).toUpperCase() : '—'}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    if (order.template_id) {
+                      navigator.clipboard.writeText(order.template_id.slice(0, 8).toUpperCase());
+                      toast({ title: 'تم نسخ رقم القالب' });
+                    }
+                  }}
+                >
+                  <Copy className="w-4 h-4" />
+                  نسخ الرقم
+                </Button>
               </div>
-            )}
-            <div className="p-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground mb-0.5">رقم القالب</p>
-                <p className="font-mono font-bold text-primary text-xl tracking-widest">
-                  {order.template_id ? order.template_id.slice(0, 8).toUpperCase() : '—'}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2"
-                onClick={() => {
-                  if (order.template_id) {
-                    navigator.clipboard.writeText(order.template_id.slice(0, 8).toUpperCase());
-                    toast({ title: 'تم نسخ رقم القالب' });
-                  }
-                }}
-              >
-                <Copy className="w-4 h-4" />
-                نسخ الرقم
-              </Button>
             </div>
-          </div>
+          )}
 
           {/* Customer Details */}
           <div className="bg-card rounded-xl p-6 border border-border mb-6">
@@ -463,8 +499,64 @@ const DesignerOrderDetails = () => {
               </div>
             )}
 
-            {/* Send for Approval */}
-            {canSendApproval && (
+            {/* Actions for ready_design: send to print OR reject with note */}
+            {details.order_type === 'ready_design' && ['assigned', 'design_uploaded', 'submitted'].includes(order.status) && (
+              <div className="mt-4 space-y-3">
+                {/* Send to print */}
+                <Button
+                  onClick={handleSendToPrint}
+                  disabled={sendingPrint || sendingApproval}
+                  size="lg"
+                  className="w-full bg-success hover:bg-success/90 text-success-foreground text-base py-5 rounded-xl"
+                >
+                  <Printer className="w-5 h-5 ml-2" />
+                  {sendingPrint ? 'جاري التحويل...' : 'تحويل للطبع ✅'}
+                </Button>
+
+                {/* Reject / request revision */}
+                {!showRejectForm ? (
+                  <Button
+                    onClick={() => setShowRejectForm(true)}
+                    variant="outline"
+                    size="lg"
+                    className="w-full border-destructive/40 text-destructive hover:bg-destructive/5 text-base py-5 rounded-xl"
+                    disabled={sendingPrint || sendingApproval}
+                  >
+                    <XCircle className="w-5 h-5 ml-2" />
+                    رفض التصميم وطلب تعديل
+                  </Button>
+                ) : (
+                  <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 space-y-3">
+                    <p className="text-sm font-bold text-destructive flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      اكتب التعديلات المطلوبة
+                    </p>
+                    <Textarea
+                      value={rejectNote}
+                      onChange={e => setRejectNote(e.target.value)}
+                      placeholder="اذكر التعديلات المطلوبة على التصميم..."
+                      className="min-h-[100px] text-sm resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleRejectDesign}
+                        disabled={!rejectNote.trim() || sendingApproval}
+                        size="sm"
+                        className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                      >
+                        {sendingApproval ? <><RefreshCw className="w-4 h-4 ml-1 animate-spin" />جاري الإرسال...</> : 'إرسال التعديلات'}
+                      </Button>
+                      <Button onClick={() => { setShowRejectForm(false); setRejectNote(''); }} variant="outline" size="sm">
+                        إلغاء
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Send for Approval — for non-ready_design orders */}
+            {details.order_type !== 'ready_design' && canSendApproval && (
               <Button
                 onClick={handleSendForApproval}
                 disabled={sendingApproval}
@@ -481,6 +573,13 @@ const DesignerOrderDetails = () => {
                 <RefreshCw className="w-6 h-6 text-accent-foreground mx-auto mb-2" />
                 <p className="font-medium text-foreground">بانتظار موافقة العميل</p>
                 <p className="text-muted-foreground text-sm mt-1">سيتم إخطارك عند ردّ العميل</p>
+              </div>
+            )}
+
+            {order.status === 'print_ready' && (
+              <div className="mt-4 bg-success/10 rounded-lg p-4 text-center">
+                <Printer className="w-6 h-6 text-success mx-auto mb-2" />
+                <p className="font-medium text-foreground">تم تحويل الطلب للطبع!</p>
               </div>
             )}
 
