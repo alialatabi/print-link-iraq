@@ -173,14 +173,32 @@ const DesignerOrderDetails = () => {
   const canSendApproval = ['assigned', 'design_uploaded'].includes(order.status) && designs.length > 0;
   const latestDesign = designs[0];
 
-  const statusFlow: { status: OrderStatus; label: string; icon: typeof Clock }[] = [
-    { status: 'assigned', label: 'تم التعيين', icon: Clock },
-    { status: 'design_uploaded', label: 'تم الرفع', icon: Upload },
-    { status: 'waiting_approval', label: 'بانتظار الموافقة', icon: RefreshCw },
-    { status: 'approved', label: 'تمت الموافقة', icon: CheckCircle2 },
-  ];
+  // Build timeline dynamically — revision step appears only when there are revisions
+  const hasRevision = revisions.length > 0;
 
-  const currentStepIndex = statusFlow.findIndex(s => s.status === order.status);
+  // Map current order status to a timeline step index
+  const getTimelineStep = () => {
+    if (['print_ready', 'printed', 'delivered'].includes(order.status)) return hasRevision ? 3 : 2;
+    if (order.status === 'approved') return hasRevision ? 3 : 2;
+    if (order.status === 'waiting_approval') return hasRevision ? 2 : 1;
+    // assigned after revision = currently at revision step
+    if (order.status === 'assigned' && hasRevision) return 2;
+    if (['design_uploaded', 'assigned'].includes(order.status)) return 1;
+    return 0;
+  };
+
+  type StepDef = { key: string; label: string; icon: typeof Clock; isRevision?: boolean };
+
+  const baseSteps: StepDef[] = [
+    { key: 'assigned',         label: 'تم تعيين مصمم',      icon: Clock },
+    { key: 'design_sent',      label: 'تم إرسال التصميم',   icon: Send },
+  ];
+  if (hasRevision) {
+    baseSteps.push({ key: 'revision', label: 'طلب تعديل', icon: MessageSquare, isRevision: true });
+  }
+  baseSteps.push({ key: 'approved', label: 'تمت الموافقة', icon: CheckCircle2 });
+
+  const currentStepIndex = getTimelineStep();
 
   return (
     <div className="py-8">
@@ -207,13 +225,13 @@ const DesignerOrderDetails = () => {
               <div className="absolute top-5 right-5 left-5 h-0.5 bg-border z-0" />
               <div
                 className="absolute top-5 right-5 h-0.5 bg-primary z-0 transition-all"
-                style={{ width: `${Math.max(0, currentStepIndex) / (statusFlow.length - 1) * 100}%` }}
+                style={{ width: `${Math.max(0, currentStepIndex) / (baseSteps.length - 1) * 100}%` }}
               />
-              {statusFlow.map((step, i) => {
+              {baseSteps.map((step, i) => {
                 const isActive = i <= currentStepIndex;
-                const isCurrent = step.status === order.status;
+                const isCurrent = i === currentStepIndex;
                 return (
-                  <div key={step.status} className="flex flex-col items-center relative z-10">
+                  <div key={step.key} className="flex flex-col items-center relative z-10">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
                       isCurrent ? 'bg-primary border-primary text-primary-foreground scale-110' :
                       isActive ? 'bg-primary/20 border-primary text-primary' :
