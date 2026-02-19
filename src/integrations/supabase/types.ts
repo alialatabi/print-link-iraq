@@ -203,6 +203,42 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_addresses: {
+        Row: {
+          area: string
+          created_at: string
+          id: string
+          is_default: boolean
+          label: string
+          landmark: string | null
+          phone: string
+          province: string
+          user_id: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          landmark?: string | null
+          phone: string
+          province: string
+          user_id: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          landmark?: string | null
+          phone?: string
+          province?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           created_at: string
