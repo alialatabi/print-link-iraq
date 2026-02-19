@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, FileText, Palette, Printer, Truck, Package, Eye, MessageSquare, ThumbsUp, RefreshCw, MapPin } from 'lucide-react';
+import { CheckCircle, Clock, FileText, Palette, Printer, Truck, Package, Eye, MessageSquare, RefreshCw, MapPin, ImagePlus, X, Edit2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import type { OrderStatus } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
@@ -29,6 +29,44 @@ interface DesignVersion {
   uploaded_at: string;
 }
 
+// Sub-component: show signed images from revision paths
+const RevisionImages = ({ paths }: { paths: string[] }) => {
+  const [urls, setUrls] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const results = await Promise.all(
+        paths.map(async (p) => {
+          const { data } = await supabase.storage
+            .from('order-attachments')
+            .createSignedUrl(p, 3600);
+          return data?.signedUrl || null;
+        })
+      );
+      if (!cancelled) setUrls(results.filter(Boolean) as string[]);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [paths]);
+
+  if (urls.length === 0) return null;
+
+  return (
+    <div className="flex gap-2 flex-wrap mt-2">
+      {urls.map((url, i) => (
+        <img
+          key={i}
+          src={url}
+          alt={`مرفق ${i + 1}`}
+          className="w-16 h-16 rounded-lg object-cover border border-border/60 cursor-pointer"
+          onClick={() => window.open(url, '_blank')}
+        />
+      ))}
+    </div>
+  );
+};
+
 const OrderTracking = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -40,6 +78,9 @@ const OrderTracking = () => {
   const [showRevisionForm, setShowRevisionForm] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [revisionImages, setRevisionImages] = useState<File[]>([]);
+  const [revisionImagePreviews, setRevisionImagePreviews] = useState<string[]>([]);
+  const revisionImgRef = useRef<HTMLInputElement>(null);
 
   const loadOrder = useCallback(async () => {
     const { data } = await supabase
@@ -97,30 +138,59 @@ const OrderTracking = () => {
 
   const handleApprove = async () => {
     if (!orderId) return;
-    // Mark design as approved first
     if (designs.length > 0) {
       await supabase.from('designs').update({ approved: true }).eq('id', designs[0].id);
     }
-    // Navigate to delivery address page
     navigate(`/delivery-address/${orderId}`);
+  };
+
+  const handleRevisionImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const combined = [...revisionImages, ...files].slice(0, 3);
+    setRevisionImages(combined);
+    setRevisionImagePreviews(combined.map(f => URL.createObjectURL(f)));
+    e.target.value = '';
+  };
+
+  const removeRevisionImage = (index: number) => {
+    const updated = revisionImages.filter((_, i) => i !== index);
+    setRevisionImages(updated);
+    setRevisionImagePreviews(updated.map(f => URL.createObjectURL(f)));
   };
 
   const handleRequestRevision = async () => {
     if (!orderId || !revisionNote.trim()) return;
     setSubmitting(true);
+
+    // Upload revision reference images
+    const uploadedUrls: string[] = [];
+    for (const img of revisionImages) {
+      const ext = img.name.split('.').pop();
+      const path = `${orderId}/revision-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('order-attachments')
+        .upload(path, img, { upsert: false });
+      if (!upErr) uploadedUrls.push(path);
+    }
+
     const currentDetails = (order?.details || {}) as Record<string, any>;
     const revisions = currentDetails.revisions || [];
     revisions.push({
       note: revisionNote.trim(),
       date: new Date().toISOString(),
       version: designs[0]?.version || 0,
+      images: uploadedUrls,
     });
+
     await supabase.from('orders').update({
       status: 'assigned' as any,
       details: { ...currentDetails, revisions },
     }).eq('id', orderId);
+
     toast({ title: 'تم إرسال طلب التعديل للمصمم' });
     setRevisionNote('');
+    setRevisionImages([]);
+    setRevisionImagePreviews([]);
     setShowRevisionForm(false);
     loadOrder();
     setSubmitting(false);
@@ -136,7 +206,6 @@ const OrderTracking = () => {
   const currentStepIndex = STEPS.findIndex(s => s.status === order.status);
   const details = (order.details || {}) as Record<string, any>;
   const revisions = details.revisions || [];
-  const latestDesign = designs[0];
   const showDesignReview = ['waiting_approval', 'design_uploaded'].includes(order.status) || designs.length > 0;
 
   return (
@@ -310,6 +379,44 @@ const OrderTracking = () => {
                         className="min-h-[100px]"
                         dir="rtl"
                       />
+
+                      {/* Reference image upload */}
+                      <div>
+                        <input
+                          ref={revisionImgRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={handleRevisionImageSelect}
+                        />
+                        {revisionImagePreviews.length > 0 && (
+                          <div className="flex gap-2 flex-wrap mb-2">
+                            {revisionImagePreviews.map((src, idx) => (
+                              <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-border/60">
+                                <img src={src} alt="" className="w-full h-full object-cover" />
+                                <button
+                                  onClick={() => removeRevisionImage(idx)}
+                                  className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
+                                >
+                                  <X className="w-3 h-3 text-white" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {revisionImages.length < 3 && (
+                          <button
+                            type="button"
+                            onClick={() => revisionImgRef.current?.click()}
+                            className="w-full border border-dashed border-border/50 hover:border-primary/40 rounded-xl p-3 flex items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-all text-sm"
+                          >
+                            <ImagePlus className="w-4 h-4" />
+                            إضافة صور مرجعية (اختياري، حتى 3 صور)
+                          </button>
+                        )}
+                      </div>
+
                       <div className="flex gap-2">
                         <Button
                           onClick={handleRequestRevision}
@@ -320,7 +427,7 @@ const OrderTracking = () => {
                           {submitting ? 'جاري الإرسال...' : 'إرسال طلب التعديل'}
                         </Button>
                         <Button
-                          onClick={() => { setShowRevisionForm(false); setRevisionNote(''); }}
+                          onClick={() => { setShowRevisionForm(false); setRevisionNote(''); setRevisionImages([]); setRevisionImagePreviews([]); }}
                           variant="outline"
                         >
                           إلغاء
@@ -332,10 +439,25 @@ const OrderTracking = () => {
               )}
 
               {order.status === 'approved' && (
-                <div className="bg-success/8 rounded-xl p-5 text-center mt-5">
-                  <CheckCircle className="w-6 h-6 text-success mx-auto mb-2" />
-                  <p className="font-medium text-foreground text-sm">تمت الموافقة على التصميم!</p>
-                  <p className="text-muted-foreground text-xs mt-1">سيتم تحضير طلبك للطباعة</p>
+                <div className="mt-5 space-y-3">
+                  <div className="bg-success/8 rounded-xl p-5 text-center border border-success/20">
+                    <CheckCircle className="w-6 h-6 text-success mx-auto mb-2" />
+                    <p className="font-medium text-foreground text-sm">تمت الموافقة على التصميم!</p>
+                    <p className="text-muted-foreground text-xs mt-1">سيتم تحضير طلبك للطباعة</p>
+                    {details.delivery_province && (
+                      <p className="text-muted-foreground text-xs mt-2 font-medium">
+                        📍 {details.delivery_province} — {details.delivery_area}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => navigate(`/delivery-address/${orderId}`)}
+                    size="lg"
+                    className="w-full h-12 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                  >
+                    <Edit2 className="w-5 h-5 ml-2" />
+                    تغيير عنوان الاستلام
+                  </Button>
                 </div>
               )}
             </div>
@@ -355,6 +477,9 @@ const OrderTracking = () => {
                       </span>
                     </div>
                     <p className="text-foreground text-sm">{rev.note}</p>
+                    {rev.images && rev.images.length > 0 && (
+                      <RevisionImages paths={rev.images} />
+                    )}
                   </div>
                 ))}
               </div>
