@@ -30,6 +30,7 @@ import CartPage from "./pages/customer/CartPage";
 import CheckoutPage from "./pages/customer/CheckoutPage";
 import CompleteProfile from "./pages/customer/CompleteProfile";
 import UploadDesignPage from "./pages/customer/UploadDesignPage";
+import DeliveryAddressPage from "./pages/customer/DeliveryAddressPage";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,7 @@ const App = () => (
                 <Route path="/verify-otp" element={<ProtectedRoute><OTPVerification /></ProtectedRoute>} />
                 <Route path="/order-success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
                 <Route path="/track-order/:orderId" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
+                <Route path="/delivery-address/:orderId" element={<ProtectedRoute><DeliveryAddressPage /></ProtectedRoute>} />
                 <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 

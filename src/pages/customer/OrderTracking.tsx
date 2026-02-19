@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, FileText, Palette, Printer, Truck, Package, Eye, MessageSquare, ThumbsUp, RefreshCw } from 'lucide-react';
+import { CheckCircle, Clock, FileText, Palette, Printer, Truck, Package, Eye, MessageSquare, ThumbsUp, RefreshCw, MapPin } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import type { OrderStatus } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
@@ -31,6 +31,7 @@ interface DesignVersion {
 
 const OrderTracking = () => {
   const { orderId } = useParams<{ orderId: string }>();
+  const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [designs, setDesigns] = useState<DesignVersion[]>([]);
@@ -96,15 +97,12 @@ const OrderTracking = () => {
 
   const handleApprove = async () => {
     if (!orderId) return;
-    setSubmitting(true);
+    // Mark design as approved first
     if (designs.length > 0) {
       await supabase.from('designs').update({ approved: true }).eq('id', designs[0].id);
     }
-    await supabase.from('orders').update({ status: 'approved' as any }).eq('id', orderId);
-    toast({ title: 'تمت الموافقة على التصميم ✅' });
-    loadOrder();
-    loadDesigns();
-    setSubmitting(false);
+    // Navigate to delivery address page
+    navigate(`/delivery-address/${orderId}`);
   };
 
   const handleRequestRevision = async () => {
@@ -289,8 +287,8 @@ const OrderTracking = () => {
                     size="lg"
                     className="w-full bg-success hover:bg-success/90 text-success-foreground h-12"
                   >
-                    <ThumbsUp className="w-5 h-5 ml-2" />
-                    {submitting ? 'جاري الإرسال...' : 'الموافقة على التصميم'}
+                    <MapPin className="w-5 h-5 ml-2" />
+                    الموافقة وتحديد عنوان الاستلام
                   </Button>
 
                   {!showRevisionForm ? (
