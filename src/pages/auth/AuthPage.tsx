@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +22,8 @@ const AuthPage = () => {
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/';
   const { toast } = useToast();
 
   useEffect(() => {
@@ -52,7 +54,7 @@ const AuthPage = () => {
           refresh_token: data.session.refresh_token,
         });
         toast({ title: 'تم تسجيل الدخول بنجاح!' });
-        navigate('/');
+        navigate(redirectTo);
       } else {
         toast({ title: 'تم إرسال رمز التحقق عبر واتساب' });
         setStep('otp');
@@ -86,10 +88,13 @@ const AuthPage = () => {
         });
         if (data.isNewUser) {
           toast({ title: 'تم إنشاء حسابك بنجاح!' });
-          navigate('/complete-profile');
+          const completeProfileUrl = redirectTo !== '/'
+            ? `/complete-profile?redirect=${encodeURIComponent(redirectTo)}`
+            : '/complete-profile';
+          navigate(completeProfileUrl);
         } else {
           toast({ title: 'تم تسجيل الدخول بنجاح!' });
-          navigate('/');
+          navigate(redirectTo);
         }
       }
     } catch {

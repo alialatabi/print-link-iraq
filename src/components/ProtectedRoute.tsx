@@ -20,7 +20,8 @@ const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    const currentPath = window.location.pathname + window.location.search;
+    return <Navigate to={`/auth?redirect=${encodeURIComponent(currentPath)}`} replace />;
   }
 
   if (requiredRole && role !== requiredRole && role !== 'admin') {
