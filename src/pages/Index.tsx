@@ -48,10 +48,26 @@ const SERVICE_COLORS: Record<string, string> = {
 };
 
 const TRUST_ITEMS = [
-  { icon: Palette, text: 'تصميم بواسطة مصممين محترفين' },
+  { icon: Palette, text: 'تصميم مباشر وبأعلى جودة' },
   { icon: Printer, text: 'طباعة عالية الجودة' },
-  { icon: RefreshCw, text: 'مراجعات مجانية قبل الطباعة' },
-  { icon: Home, text: 'توصيل إلى باب المنزل' },
+  { icon: RefreshCw, text: 'مراجعة مجانية قبل الطباعة' },
+  { icon: Home, text: 'توصيل لكل العراق' },
+];
+
+const VALUE_PROPS = [
+  { icon: Palette, text: 'تصميم مباشر وبأعلى جودة' },
+  { icon: Star, text: 'قوالب جاهزة احترافية' },
+  { icon: Printer, text: 'طباعة عالية الجودة' },
+  { icon: Zap, text: 'سرعة في الإنجاز' },
+  { icon: Truck, text: 'توصيل لكل العراق' },
+  { icon: Shield, text: 'دعم سريع وموثوق' },
+];
+
+const DELIVERY_TRUST = [
+  { icon: Printer, text: 'طباعة احترافية' },
+  { icon: CheckCircle, text: 'مراجعة قبل الطباعة' },
+  { icon: Home, text: 'دفع عند الاستلام' },
+  { icon: Truck, text: 'توصيل لجميع المحافظات' },
 ];
 
 const DESIGNERS = [
@@ -128,23 +144,25 @@ const Index = () => {
               </div>
 
               <h1 className="text-3xl sm:text-5xl font-extrabold leading-tight mb-4 tracking-tight">
-                صمّم واطبع هويتك
-                <span className="text-primary"> خلال دقائق</span>
+                صمّم واطبع منتجاتك
+                <span className="text-primary"> بسهولة خلال دقائق</span>
               </h1>
 
-              <p className="text-secondary-foreground/60 text-sm sm:text-base leading-relaxed max-w-md mx-auto sm:mx-0 mb-8">
-                اختر القالب، أدخل معلوماتك، واستلم مطبوعاتك بجودة عالية في بغداد وسائر المحافظات
+              <p className="text-secondary-foreground/60 text-sm sm:text-base leading-relaxed max-w-md mx-auto sm:mx-0 mb-3">
+                منصة مطبعتي تتيح لك تصميم وطلب المطبوعات أونلاين بجودة عالية وتسليم سريع داخل العراق
               </p>
+
+              <p className="text-secondary-foreground/40 text-xs mb-6">آلاف التصاميم تم إنشاؤها عبر مطبعتي</p>
 
               <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
                 <Link to="/services">
-                  <Button size="lg" className="gap-2 h-12 px-8 text-base shadow-elevated hover:-translate-y-0.5 transition-transform">
+                  <Button size="lg" className="gap-2 h-13 px-10 text-base shadow-elevated hover:-translate-y-0.5 transition-transform">
                     ابدأ التصميم الآن
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
                 </Link>
                 <Link to="/services">
-                  <Button size="lg" variant="outline" className="gap-2 h-12 px-8 text-base border-secondary-foreground/20 bg-secondary-foreground/5 text-secondary-foreground hover:bg-secondary-foreground/10">
+                  <Button size="lg" variant="outline" className="gap-2 h-13 px-8 text-base border-secondary-foreground/20 bg-secondary-foreground/5 text-secondary-foreground hover:bg-secondary-foreground/10">
                     تصفح القوالب
                   </Button>
                 </Link>
@@ -237,7 +255,8 @@ const Index = () => {
                 <Star className="w-3.5 h-3.5 fill-current" />
                 الأكثر طلباً
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">القوالب المفضلة</h2>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">اختر المنتج الذي تريد تصميمه</h2>
+              <p className="text-muted-foreground text-sm mt-1">جميع المطبوعات متاحة بتصميم مباشر أونلاين عبر مطبعتي</p>
             </div>
             <Link to="/services" className="flex items-center gap-1.5 text-primary text-sm font-semibold hover:gap-2.5 transition-all duration-200">
               عرض الكل
@@ -399,56 +418,72 @@ const Index = () => {
       <section className="py-14 sm:py-20 bg-muted/30">
         <div className="container max-w-4xl">
           <motion.div className="text-center mb-12" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2 tracking-tight">كيف يعمل؟</h2>
-            <p className="text-muted-foreground text-sm sm:text-base">أربع خطوات بسيطة للحصول على تصميمك المطبوع</p>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2 tracking-tight">كيف تعمل مطبعتي</h2>
+            <p className="text-muted-foreground text-sm sm:text-base">ثلاث خطوات بسيطة للحصول على تصميمك المطبوع</p>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
             {[
-              { step: '١', label: 'اختر الخدمة', desc: 'اختر نوع المطبوعة', icon: CheckCircle, color: 'bg-primary text-primary-foreground' },
-              { step: '٢', label: 'حدد القالب', desc: 'من تصاميم احترافية', icon: Palette, color: 'bg-cmyk-magenta text-white' },
-              { step: '٣', label: 'أدخل بياناتك', desc: 'أضف معلوماتك', icon: FileText, color: 'bg-accent text-accent-foreground' },
-              { step: '٤', label: 'استلم تصميمك', desc: 'توصيل لباب المنزل', icon: Truck, color: 'bg-cmyk-key text-secondary-foreground' },
+              { step: '١', label: 'اختر المنتج والقالب', desc: 'كرت، منيو، ملصق، فاتورة…', icon: CheckCircle, color: 'bg-primary text-primary-foreground' },
+              { step: '٢', label: 'صمّم بسهولة', desc: 'دزلنا التفاصيل واستلم تصميمك جاهز', icon: Palette, color: 'bg-cmyk-magenta text-white' },
+              { step: '٣', label: 'اطلب التوصيل', desc: 'نطبع ونوصّل لبابك', icon: Truck, color: 'bg-success text-success-foreground' },
             ].map((s, i) => (
-              <motion.div key={i} className="text-center group" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-30px' }} variants={fadeUp} custom={i + 1}>
-                <div className={`w-14 h-14 rounded-2xl ${s.color} flex items-center justify-center mx-auto mb-4 text-xl font-extrabold group-hover:scale-110 group-hover:shadow-elevated transition-all duration-300`}>
+              <motion.div key={i} className="flex flex-col items-center text-center group" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-30px' }} variants={fadeUp} custom={i + 1}>
+                <div className={`w-16 h-16 rounded-2xl ${s.color} flex items-center justify-center mx-auto mb-4 text-2xl font-extrabold group-hover:scale-110 group-hover:shadow-elevated transition-all duration-300 shadow-sm`}>
                   {s.step}
                 </div>
-                <h3 className="font-bold text-foreground text-sm sm:text-base mb-1">{s.label}</h3>
-                <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">{s.desc}</p>
+                <h3 className="font-bold text-foreground text-base mb-1.5">{s.label}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{s.desc}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─── Features ─── */}
+      {/* ─── Value Proposition / لماذا مطبعتي ─── */}
       <section className="py-14 sm:py-20 bg-background">
         <div className="container max-w-4xl">
-          <motion.div className="text-center mb-12" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2 tracking-tight">لماذا مطبعتي؟</h2>
+          <motion.div className="text-center mb-10" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2 tracking-tight">لماذا مطبعتي ؟</h2>
             <p className="text-muted-foreground text-sm sm:text-base">نسهّل عليك عملية التصميم والطباعة من البداية للنهاية</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-5">
-            {[
-              { icon: Zap, title: 'سرعة في التنفيذ', desc: 'تصميمك جاهز خلال ساعات قليلة مع متابعة لحظية', color: 'text-primary', bg: 'bg-primary/10' },
-              { icon: Shield, title: 'جودة مضمونة', desc: 'مصممون ذوي خبرة ومراجعة مجانية قبل الطباعة', color: 'text-cmyk-magenta', bg: 'bg-cmyk-magenta/10' },
-              { icon: Truck, title: 'توصيل لباب المنزل', desc: 'نوصل لجميع محافظات العراق خلال ٧٢ ساعة', color: 'text-success', bg: 'bg-success/10' },
-            ].map((f, i) => (
-              <motion.div key={i} className="bg-card rounded-2xl p-7 border border-border/60 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-20px' }} variants={fadeUp} custom={i + 1}>
-                <div className={`w-12 h-12 rounded-2xl ${f.bg} flex items-center justify-center ${f.color} mx-auto mb-5`}>
-                  <f.icon className="w-6 h-6" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {VALUE_PROPS.map((item, i) => (
+              <motion.div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-300" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={i}>
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <item.icon className="w-4.5 h-4.5 text-primary" />
                 </div>
-                <h4 className="font-bold text-foreground text-base mb-2">{f.title}</h4>
-                <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+                <span className="text-sm font-semibold text-foreground leading-snug">
+                  <span className="text-primary font-bold ml-1">✓</span>
+                  {item.text}
+                </span>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─── CTA ─── */}
+      {/* ─── Delivery & Trust ─── */}
+      <section className="py-12 sm:py-16 bg-muted/30 border-y border-border/40">
+        <div className="container max-w-4xl">
+          <motion.div className="text-center mb-8" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-foreground mb-1 tracking-tight">طباعة موثوقة وتوصيل سريع</h2>
+          </motion.div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {DELIVERY_TRUST.map((item, i) => (
+              <motion.div key={i} className="flex flex-col items-center gap-2 p-5 rounded-2xl bg-card border border-border/60 text-center shadow-card" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={i}>
+                <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center flex-shrink-0">
+                  <item.icon className="w-5 h-5 text-success" />
+                </div>
+                <span className="text-xs sm:text-sm font-semibold text-foreground leading-snug">{item.text}</span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Final CTA ─── */}
       <section className="py-14 sm:py-20 bg-secondary">
         <div className="container max-w-3xl text-center">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
@@ -459,7 +494,7 @@ const Index = () => {
             </div>
 
             <h2 className="text-3xl sm:text-4xl font-extrabold text-secondary-foreground mb-4 tracking-tight">
-              جاهز تبدأ؟
+              ابدأ تصميمك الآن خلال أقل من دقيقة عبر مطبعتي
             </h2>
             <p className="text-secondary-foreground/50 text-sm sm:text-base mb-10 max-w-md mx-auto leading-relaxed">
               اطلب تصميمك الآن واحصل عليه بأسرع وقت وبأعلى جودة
@@ -467,7 +502,7 @@ const Index = () => {
             <div className="flex flex-wrap gap-4 justify-center">
               <Link to="/services">
                 <Button size="lg" className="px-10 h-14 text-lg shadow-elevated transition-all duration-200 hover:-translate-y-0.5">
-                  اطلب الآن
+                  ابدأ التصميم
                   <ArrowLeft className="w-5 h-5 mr-2" />
                 </Button>
               </Link>
