@@ -146,6 +146,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         </div>
 
         {/* Services sub-navbar - circular icons */}
+        {!pathname.startsWith('/auth') && !pathname.startsWith('/staff-login') && !pathname.startsWith('/designer/login') && (
         <div className="bg-card/50 backdrop-blur-sm border-b border-border/30">
           <div className="container">
             <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide py-3 px-1">
@@ -175,6 +176,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             </div>
           </div>
         </div>
+        )}
 
         {/* Mobile menu */}
         <AnimatePresence>
