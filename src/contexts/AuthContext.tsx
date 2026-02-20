@@ -37,6 +37,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (roles.includes('admin')) setRole('admin');
     else if (roles.includes('designer')) setRole('designer');
     else setRole('customer');
+    // Update last_seen for customers
+    if (!roles.includes('admin') && !roles.includes('designer')) {
+      supabase.from('profiles').update({ last_seen: new Date().toISOString() } as any).eq('user_id', userId);
+    }
   };
 
   useEffect(() => {

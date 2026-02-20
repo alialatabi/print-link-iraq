@@ -175,6 +175,7 @@ export type Database = {
           id: string
           is_active: boolean
           landmark: string | null
+          last_seen: string | null
           phone: string | null
           province: string | null
           updated_at: string
@@ -187,6 +188,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           landmark?: string | null
+          last_seen?: string | null
           phone?: string | null
           province?: string | null
           updated_at?: string
@@ -199,6 +201,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           landmark?: string | null
+          last_seen?: string | null
           phone?: string | null
           province?: string | null
           updated_at?: string

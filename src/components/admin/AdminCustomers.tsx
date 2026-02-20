@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Search, Users, Phone, MapPin, Package, DollarSign, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Users, Package, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Clock } from 'lucide-react';
 
 interface CustomerData {
   user_id: string;
@@ -15,12 +15,27 @@ interface CustomerData {
   province: string | null;
   area: string | null;
   landmark: string | null;
+  last_seen: string | null;
   orderCount: number;
   totalSpent: number;
 }
 
-type SortKey = 'display_name' | 'phone' | 'orderCount' | 'totalSpent';
+type SortKey = 'display_name' | 'phone' | 'orderCount' | 'totalSpent' | 'last_seen';
 type SortDir = 'asc' | 'desc';
+
+const formatLastSeen = (ts: string | null): string => {
+  if (!ts) return 'غير معروف';
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'الآن';
+  if (mins < 60) return `منذ ${mins} دقيقة`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `منذ ${hrs} ساعة`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `منذ ${days} يوم`;
+  const months = Math.floor(days / 30);
+  return `منذ ${months} شهر`;
+};
 
 const AdminCustomers = () => {
   const [customers, setCustomers] = useState<CustomerData[]>([]);
@@ -59,6 +74,7 @@ const AdminCustomers = () => {
         province: p.province,
         area: p.area,
         landmark: p.landmark,
+        last_seen: (p as any).last_seen ?? null,
         orderCount: customerOrders.length,
         totalSpent: customerOrders.reduce((sum, o) => sum + (o.paid_amount || 0), 0),
       };
@@ -104,6 +120,7 @@ const AdminCustomers = () => {
     let valA: any, valB: any;
     if (sortKey === 'display_name') { valA = (a.display_name || '').toLowerCase(); valB = (b.display_name || '').toLowerCase(); }
     else if (sortKey === 'phone') { valA = a.phone || ''; valB = b.phone || ''; }
+    else if (sortKey === 'last_seen') { valA = a.last_seen ? new Date(a.last_seen).getTime() : 0; valB = b.last_seen ? new Date(b.last_seen).getTime() : 0; }
     else { valA = a[sortKey]; valB = b[sortKey]; }
     if (valA < valB) return sortDir === 'asc' ? -1 : 1;
     if (valA > valB) return sortDir === 'asc' ? 1 : -1;
@@ -173,10 +190,13 @@ const AdminCustomers = () => {
                   <TableHead className="text-right text-[11px] font-semibold w-[100px] cursor-pointer select-none" onClick={() => handleSort('totalSpent')}>
                     <span className="inline-flex items-center gap-1">المبلغ المدفوع <SortIcon col="totalSpent" /></span>
                   </TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold w-[110px] cursor-pointer select-none" onClick={() => handleSort('last_seen')}>
+                    <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> آخر نشاط <SortIcon col="last_seen" /></span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((c, i) => {
+                {filtered.map((c) => {
                   const address = [c.province, c.area, c.landmark].filter(Boolean).join(' - ');
                   return (
                     <TableRow key={c.user_id}>
@@ -194,6 +214,16 @@ const AdminCustomers = () => {
                       </TableCell>
                       <TableCell>
                         <span className="text-xs font-bold text-success">{fmt(c.totalSpent)} <span className="text-[10px] font-normal text-muted-foreground">د.ع</span></span>
+                      </TableCell>
+                      <TableCell>
+                        {c.last_seen ? (
+                          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3 shrink-0" />
+                            {formatLastSeen(c.last_seen)}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground/50">-</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
