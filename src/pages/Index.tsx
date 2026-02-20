@@ -177,7 +177,7 @@ const Index = () => {
 
             {/* Stats panel */}
             <motion.div
-              className="flex sm:flex-col gap-4 w-full sm:w-auto"
+              className="grid grid-cols-3 sm:flex sm:flex-col gap-3 sm:gap-4 w-full sm:w-auto"
               initial="hidden" animate="visible" variants={fadeUp} custom={2}
             >
               {[
@@ -187,15 +187,15 @@ const Index = () => {
               ].map((s, i) => (
                 <motion.div
                   key={i}
-                  className="flex-1 sm:flex-initial flex sm:flex-col items-center sm:items-start gap-3 sm:gap-2 bg-secondary-foreground/6 border border-secondary-foreground/10 rounded-2xl px-5 py-4 sm:px-6 sm:py-5 sm:min-w-[160px] hover:bg-secondary-foreground/10 transition-colors duration-200"
+                  className="flex flex-col items-center sm:items-start gap-2 bg-secondary-foreground/6 border border-secondary-foreground/10 rounded-2xl px-3 py-4 sm:px-6 sm:py-5 sm:min-w-[160px] sm:flex-row hover:bg-secondary-foreground/10 transition-colors duration-200"
                   initial="hidden" animate="visible" variants={fadeUp} custom={i + 3}
                 >
-                  <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center flex-shrink-0`}>
-                    <s.icon className={`w-5 h-5 ${s.color}`} />
+                  <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${s.bg} flex items-center justify-center flex-shrink-0`}>
+                    <s.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${s.color}`} />
                   </div>
                   <div className="text-center sm:text-right">
-                    <div className={`text-2xl sm:text-3xl font-extrabold ${s.color} leading-none`}>{s.val}</div>
-                    <div className="text-xs text-secondary-foreground/55 mt-1 font-medium">{s.label}</div>
+                    <div className={`text-xl sm:text-3xl font-extrabold ${s.color} leading-none`}>{s.val}</div>
+                    <div className="text-[10px] sm:text-xs text-secondary-foreground/55 mt-0.5 font-medium">{s.label}</div>
                   </div>
                 </motion.div>
               ))}
