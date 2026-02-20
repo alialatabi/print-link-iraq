@@ -35,7 +35,7 @@ const DesignerOrderDetails = () => {
   const loadOrder = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('*, templates(name, service_type, preview_url)')
+      .select('*, templates(name, service_type, preview_url), profiles!orders_customer_id_fkey(display_name, phone)')
       .eq('id', orderId || '')
       .maybeSingle();
     setOrder(data);
@@ -248,7 +248,7 @@ const DesignerOrderDetails = () => {
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold text-foreground">تفاصيل الطلب</h1>
-              <p className="text-muted-foreground text-sm mt-1">{order.templates?.name} • {order.customer_name}</p>
+              <p className="text-muted-foreground text-sm mt-1">{order.templates?.name} • {order.profiles?.display_name || order.profiles?.phone || '-'}</p>
             </div>
             <StatusBadge status={order.status as OrderStatus} />
           </div>

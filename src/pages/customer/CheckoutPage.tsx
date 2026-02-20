@@ -139,8 +139,6 @@ const CheckoutPage = () => {
           customer_id: user.id,
           template_id: item.templateId,
           status: 'submitted' as any,
-          customer_name: user.id,
-          customer_phone: '-',
           details: { details: itemDetails, attachment_urls: [], quantity: item.quantity * 1000 } as any,
         })
         .select('id')
