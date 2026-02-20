@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
-import { FileText, Eye, ShoppingBag, RefreshCw } from 'lucide-react';
+import { FileText, ShoppingBag, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const MyOrders = () => {
+  const navigate = useNavigate();
   const { user, role } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +73,8 @@ const MyOrders = () => {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="bg-card rounded-2xl p-5 border border-border/60 shadow-card hover:shadow-card-hover transition-all duration-200"
+                onClick={() => navigate(`/track-order/${order.id}`)}
+                className="bg-card rounded-2xl p-5 border border-border/60 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all duration-200 cursor-pointer"
               >
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-4">
@@ -97,14 +99,11 @@ const MyOrders = () => {
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge status={order.status as OrderStatus} />
-                    <Link to={`/track-order/${order.id}`}>
-                      <Button size="sm" variant="outline" className="gap-1.5">
-                        <Eye className="w-3.5 h-3.5" />
-                        تتبع
-                      </Button>
-                    </Link>
                     {order.template_id && (
-                      <Link to={`/template/${order.template_id}`}>
+                      <Link
+                        to={`/template/${order.template_id}`}
+                        onClick={e => e.stopPropagation()}
+                      >
                         <Button size="sm" variant="ghost" className="gap-1.5 text-primary">
                           <RefreshCw className="w-3.5 h-3.5" />
                           طلب مرة أخرى
