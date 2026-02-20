@@ -1,12 +1,22 @@
 import { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Search, Users, Package, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Clock } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
+import {
+  Search, Users, Package, DollarSign,
+  ArrowUpDown, ArrowUp, ArrowDown, Clock,
+  Phone, MessageCircle, Trash2, ShieldOff, ShieldCheck,
+} from 'lucide-react';
 
 interface CustomerData {
   user_id: string;
@@ -16,6 +26,7 @@ interface CustomerData {
   area: string | null;
   landmark: string | null;
   last_seen: string | null;
+  is_active: boolean;
   orderCount: number;
   totalSpent: number;
 }
@@ -37,14 +48,24 @@ const formatLastSeen = (ts: string | null): string => {
   return `منذ ${months} شهر`;
 };
 
+// Format phone for tel: and wa.me links
+const formatPhone = (phone: string | null): string => {
+  if (!phone) return '';
+  // Remove spaces/dashes, ensure starts with + or country code
+  let p = phone.replace(/[\s\-()]/g, '');
+  if (p.startsWith('0')) p = '964' + p.slice(1); // Iraqi local
+  if (!p.startsWith('+')) p = '+' + p;
+  return p;
+};
+
 const AdminCustomers = () => {
   const [customers, setCustomers] = useState<CustomerData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('orderCount');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+
   const loadCustomers = useCallback(async () => {
-    // Get all customer role user_ids
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('user_id')
@@ -53,19 +74,12 @@ const AdminCustomers = () => {
     const customerIds = (roleData || []).map(r => r.user_id);
     if (customerIds.length === 0) { setCustomers([]); setLoading(false); return; }
 
-    // Get profiles
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('*')
-      .in('user_id', customerIds);
+    const [{ data: profiles }, { data: orders }] = await Promise.all([
+      supabase.from('profiles').select('*').in('user_id', customerIds),
+      supabase.from('orders').select('customer_id, paid_amount').in('customer_id', customerIds),
+    ]);
 
-    // Get orders for these customers
-    const { data: orders } = await supabase
-      .from('orders')
-      .select('customer_id, paid_amount, templates(price)')
-      .in('customer_id', customerIds);
-
-    const customerMap = (profiles || []).map(p => {
+    const customerMap: CustomerData[] = (profiles || []).map(p => {
       const customerOrders = (orders || []).filter(o => o.customer_id === p.user_id);
       return {
         user_id: p.user_id,
@@ -75,12 +89,12 @@ const AdminCustomers = () => {
         area: p.area,
         landmark: p.landmark,
         last_seen: (p as any).last_seen ?? null,
+        is_active: p.is_active,
         orderCount: customerOrders.length,
         totalSpent: customerOrders.reduce((sum, o) => sum + (o.paid_amount || 0), 0),
       };
     });
 
-    // Sort by order count descending
     customerMap.sort((a, b) => b.orderCount - a.orderCount);
     setCustomers(customerMap);
     setLoading(false);
@@ -88,15 +102,30 @@ const AdminCustomers = () => {
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
 
+  const handleBlock = async (userId: string, currentActive: boolean) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: !currentActive } as any)
+      .eq('user_id', userId);
+    if (error) { toast.error('فشل تحديث حالة الزبون'); return; }
+    toast.success(currentActive ? 'تم حظر الزبون' : 'تم رفع الحظر');
+    loadCustomers();
+  };
+
+  const handleDelete = async (userId: string) => {
+    const { error } = await supabase.functions.invoke('admin-delete-user', {
+      body: { userId },
+    });
+    if (error) { toast.error('فشل حذف الحساب'); return; }
+    toast.success('تم حذف حساب الزبون');
+    loadCustomers();
+  };
+
   const fmt = (n: number) => n.toLocaleString('en-US');
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortKey(key);
-      setSortDir('desc');
-    }
+    if (sortKey === key) setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('desc'); }
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -115,7 +144,6 @@ const AdminCustomers = () => {
     );
   }
 
-  // Apply sorting
   filtered = [...filtered].sort((a, b) => {
     let valA: any, valB: any;
     if (sortKey === 'display_name') { valA = (a.display_name || '').toLowerCase(); valB = (b.display_name || '').toLowerCase(); }
@@ -184,30 +212,40 @@ const AdminCustomers = () => {
                     <span className="inline-flex items-center gap-1">الهاتف <SortIcon col="phone" /></span>
                   </TableHead>
                   <TableHead className="text-right text-[11px] font-semibold">العنوان</TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold w-[80px] cursor-pointer select-none" onClick={() => handleSort('orderCount')}>
+                  <TableHead className="text-right text-[11px] font-semibold w-[70px] cursor-pointer select-none" onClick={() => handleSort('orderCount')}>
                     <span className="inline-flex items-center gap-1">الطلبات <SortIcon col="orderCount" /></span>
                   </TableHead>
                   <TableHead className="text-right text-[11px] font-semibold w-[100px] cursor-pointer select-none" onClick={() => handleSort('totalSpent')}>
-                    <span className="inline-flex items-center gap-1">المبلغ المدفوع <SortIcon col="totalSpent" /></span>
+                    <span className="inline-flex items-center gap-1">المدفوع <SortIcon col="totalSpent" /></span>
                   </TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold w-[110px] cursor-pointer select-none" onClick={() => handleSort('last_seen')}>
+                  <TableHead className="text-right text-[11px] font-semibold w-[100px] cursor-pointer select-none" onClick={() => handleSort('last_seen')}>
                     <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> آخر نشاط <SortIcon col="last_seen" /></span>
                   </TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold w-[160px]">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((c) => {
                   const address = [c.province, c.area, c.landmark].filter(Boolean).join(' - ');
+                  const phone = formatPhone(c.phone);
+                  const waLink = phone ? `https://wa.me/${phone.replace('+', '')}` : null;
+                  const telLink = phone ? `tel:${phone}` : null;
+
                   return (
-                    <TableRow key={c.user_id}>
+                    <TableRow key={c.user_id} className={!c.is_active ? 'opacity-60 bg-destructive/5' : ''}>
                       <TableCell>
-                        <p className="text-sm font-medium text-foreground">{c.display_name || '-'}</p>
+                        <div className="flex items-center gap-1.5">
+                          {!c.is_active && (
+                            <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded font-medium">محظور</span>
+                          )}
+                          <p className="text-sm font-medium text-foreground">{c.display_name || '-'}</p>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <p className="text-xs text-muted-foreground font-mono" dir="ltr">{c.phone || '-'}</p>
                       </TableCell>
                       <TableCell>
-                        <p className="text-xs text-muted-foreground max-w-[200px] truncate">{address || '-'}</p>
+                        <p className="text-xs text-muted-foreground max-w-[160px] truncate">{address || '-'}</p>
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-xs">{c.orderCount}</Badge>
@@ -224,6 +262,73 @@ const AdminCustomers = () => {
                         ) : (
                           <span className="text-[11px] text-muted-foreground/50">-</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {/* Call */}
+                          {telLink ? (
+                            <a href={telLink}>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-success hover:bg-success/10 hover:text-success" title="اتصال">
+                                <Phone className="w-3.5 h-3.5" />
+                              </Button>
+                            </a>
+                          ) : (
+                            <Button size="icon" variant="ghost" className="h-7 w-7 opacity-30" disabled title="لا يوجد رقم">
+                              <Phone className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+
+                          {/* WhatsApp */}
+                          {waLink ? (
+                            <a href={waLink} target="_blank" rel="noopener noreferrer">
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366]" title="واتساب">
+                                <MessageCircle className="w-3.5 h-3.5" />
+                              </Button>
+                            </a>
+                          ) : (
+                            <Button size="icon" variant="ghost" className="h-7 w-7 opacity-30" disabled title="لا يوجد رقم">
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+
+                          {/* Block/Unblock */}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className={`h-7 w-7 ${c.is_active ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10' : 'text-primary hover:bg-primary/10'}`}
+                            title={c.is_active ? 'حظر الزبون' : 'رفع الحظر'}
+                            onClick={() => handleBlock(c.user_id, c.is_active)}
+                          >
+                            {c.is_active ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                          </Button>
+
+                          {/* Delete */}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="حذف الحساب">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent dir="rtl">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>حذف حساب الزبون</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  هل أنت متأكد من حذف حساب <strong>{c.display_name || c.phone || 'هذا الزبون'}</strong> نهائياً؟<br />
+                                  <span className="text-destructive font-medium">لا يمكن التراجع عن هذا الإجراء.</span> ستبقى طلباته محفوظة في النظام.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter className="flex-row-reverse gap-2">
+                                <AlertDialogCancel>تراجع</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(c.user_id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  نعم، حذف الحساب
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
