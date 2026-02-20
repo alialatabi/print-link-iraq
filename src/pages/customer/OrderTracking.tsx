@@ -244,7 +244,7 @@ const OrderTracking = () => {
             </div>
             <div className="flex items-center gap-3">
               <StatusBadge status={order.status as OrderStatus} />
-              {order.status === 'submitted' && (
+              {(['submitted', 'assigned', 'design_uploaded', 'waiting_approval'] as string[]).includes(order.status) && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/5 hover:border-destructive/50">
