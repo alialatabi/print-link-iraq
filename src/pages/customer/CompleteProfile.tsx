@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 const CompleteProfile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/';
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ const CompleteProfile = () => {
         setLandmark(data.landmark || '');
         // If profile is already complete, redirect away
         if (data.province && data.area && data.landmark && data.display_name) {
-          navigate('/', { replace: true });
+          navigate(redirectTo, { replace: true });
           return;
         }
       }
@@ -80,7 +82,7 @@ const CompleteProfile = () => {
       toast({ title: 'خطأ في الحفظ', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'مرحباً بك! 🎉', description: 'تم حفظ بياناتك بنجاح' });
-      navigate('/', { replace: true });
+      navigate(redirectTo, { replace: true });
     }
   };
 
