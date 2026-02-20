@@ -11,12 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Package, Users, BarChart3, ClipboardList,
   Trash2, Palette, User, LayoutGrid,
   ShieldCheck, Search, Calendar, ArrowUpDown,
-  TrendingUp, Clock, CheckCircle, Truck, FileText, Download
+  TrendingUp, Clock, CheckCircle, Truck, FileText, Download,
+  WifiOff
 } from 'lucide-react';
 
 import AdminTemplates from '@/components/admin/AdminTemplates';
@@ -69,6 +71,16 @@ const AdminPanel = () => {
       setDesigners([]);
     }
   }, []);
+
+  const handleToggleDesignerActive = async (userId: string, currentActive: boolean) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: !currentActive } as any)
+      .eq('user_id', userId);
+    if (error) { toast.error('فشل تحديث حالة المصمم'); return; }
+    toast.success(!currentActive ? 'تم تفعيل المصمم' : 'تم تعطيل المصمم');
+    loadDesigners();
+  };
 
   const loadAllUsers = useCallback(async () => {
     const { data: roles } = await supabase
@@ -436,6 +448,7 @@ const AdminPanel = () => {
                               <SelectItem value="none" disabled>اختر مصمم</SelectItem>
                               {designers.map(d => (
                                 <SelectItem key={d.user_id} value={d.user_id}>
+                                  {(d as any).is_active === false ? '🔴 ' : '🟢 '}
                                   {d.display_name || d.phone || 'مصمم'}
                                   {' '}({designerWorkload.find(w => w.user_id === d.user_id)?.activeOrders || 0} نشط)
                                 </SelectItem>
@@ -496,15 +509,35 @@ const AdminPanel = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {designerWorkload.map((d) => (
-                    <div key={d.user_id} className="bg-card rounded-xl p-5 border border-border">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-full bg-cmyk-magenta/10 flex items-center justify-center">
-                          <Palette className="w-5 h-5 text-cmyk-magenta" />
+                  {designerWorkload.map((d) => {
+                    const isActive = (d as any).is_active !== false;
+                    return (
+                    <div key={d.user_id} className={`bg-card rounded-xl p-5 border transition-all ${isActive ? 'border-border' : 'border-destructive/30 opacity-70'}`}>
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isActive ? 'bg-cmyk-magenta/10' : 'bg-muted'}`}>
+                            {isActive
+                              ? <Palette className="w-5 h-5 text-cmyk-magenta" />
+                              : <WifiOff className="w-5 h-5 text-muted-foreground" />
+                            }
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-foreground">{d.display_name || d.phone || 'مصمم'}</h4>
+                              <Badge variant={isActive ? 'default' : 'outline'} className={`text-[10px] px-1.5 py-0 ${isActive ? 'bg-success/15 text-success border-success/30' : 'text-muted-foreground'}`}>
+                                {isActive ? 'نشط' : 'غير نشط'}
+                              </Badge>
+                            </div>
+                            {d.phone && <p className="text-xs text-muted-foreground" dir="ltr">{d.phone}</p>}
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-bold text-foreground">{d.display_name || d.phone || 'مصمم'}</h4>
-                          {d.phone && <p className="text-xs text-muted-foreground" dir="ltr">{d.phone}</p>}
+                        {/* Toggle active */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{isActive ? 'يستقبل طلبات' : 'موقوف'}</span>
+                          <Switch
+                            checked={isActive}
+                            onCheckedChange={() => handleToggleDesignerActive(d.user_id, isActive)}
+                          />
                         </div>
                       </div>
 
@@ -524,20 +557,28 @@ const AdminPanel = () => {
                       </div>
 
                       {/* Workload bar */}
-                      <div className="mt-4">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                          <span>عبء العمل</span>
-                          <span>{d.activeOrders} طلبات نشطة</span>
+                      {isActive && (
+                        <div className="mt-4">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                            <span>عبء العمل</span>
+                            <span>{d.activeOrders} طلبات نشطة</span>
+                          </div>
+                          <div className="bg-muted rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${d.activeOrders > 5 ? 'bg-destructive' : d.activeOrders > 3 ? 'bg-cmyk-yellow' : 'bg-success'}`}
+                              style={{ width: `${Math.min(d.activeOrders * 15, 100)}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="bg-muted rounded-full h-2 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${d.activeOrders > 5 ? 'bg-destructive' : d.activeOrders > 3 ? 'bg-cmyk-yellow' : 'bg-success'}`}
-                            style={{ width: `${Math.min(d.activeOrders * 15, 100)}%` }}
-                          />
+                      )}
+                      {!isActive && (
+                        <div className="mt-4 bg-destructive/5 rounded-lg p-3 text-center">
+                          <p className="text-xs text-destructive">هذا المصمم لا يستقبل طلبات جديدة تلقائياً</p>
                         </div>
-                      </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

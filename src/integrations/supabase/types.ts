@@ -173,6 +173,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          is_active: boolean
           landmark: string | null
           phone: string | null
           province: string | null
@@ -184,6 +185,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_active?: boolean
           landmark?: string | null
           phone?: string | null
           province?: string | null
@@ -195,6 +197,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_active?: boolean
           landmark?: string | null
           phone?: string | null
           province?: string | null
