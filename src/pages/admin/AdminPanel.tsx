@@ -44,6 +44,7 @@ const AdminPanel = () => {
   const [designers, setDesigners] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('orders');
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -51,6 +52,9 @@ const AdminPanel = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [designerFilter, setDesignerFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
+  // Quick stat filter: overrides statusFilter when set
+  type QuickFilter = 'all' | 'pending' | 'inprogress' | 'completed' | null;
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
 
   const loadOrders = useCallback(async () => {
     const { data } = await supabase
@@ -220,7 +224,13 @@ const AdminPanel = () => {
 
   // Filtering & sorting
   let filteredOrders = orders;
-  if (statusFilter !== 'all') filteredOrders = filteredOrders.filter(o => o.status === statusFilter);
+
+  // Quick filter from stat cards overrides statusFilter
+  if (quickFilter === 'pending') filteredOrders = filteredOrders.filter(o => ['submitted', 'draft'].includes(o.status));
+  else if (quickFilter === 'inprogress') filteredOrders = filteredOrders.filter(o => ['assigned', 'design_uploaded', 'waiting_approval'].includes(o.status));
+  else if (quickFilter === 'completed') filteredOrders = filteredOrders.filter(o => ['approved', 'print_ready', 'printed', 'delivered'].includes(o.status));
+  else if (statusFilter !== 'all') filteredOrders = filteredOrders.filter(o => o.status === statusFilter);
+
   if (serviceFilter !== 'all') filteredOrders = filteredOrders.filter(o => o.templates?.service_type === serviceFilter);
   if (designerFilter !== 'all') {
     if (designerFilter === 'unassigned') filteredOrders = filteredOrders.filter(o => !o.designer_id);
@@ -272,25 +282,43 @@ const AdminPanel = () => {
         {/* Quick Stats Dashboard */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
-            { label: 'إجمالي الطلبات', value: totalOrders, icon: Package, color: 'text-primary', bg: 'bg-primary/10' },
-            { label: 'بانتظار التعيين', value: pendingOrders, icon: Clock, color: 'text-cmyk-yellow', bg: 'bg-cmyk-yellow/10' },
-            { label: 'قيد التنفيذ', value: inProgressOrders, icon: TrendingUp, color: 'text-cmyk-cyan', bg: 'bg-cmyk-cyan/10' },
-            { label: 'مكتملة', value: completedOrders, icon: CheckCircle, color: 'text-success', bg: 'bg-success/10' },
-            { label: 'المصممين', value: designers.length, icon: Palette, color: 'text-cmyk-magenta', bg: 'bg-cmyk-magenta/10' },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-card rounded-xl p-4 border border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
-                  <stat.icon className={`w-4 h-4 ${stat.color}`} />
+            { label: 'إجمالي الطلبات', value: totalOrders, icon: Package, color: 'text-primary', bg: 'bg-primary/10', filter: 'all' as const },
+            { label: 'بانتظار التعيين', value: pendingOrders, icon: Clock, color: 'text-cmyk-yellow', bg: 'bg-cmyk-yellow/10', filter: 'pending' as const },
+            { label: 'قيد التنفيذ', value: inProgressOrders, icon: TrendingUp, color: 'text-cmyk-cyan', bg: 'bg-cmyk-cyan/10', filter: 'inprogress' as const },
+            { label: 'مكتملة', value: completedOrders, icon: CheckCircle, color: 'text-success', bg: 'bg-success/10', filter: 'completed' as const },
+            { label: 'المصممين', value: designers.length, icon: Palette, color: 'text-cmyk-magenta', bg: 'bg-cmyk-magenta/10', filter: null as null },
+          ].map((stat) => {
+            const isActive = activeTab === 'orders' && (
+              (stat.filter === 'all' && quickFilter === null) ||
+              (stat.filter !== null && quickFilter === stat.filter)
+            );
+            return (
+              <button
+                key={stat.label}
+                onClick={() => {
+                  if (stat.filter === null) {
+                    setActiveTab('designers');
+                  } else {
+                    setActiveTab('orders');
+                    setQuickFilter(stat.filter === 'all' ? null : stat.filter);
+                    setStatusFilter('all');
+                  }
+                }}
+                className={`bg-card rounded-xl p-4 border text-right transition-all hover:shadow-md active:scale-[0.98] cursor-pointer ${isActive ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary/30'}`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                  </div>
                 </div>
-              </div>
-              <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-              <p className="text-xs text-muted-foreground">{stat.label}</p>
-            </div>
-          ))}
+                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+              </button>
+            );
+          })}
         </div>
 
-        <Tabs defaultValue="orders" dir="rtl">
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setQuickFilter(null); }} dir="rtl">
           <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ClipboardList className="w-4 h-4" />
@@ -389,8 +417,17 @@ const AdminPanel = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">
-                عرض {filteredOrders.length} من {orders.length} طلب
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">عرض {filteredOrders.length} من {orders.length} طلب</span>
+                {quickFilter && (
+                  <button
+                    onClick={() => setQuickFilter(null)}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <span>✕</span>
+                    مسح فلتر: {quickFilter === 'pending' ? 'بانتظار التعيين' : quickFilter === 'inprogress' ? 'قيد التنفيذ' : 'مكتملة'}
+                  </button>
+                )}
               </div>
             </div>
 
