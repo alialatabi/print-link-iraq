@@ -99,7 +99,7 @@ const MyOrders = () => {
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge status={order.status as OrderStatus} />
-                    {order.template_id && (
+                    {order.template_id && order.status !== 'cancelled' && (
                       <Link
                         to={`/template/${order.template_id}`}
                         onClick={e => e.stopPropagation()}
