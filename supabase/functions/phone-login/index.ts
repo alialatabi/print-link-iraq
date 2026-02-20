@@ -21,39 +21,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Normalize phone: ensure it starts with country code
     const normalizedPhone = phone.replace(/\s+/g, "").replace(/^0/, "964");
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Create synthetic email for Supabase Auth
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
     const loginPassword = password || `PHONE_AUTH_${normalizedPhone}_SECRET_KEY_2024`;
 
-    // Try to sign in first (existing user)
-    const { data: signInData } =
-      await supabaseAdmin.auth.signInWithPassword({
-        email: syntheticEmail,
-        password: loginPassword,
-      });
+    // Check if user already exists
+    const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
+    const existingUser = userList?.users?.find(u => u.email === syntheticEmail);
 
-    if (signInData?.session) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          session: signInData.session,
-          isNewUser: false,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    let isNewUser = false;
 
-    // User doesn't exist, create account
-    const { data: signUpData, error: signUpError } =
-      await supabaseAdmin.auth.admin.createUser({
+    if (!existingUser) {
+      // Create new user
+      const { error: signUpError } = await supabaseAdmin.auth.admin.createUser({
         email: syntheticEmail,
         password: loginPassword,
         phone: normalizedPhone,
@@ -61,23 +48,49 @@ Deno.serve(async (req) => {
         user_metadata: { display_name: normalizedPhone, phone: normalizedPhone },
       });
 
-    if (signUpError) {
-      console.error("Sign up error:", signUpError);
+      if (signUpError && signUpError.code !== "email_exists") {
+        console.error("Sign up error:", signUpError);
+        return new Response(
+          JSON.stringify({ error: "فشل إنشاء الحساب" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      isNewUser = !signUpError;
+    }
+
+    // Generate magic link session (bypasses email provider requirement)
+    const { data: linkData, error: linkError } =
+      await supabaseAdmin.auth.admin.generateLink({
+        type: "magiclink",
+        email: syntheticEmail,
+      });
+
+    if (linkError || !linkData?.properties?.hashed_token) {
+      console.error("Generate link error:", linkError);
       return new Response(
-        JSON.stringify({ error: "فشل إنشاء الحساب" }),
+        JSON.stringify({ error: "فشل إنشاء الجلسة" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Sign in the newly created user
-    const { data: newSession, error: newSignInError } =
-      await supabaseAdmin.auth.signInWithPassword({
-        email: syntheticEmail,
-        password: loginPassword,
-      });
+    // Exchange magic link token for a real session
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const verifyResp = await fetch(`${supabaseUrl}/auth/v1/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,
+      },
+      body: JSON.stringify({
+        type: "magiclink",
+        token_hash: linkData.properties.hashed_token,
+      }),
+    });
 
-    if (newSignInError || !newSession?.session) {
-      console.error("New user sign-in error:", newSignInError);
+    const sessionData = await verifyResp.json();
+
+    if (!verifyResp.ok || !sessionData?.access_token) {
+      console.error("Verify error:", JSON.stringify(sessionData));
       return new Response(
         JSON.stringify({ error: "فشل تسجيل الدخول" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -87,8 +100,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        session: newSession.session,
-        isNewUser: true,
+        session: sessionData,
+        isNewUser,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
