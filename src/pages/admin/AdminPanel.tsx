@@ -14,11 +14,16 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   Package, Users, BarChart3, ClipboardList,
   Trash2, Palette, User, LayoutGrid,
   ShieldCheck, Search, Calendar, ArrowUpDown,
   TrendingUp, Clock, CheckCircle, Truck, FileText, Download,
-  WifiOff
+  WifiOff, XCircle
 } from 'lucide-react';
 
 import AdminTemplates from '@/components/admin/AdminTemplates';
@@ -110,6 +115,16 @@ const AdminPanel = () => {
       .eq('id', orderId);
     if (error) { toast.error('فشل تحديث الحالة'); return; }
     toast.success('تم تحديث الحالة');
+    loadOrders();
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'draft' as any, designer_id: null })
+      .eq('id', orderId);
+    if (error) { toast.error('فشل إلغاء الطلب'); return; }
+    toast.success('تم إلغاء الطلب');
     loadOrders();
   };
 
@@ -474,6 +489,36 @@ const AdminPanel = () => {
                             </SelectContent>
                           </Select>
                         </div>
+
+                        {/* Cancel Order */}
+                        {order.status !== 'draft' && order.status !== 'delivered' && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50 gap-1.5 ml-auto">
+                                <XCircle className="w-3.5 h-3.5" />
+                                إلغاء الطلب
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent dir="rtl">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>إلغاء الطلب</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  هل أنت متأكد من إلغاء طلب <strong>{order.customer_name || 'هذا الزبون'}</strong>؟
+                                  سيتم إعادة حالته إلى مسودة وإلغاء تعيين المصمم.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter className="flex-row-reverse gap-2">
+                                <AlertDialogCancel>تراجع</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleCancelOrder(order.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  نعم، إلغاء الطلب
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
                     </div>
                   </motion.div>
