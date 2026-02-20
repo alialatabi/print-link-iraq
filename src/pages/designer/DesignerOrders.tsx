@@ -20,7 +20,7 @@ const DesignerOrders = () => {
     if (!user) return;
     const { data } = await supabase
       .from('orders')
-      .select('*, templates(name, service_type)')
+      .select('*, templates(name, service_type), profiles!orders_customer_id_fkey(display_name, phone)')
       .eq('designer_id', user.id)
       .order('created_at', { ascending: false });
     setOrders(data || []);
@@ -84,7 +84,7 @@ const DesignerOrders = () => {
           <div>
             <h3 className="font-bold text-foreground">{order.templates?.name || '-'}</h3>
             <p className="text-muted-foreground text-sm">
-              {order.customer_name} • {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
+              {order.profiles?.display_name || order.profiles?.phone || '-'} • {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
             </p>
             <p className="text-muted-foreground text-xs mt-1">{new Date(order.created_at).toLocaleDateString('ar')}</p>
           </div>

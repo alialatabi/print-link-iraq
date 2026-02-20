@@ -59,7 +59,7 @@ const AdminPanel = () => {
   const loadOrders = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('*, templates(name, service_type)')
+      .select('*, templates(name, service_type), profiles!orders_customer_id_fkey(display_name, phone)')
       .order('created_at', { ascending: false });
     setOrders(data || []);
   }, []);
@@ -184,8 +184,8 @@ const AdminPanel = () => {
       const details = (o.details || {}) as Record<string, any>;
       return {
         '#': i + 1,
-        'اسم الزبون': o.customer_name || details.name || '-',
-        'رقم الهاتف': o.customer_phone || details.phone || '-',
+        'اسم الزبون': o.profiles?.display_name || details.name || '-',
+        'رقم الهاتف': o.profiles?.phone || details.phone || '-',
         'العنوان': details.address || '-',
         'البريد الإلكتروني': details.email || '-',
         'نوع الخدمة': SERVICE_LABELS[o.templates?.service_type] || '-',
@@ -239,8 +239,8 @@ const AdminPanel = () => {
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
     filteredOrders = filteredOrders.filter(o =>
-      (o.customer_name || '').toLowerCase().includes(q) ||
-      (o.customer_phone || '').includes(q) ||
+      (o.profiles?.display_name || '').toLowerCase().includes(q) ||
+      (o.profiles?.phone || '').includes(q) ||
       (o.templates?.name || '').toLowerCase().includes(q) ||
       o.id.toLowerCase().includes(q)
     );
@@ -455,8 +455,8 @@ const AdminPanel = () => {
                             <span className="text-xs text-muted-foreground font-mono">#{order.id.slice(0, 8)}</span>
                           </div>
                           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                            <span>{order.customer_name || '-'}</span>
-                            <span dir="ltr">{order.customer_phone || '-'}</span>
+                            <span>{order.profiles?.display_name || '-'}</span>
+                            <span dir="ltr">{order.profiles?.phone || '-'}</span>
                             <span>{SERVICE_LABELS[order.templates?.service_type] || ''}</span>
                             <span>{new Date(order.created_at).toLocaleDateString('ar')}</span>
                           </div>
@@ -539,7 +539,7 @@ const AdminPanel = () => {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>إلغاء الطلب</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  هل أنت متأكد من إلغاء طلب <strong>{order.customer_name || 'هذا الزبون'}</strong>؟
+                                  هل أنت متأكد من إلغاء طلب <strong>{order.profiles?.display_name || order.profiles?.phone || 'هذا الزبون'}</strong>؟
                                   سيتم إعادة حالته إلى مسودة وإلغاء تعيين المصمم.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
