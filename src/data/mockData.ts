@@ -9,7 +9,8 @@ export type OrderStatus =
   | 'approved' 
   | 'print_ready' 
   | 'printed' 
-  | 'delivered';
+  | 'delivered'
+  | 'cancelled';
 
 export interface Template {
   id: string;
@@ -58,6 +59,7 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
   print_ready: 'جاهز للطباعة',
   printed: 'تمت الطباعة',
   delivered: 'تم التسليم',
+  cancelled: 'تم الإلغاء',
 };
 
 export const STATUS_COLORS: Record<OrderStatus, string> = {
@@ -70,6 +72,7 @@ export const STATUS_COLORS: Record<OrderStatus, string> = {
   print_ready: 'bg-success/40 text-success-foreground',
   printed: 'bg-success text-success-foreground',
   delivered: 'bg-success text-success-foreground',
+  cancelled: 'bg-destructive/10 text-destructive',
 };
 
 export const SERVICES: { type: ServiceType; icon: string; description: string }[] = [

@@ -33,7 +33,7 @@ import AdminServicesSpecs from '@/components/admin/AdminServicesSpecs';
 
 const ORDER_STATUSES: OrderStatus[] = [
   'draft', 'submitted', 'assigned', 'design_uploaded',
-  'waiting_approval', 'approved', 'print_ready', 'printed', 'delivered'
+  'waiting_approval', 'approved', 'print_ready', 'printed', 'delivered', 'cancelled'
 ];
 
 const AdminPanel = () => {
@@ -125,7 +125,7 @@ const AdminPanel = () => {
   const handleCancelOrder = async (orderId: string) => {
     const { error } = await supabase
       .from('orders')
-      .update({ status: 'draft' as any, designer_id: null })
+      .update({ status: 'cancelled' as any, designer_id: null })
       .eq('id', orderId);
     if (error) { toast.error('فشل إلغاء الطلب'); return; }
     toast.success('تم إلغاء الطلب');
@@ -248,16 +248,15 @@ const AdminPanel = () => {
   if (sortBy === 'oldest') filteredOrders = [...filteredOrders].reverse();
 
   // Stats
-  const totalOrders = orders.length;
+  const totalOrders = orders.filter(o => o.status !== 'cancelled').length;
   const pendingOrders = orders.filter(o => ['submitted', 'draft'].includes(o.status)).length;
   const inProgressOrders = orders.filter(o => ['assigned', 'design_uploaded', 'waiting_approval'].includes(o.status)).length;
   const completedOrders = orders.filter(o => ['approved', 'print_ready', 'printed', 'delivered'].includes(o.status)).length;
-  const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
 
   // Designer workload
   const designerWorkload = designers.map(d => ({
     ...d,
-    activeOrders: orders.filter(o => o.designer_id === d.user_id && !['delivered', 'draft'].includes(o.status)).length,
+    activeOrders: orders.filter(o => o.designer_id === d.user_id && !['delivered', 'draft', 'cancelled'].includes(o.status)).length,
     totalOrders: orders.filter(o => o.designer_id === d.user_id).length,
     completedOrders: orders.filter(o => o.designer_id === d.user_id && ['approved', 'print_ready', 'printed', 'delivered'].includes(o.status)).length,
   }));
@@ -528,7 +527,7 @@ const AdminPanel = () => {
                         </div>
 
                         {/* Cancel Order */}
-                        {order.status !== 'draft' && order.status !== 'delivered' && (
+                        {order.status !== 'draft' && order.status !== 'delivered' && order.status !== 'cancelled' && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="outline" size="sm" className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50 gap-1.5 ml-auto">

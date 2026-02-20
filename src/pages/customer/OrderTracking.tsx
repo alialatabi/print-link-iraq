@@ -211,7 +211,7 @@ const OrderTracking = () => {
     if (!orderId) return;
     const { error } = await supabase
       .from('orders')
-      .update({ status: 'draft' as any })
+      .update({ status: 'cancelled' as any, designer_id: null })
       .eq('id', orderId);
     if (error) {
       toast({ title: 'حدث خطأ أثناء إلغاء الطلب', variant: 'destructive' });
