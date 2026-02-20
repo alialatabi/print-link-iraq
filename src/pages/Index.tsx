@@ -128,33 +128,39 @@ const Index = () => {
     <div className="overflow-hidden">
 
       {/* ─── Hero ─── */}
-      <section className="relative bg-gradient-to-bl from-secondary via-secondary to-secondary/90 text-secondary-foreground pt-12 pb-16 sm:pt-16 sm:pb-24 overflow-hidden">
+      <section className="relative bg-gradient-to-bl from-secondary via-secondary to-secondary/90 text-secondary-foreground pt-12 pb-16 sm:pt-20 sm:pb-28 overflow-hidden">
         {/* subtle bg pattern */}
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+        {/* decorative blobs */}
+        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 right-0 w-72 h-72 rounded-full bg-cmyk-cyan/8 blur-3xl pointer-events-none" />
 
-        <div className="container max-w-5xl relative">
-          <motion.div className="flex flex-col sm:flex-row items-center gap-10" initial="hidden" animate="visible" variants={fadeUp} custom={0}>
+        <div className="container max-w-6xl relative">
+          <div className="flex flex-col sm:flex-row items-center gap-12 sm:gap-16">
 
             {/* Text */}
-            <div className="flex-1 text-center sm:text-right">
+            <motion.div className="flex-1 text-center sm:text-right" initial="hidden" animate="visible" variants={fadeUp} custom={0}>
               {/* Delivery badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/20 text-success text-xs font-bold mb-4 border border-success/20">
+              <motion.div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/20 text-success text-xs font-bold mb-5 border border-success/20" initial="hidden" animate="visible" variants={fadeUp} custom={0}>
                 <Truck className="w-3.5 h-3.5" />
                 طباعة وتسليم خلال ٧٢ ساعة لجميع أنحاء العراق
-              </div>
+              </motion.div>
 
-              <h1 className="text-3xl sm:text-5xl font-extrabold leading-tight mb-4 tracking-tight">
+              <motion.h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.15] mb-5 tracking-tight" initial="hidden" animate="visible" variants={fadeUp} custom={1}>
                 صمّم واطبع منتجاتك
-                <span className="text-primary"> بسهولة خلال دقائق</span>
-              </h1>
+                <br />
+                <span className="text-primary">بسهولة خلال دقائق</span>
+              </motion.h1>
 
-              <p className="text-secondary-foreground/60 text-sm sm:text-base leading-relaxed max-w-md mx-auto sm:mx-0 mb-3">
+              <motion.p className="text-secondary-foreground/60 text-sm sm:text-base leading-relaxed max-w-md mx-auto sm:mx-0 mb-2" initial="hidden" animate="visible" variants={fadeUp} custom={2}>
                 منصة مطبعتي تتيح لك تصميم وطلب المطبوعات أونلاين بجودة عالية وتسليم سريع داخل العراق
-              </p>
+              </motion.p>
 
-              <p className="text-secondary-foreground/40 text-xs mb-6">آلاف التصاميم تم إنشاؤها عبر مطبعتي</p>
+              <motion.p className="text-secondary-foreground/35 text-xs mb-7" initial="hidden" animate="visible" variants={fadeUp} custom={3}>
+                آلاف التصاميم تم إنشاؤها عبر مطبعتي
+              </motion.p>
 
-              <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
+              <motion.div className="flex flex-wrap gap-3 justify-center sm:justify-start" initial="hidden" animate="visible" variants={fadeUp} custom={4}>
                 <Link to="/services">
                   <Button size="lg" className="gap-2 h-13 px-10 text-base shadow-elevated hover:-translate-y-0.5 transition-transform">
                     ابدأ التصميم الآن
@@ -166,23 +172,35 @@ const Index = () => {
                     تصفح القوالب
                   </Button>
                 </Link>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
-            {/* Stats */}
-            <div className="flex sm:flex-col gap-3">
+            {/* Stats panel */}
+            <motion.div
+              className="flex sm:flex-col gap-4 w-full sm:w-auto"
+              initial="hidden" animate="visible" variants={fadeUp} custom={2}
+            >
               {[
-                { val: '+٥٠٠', label: 'قالب جاهز' },
-                { val: '+١٠٠٠', label: 'طلب منجز' },
-                { val: '٧٢ س', label: 'وقت التسليم' },
+                { val: '+٥٠٠', label: 'قالب جاهز', icon: Palette, color: 'text-primary', bg: 'bg-primary/15' },
+                { val: '+١٠٠٠', label: 'طلب منجز', icon: CheckCircle, color: 'text-success', bg: 'bg-success/15' },
+                { val: '٧٢ س', label: 'وقت التسليم', icon: Clock, color: 'text-cmyk-cyan', bg: 'bg-cmyk-cyan/15' },
               ].map((s, i) => (
-                <motion.div key={i} className="bg-secondary-foreground/8 border border-secondary-foreground/10 rounded-2xl px-5 py-4 text-center min-w-[90px]" initial="hidden" animate="visible" variants={fadeUp} custom={i + 2}>
-                  <div className="text-2xl font-extrabold text-primary">{s.val}</div>
-                  <div className="text-xs text-secondary-foreground/60 mt-0.5">{s.label}</div>
+                <motion.div
+                  key={i}
+                  className="flex-1 sm:flex-initial flex sm:flex-col items-center sm:items-start gap-3 sm:gap-2 bg-secondary-foreground/6 border border-secondary-foreground/10 rounded-2xl px-5 py-4 sm:px-6 sm:py-5 sm:min-w-[160px] hover:bg-secondary-foreground/10 transition-colors duration-200"
+                  initial="hidden" animate="visible" variants={fadeUp} custom={i + 3}
+                >
+                  <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center flex-shrink-0`}>
+                    <s.icon className={`w-5 h-5 ${s.color}`} />
+                  </div>
+                  <div className="text-center sm:text-right">
+                    <div className={`text-2xl sm:text-3xl font-extrabold ${s.color} leading-none`}>{s.val}</div>
+                    <div className="text-xs text-secondary-foreground/55 mt-1 font-medium">{s.label}</div>
+                  </div>
                 </motion.div>
               ))}
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
