@@ -4,11 +4,22 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, FileText, Palette, Printer, Truck, Package, Eye, MessageSquare, RefreshCw, MapPin, ImagePlus, X, Edit2 } from 'lucide-react';
+import { CheckCircle, Clock, FileText, Palette, Printer, Truck, Package, Eye, MessageSquare, RefreshCw, MapPin, ImagePlus, X, Edit2, XCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import type { OrderStatus } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
 import { getDesignSignedUrl } from '@/lib/storage';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const STEPS = [
   { status: 'submitted', label: 'تم الإرسال', icon: FileText },
@@ -196,6 +207,20 @@ const OrderTracking = () => {
     setSubmitting(false);
   };
 
+  const handleCancelOrder = async () => {
+    if (!orderId) return;
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'draft' as any })
+      .eq('id', orderId);
+    if (error) {
+      toast({ title: 'حدث خطأ أثناء إلغاء الطلب', variant: 'destructive' });
+    } else {
+      toast({ title: 'تم إلغاء الطلب بنجاح' });
+      navigate('/my-orders');
+    }
+  };
+
   if (loading) return (
     <div className="py-24 text-center">
       <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
@@ -217,7 +242,36 @@ const OrderTracking = () => {
               <h1 className="text-2xl font-extrabold text-foreground tracking-tight">تتبع الطلب</h1>
               <p className="text-muted-foreground text-sm mt-1">رقم الطلب: {order.id?.slice(0, 8)}...</p>
             </div>
-            <StatusBadge status={order.status as OrderStatus} />
+            <div className="flex items-center gap-3">
+              <StatusBadge status={order.status as OrderStatus} />
+              {order.status === 'submitted' && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/5 hover:border-destructive/50">
+                      <XCircle className="w-4 h-4" />
+                      إلغاء الطلب
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>تأكيد إلغاء الطلب</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        هل أنت متأكد من إلغاء هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>تراجع</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleCancelOrder}
+                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                      >
+                        نعم، إلغاء الطلب
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </div>
 
           {/* Order Info */}
