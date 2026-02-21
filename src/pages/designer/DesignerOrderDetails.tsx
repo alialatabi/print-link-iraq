@@ -35,10 +35,20 @@ const DesignerOrderDetails = () => {
   const loadOrder = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('*, templates(name, service_type, preview_url), profiles!orders_customer_id_fkey(display_name, phone)')
+      .select('*, templates(name, service_type, preview_url)')
       .eq('id', orderId || '')
       .maybeSingle();
-    setOrder(data);
+    
+    if (data) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('display_name, phone')
+        .eq('user_id', data.customer_id)
+        .maybeSingle();
+      setOrder({ ...data, profiles: profile });
+    } else {
+      setOrder(null);
+    }
     setLoading(false);
   }, [orderId]);
 

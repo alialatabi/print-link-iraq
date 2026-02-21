@@ -18,12 +18,30 @@ const DesignerOrders = () => {
 
   const loadOrders = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data: ordersData } = await supabase
       .from('orders')
-      .select('*, templates(name, service_type), profiles!orders_customer_id_fkey(display_name, phone)')
+      .select('*, templates(name, service_type)')
       .eq('designer_id', user.id)
       .order('created_at', { ascending: false });
-    setOrders(data || []);
+    
+    if (!ordersData || ordersData.length === 0) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+
+    const customerIds = [...new Set(ordersData.map(o => o.customer_id))];
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('user_id, display_name, phone')
+      .in('user_id', customerIds);
+    
+    const profileMap = new Map((profilesData || []).map(p => [p.user_id, p]));
+    
+    setOrders(ordersData.map(o => ({
+      ...o,
+      profiles: profileMap.get(o.customer_id) || null,
+    })));
     setLoading(false);
   }, [user]);
 
