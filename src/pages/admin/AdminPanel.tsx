@@ -57,11 +57,31 @@ const AdminPanel = () => {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
 
   const loadOrders = useCallback(async () => {
-    const { data } = await supabase
+    const { data: ordersData } = await supabase
       .from('orders')
-      .select('*, templates(name, service_type), profiles!orders_customer_id_fkey(display_name, phone)')
+      .select('*, templates(name, service_type)')
       .order('created_at', { ascending: false });
-    setOrders(data || []);
+    
+    if (!ordersData || ordersData.length === 0) {
+      setOrders([]);
+      return;
+    }
+
+    // Fetch customer profiles separately
+    const customerIds = [...new Set(ordersData.map(o => o.customer_id))];
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('user_id, display_name, phone')
+      .in('user_id', customerIds);
+    
+    const profileMap = new Map((profilesData || []).map(p => [p.user_id, p]));
+    
+    const enrichedOrders = ordersData.map(o => ({
+      ...o,
+      profiles: profileMap.get(o.customer_id) || null,
+    }));
+    
+    setOrders(enrichedOrders);
   }, []);
 
   const loadDesigners = useCallback(async () => {
