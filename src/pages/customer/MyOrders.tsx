@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,25 +14,43 @@ const MyOrders = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!user) return;
-      let query = supabase
-        .from('orders')
-        .select('*, templates(name, service_type, price)')
-        .order('created_at', { ascending: false });
-      
-      // Admins see all orders, customers see only their own
-      if (role !== 'admin') {
-        query = query.eq('customer_id', user.id);
-      }
-      
-      const { data } = await query;
-      setOrders(data || []);
-      setLoading(false);
-    };
-    load();
+  const loadOrders = useCallback(async () => {
+    if (!user) return;
+    let query = supabase
+      .from('orders')
+      .select('*, templates(name, service_type, price)')
+      .order('created_at', { ascending: false });
+    
+    if (role !== 'admin') {
+      query = query.eq('customer_id', user.id);
+    }
+    
+    const { data } = await query;
+    setOrders(data || []);
+    setLoading(false);
   }, [user, role]);
+
+  useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  // Realtime: listen for order changes
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('my-orders')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+      }, (payload) => {
+        const row = payload.new as any;
+        const old = payload.old as any;
+        if (role === 'admin' || row?.customer_id === user.id || old?.customer_id === user.id) {
+          loadOrders();
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, role, loadOrders]);
   const formatPrice = (price: number | null, quantity: number) => {
     if (!price) return '-';
     const total = (price / 1000) * quantity;
