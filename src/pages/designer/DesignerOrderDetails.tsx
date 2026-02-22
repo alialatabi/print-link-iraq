@@ -129,10 +129,7 @@ const DesignerOrderDetails = () => {
 
       if (insertError) throw insertError;
 
-      // Update order status
-      await supabase.from('orders').update({ status: 'design_uploaded' as any }).eq('id', orderId);
-
-      toast({ title: 'تم رفع التصميم بنجاح', description: `الإصدار ${nextVersion}` });
+      toast({ title: 'تم رفع التصميم بنجاح', description: `الإصدار ${nextVersion} — اضغط "إرسال للموافقة" لإرساله للعميل` });
       loadOrder();
       loadDesigns();
     } catch (err: any) {
