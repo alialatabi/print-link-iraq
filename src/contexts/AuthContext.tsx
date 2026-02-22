@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
+import { useHeartbeat } from '@/hooks/useHeartbeat';
 
 type AppRole = 'customer' | 'designer' | 'admin';
 type SignOutCallback = () => void;
@@ -37,10 +38,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (roles.includes('admin')) setRole('admin');
     else if (roles.includes('designer')) setRole('designer');
     else setRole('customer');
-    // Update last_seen for customers
+    // Update last_seen for customers (one-time, not heartbeat)
     if (!roles.includes('admin') && !roles.includes('designer')) {
       supabase.from('profiles').update({ last_seen: new Date().toISOString() } as any).eq('user_id', userId);
     }
+    // Designers get heartbeat via useHeartbeat hook
   };
 
   useEffect(() => {
@@ -98,6 +100,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRole(null);
     await supabase.auth.signOut();
   };
+
+  // Heartbeat for designers: updates last_seen every 60s while site is open
+  const isDesignerOrAdmin = role === 'designer' || role === 'admin';
+  useHeartbeat(user?.id, isDesignerOrAdmin);
 
   return (
     <AuthContext.Provider value={{ user, session, role, loading, phoneLogin, signOut }}>
