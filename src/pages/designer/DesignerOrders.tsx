@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const DesignerOrders = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,8 +97,9 @@ const DesignerOrders = () => {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: i * 0.06 }}
+        onClick={() => navigate(`/designer/orders/${order.id}`)}
         className={cn(
-          'rounded-xl p-5 border shadow-sm hover:shadow-md transition-all',
+          'rounded-xl p-5 border shadow-sm hover:shadow-md transition-all cursor-pointer',
           isApproved
             ? 'bg-success/5 border-success/30 ring-1 ring-success/20'
             : 'bg-card border-border'
@@ -125,15 +127,7 @@ const DesignerOrders = () => {
               <p className="text-muted-foreground text-xs mt-1">{new Date(order.created_at).toLocaleDateString('ar')}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <StatusBadge status={order.status as OrderStatus} />
-            <Link to={`/designer/orders/${order.id}`}>
-              <Button size="sm" variant={isApproved ? 'default' : 'outline'} className={cn('rounded-lg', isApproved && 'bg-success hover:bg-success/90 text-success-foreground')}>
-                {isApproved ? <Printer className="w-4 h-4 ml-1" /> : <Eye className="w-4 h-4 ml-1" />}
-                {isApproved ? 'رفع الملف' : 'عرض'}
-              </Button>
-            </Link>
-          </div>
+          <StatusBadge status={order.status as OrderStatus} />
         </div>
       </motion.div>
     );
