@@ -109,6 +109,13 @@ Deno.serve(async (req) => {
         .eq("user_id", targetUserId);
     }
 
+    // Remove customer role if present (designer should only have designer role)
+    await supabaseAdmin
+      .from("user_roles")
+      .delete()
+      .eq("user_id", targetUserId)
+      .eq("role", "customer");
+
     // Add designer role if not already present
     const { data: existingRoles } = await supabaseAdmin
       .from("user_roles")
