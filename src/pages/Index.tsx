@@ -420,7 +420,7 @@ const Index = () => {
                 <div className={`w-14 h-14 rounded-full ${d.color} text-white flex items-center justify-center text-lg font-extrabold mx-auto mb-3 shadow-sm`}>
                   {d.initials}
                 </div>
-                <h4 className="font-bold text-foreground text-sm mb-1">{d.name}</h4>
+                <p className="font-bold text-foreground text-sm mb-1">{d.name}</p>
                 <p className="text-muted-foreground text-[11px] leading-relaxed">{d.specialty}</p>
                 <div className="mt-3 inline-flex items-center gap-1 text-[10px] text-success font-semibold">
                   <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
