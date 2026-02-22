@@ -89,28 +89,10 @@ ${address}
 
       const fileName = `design-${orderId.slice(0, 8)}.${ext}`
 
-      if (isImage) {
-        formData.append('photo', new Blob([await fileData.arrayBuffer()], { type: fileData.type }), fileName)
-        const res = await fetch(`${telegramUrl}/sendPhoto`, { method: 'POST', body: formData })
-        const data = await res.json()
-        if (!res.ok) {
-          console.error('Telegram sendPhoto failed:', data)
-          // Fallback to sendDocument
-          const formData2 = new FormData()
-          formData2.append('chat_id', TELEGRAM_CHAT_ID)
-          formData2.append('caption', message)
-          formData2.append('parse_mode', 'Markdown')
-          formData2.append('document', new Blob([await fileData.arrayBuffer()], { type: fileData.type }), fileName)
-          const res2 = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData2 })
-          const data2 = await res2.json()
-          if (!res2.ok) console.error('Telegram sendDocument fallback failed:', data2)
-        }
-      } else {
-        formData.append('document', new Blob([await fileData.arrayBuffer()], { type: fileData.type }), fileName)
-        const res = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData })
-        const data = await res.json()
-        if (!res.ok) console.error('Telegram sendDocument failed:', data)
-      }
+      formData.append('document', new Blob([await fileData.arrayBuffer()], { type: fileData.type }), fileName)
+      const res = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) console.error('Telegram sendDocument failed:', data)
     } else {
       // Fallback: send text message only
       const msgRes = await fetch(`${telegramUrl}/sendMessage`, {
