@@ -30,7 +30,15 @@ Deno.serve(async (req) => {
     );
 
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
-    const loginPassword = password || `PHONE_AUTH_${normalizedPhone}_SECRET_KEY_2024`;
+    
+    // Generate secure password using SHA-256 + secret salt
+    const salt = Deno.env.get("PHONE_AUTH_SECRET_SALT") || "";
+    const encoder = new TextEncoder();
+    const hashData = encoder.encode(`${salt}:${normalizedPhone}`);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", hashData);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const defaultHashedPassword = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    const loginPassword = password || defaultHashedPassword;
 
     // Check if user already exists
     const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
