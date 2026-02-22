@@ -223,21 +223,25 @@ const Index = () => {
       </section>
 
       {/* ─── Upload Banner ─── */}
-      <section className="py-4 bg-primary/5 border-b border-primary/10">
+      <section className="py-5 bg-gradient-to-l from-primary/15 via-cmyk-magenta/10 to-primary/15 dark:from-primary/20 dark:via-cmyk-magenta/15 dark:to-primary/20 border-y border-primary/20">
         <div className="container max-w-5xl">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
-                <Upload className="w-4 h-4 text-primary-foreground" />
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/80 dark:bg-card/60 backdrop-blur-sm rounded-2xl px-5 py-4 border border-primary/25 shadow-elevated">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-cmyk-cyan flex items-center justify-center flex-shrink-0 shadow-md">
+                <Upload className="w-5 h-5 text-primary-foreground" />
               </div>
-              <p className="text-sm text-foreground font-medium">
-                <span className="font-bold">عندك تصميم جاهز؟</span>
-                <span className="text-muted-foreground mr-2">ارفع ملفك (PNG, PDF, PSD) وسنرسله للطباعة مباشرة</span>
-              </p>
+              <div>
+                <p className="text-sm sm:text-base font-extrabold text-foreground">
+                  عندك تصميم جاهز؟
+                </p>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  ارفع ملفك (PNG, PDF, PSD) وسنرسله للطباعة مباشرة
+                </p>
+              </div>
             </div>
             <Link to="/upload-design">
-              <Button size="sm" className="gap-1.5 flex-shrink-0">
-                <Upload className="w-3.5 h-3.5" />
+              <Button size="default" className="gap-2 flex-shrink-0 bg-gradient-to-l from-primary to-cmyk-cyan hover:opacity-90 shadow-md px-6">
+                <Upload className="w-4 h-4" />
                 ارفع الآن
               </Button>
             </Link>
