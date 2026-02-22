@@ -134,6 +134,27 @@ export type Database = {
           },
         ]
       }
+      otp_attempts: {
+        Row: {
+          attempts: number
+          last_attempt: string | null
+          locked_until: string | null
+          phone: string
+        }
+        Insert: {
+          attempts?: number
+          last_attempt?: string | null
+          locked_until?: string | null
+          phone: string
+        }
+        Update: {
+          attempts?: number
+          last_attempt?: string | null
+          locked_until?: string | null
+          phone?: string
+        }
+        Relationships: []
+      }
       otp_codes: {
         Row: {
           code: string
