@@ -71,47 +71,55 @@ ${address}
 
 🔗 *رقم الطلب:* \`${orderId.slice(0, 8)}\``
 
-    // Get signed URL for the design file
-    const { data: signedUrlData } = await supabase.storage
+    // Download the file from storage
+    const { data: fileData, error: dlError } = await supabase.storage
       .from('designs')
-      .createSignedUrl(designFilePath, 60 * 60 * 24 * 7) // 7 days
+      .download(designFilePath)
 
-    const fileUrl = signedUrlData?.signedUrl
-
-    // Send message to Telegram
     const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`
+    const ext = designFilePath.split('.').pop()?.toLowerCase() || ''
+    const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(ext)
 
-    // First send the text message
-    const msgRes = await fetch(`${telegramUrl}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: 'Markdown',
-      }),
-    })
-    const msgData = await msgRes.json()
-    if (!msgRes.ok) {
-      throw new Error(`Telegram sendMessage failed [${msgRes.status}]: ${JSON.stringify(msgData)}`)
-    }
+    if (fileData && !dlError) {
+      // Send as photo (for images) or document (for PDFs etc.) with caption containing all info
+      const formData = new FormData()
+      formData.append('chat_id', TELEGRAM_CHAT_ID)
+      formData.append('caption', message)
+      formData.append('parse_mode', 'Markdown')
 
-    // Then send the file as document
-    if (fileUrl) {
-      const docRes = await fetch(`${telegramUrl}/sendDocument`, {
+      const fileName = `design-${orderId.slice(0, 8)}.${ext}`
+
+      if (isImage) {
+        formData.append('photo', new Blob([await fileData.arrayBuffer()], { type: fileData.type }), fileName)
+        const res = await fetch(`${telegramUrl}/sendPhoto`, { method: 'POST', body: formData })
+        const data = await res.json()
+        if (!res.ok) {
+          console.error('Telegram sendPhoto failed:', data)
+          // Fallback to sendDocument
+          const formData2 = new FormData()
+          formData2.append('chat_id', TELEGRAM_CHAT_ID)
+          formData2.append('caption', message)
+          formData2.append('parse_mode', 'Markdown')
+          formData2.append('document', new Blob([await fileData.arrayBuffer()], { type: fileData.type }), fileName)
+          const res2 = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData2 })
+          const data2 = await res2.json()
+          if (!res2.ok) console.error('Telegram sendDocument fallback failed:', data2)
+        }
+      } else {
+        formData.append('document', new Blob([await fileData.arrayBuffer()], { type: fileData.type }), fileName)
+        const res = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData })
+        const data = await res.json()
+        if (!res.ok) console.error('Telegram sendDocument failed:', data)
+      }
+    } else {
+      // Fallback: send text message only
+      const msgRes = await fetch(`${telegramUrl}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          document: fileUrl,
-          caption: `📎 ملف التصميم — طلب ${orderId.slice(0, 8)}`,
-        }),
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'Markdown' }),
       })
-      const docData = await docRes.json()
-      if (!docRes.ok) {
-        console.error('Telegram sendDocument failed:', docData)
-        // Don't throw - message was sent successfully
-      }
+      const msgData = await msgRes.json()
+      if (!msgRes.ok) throw new Error(`Telegram sendMessage failed [${msgRes.status}]: ${JSON.stringify(msgData)}`)
     }
 
     // Update order status to print_ready
