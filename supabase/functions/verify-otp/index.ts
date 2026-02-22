@@ -29,6 +29,21 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    // Rate limiting: check attempts
+    const { data: attempts } = await supabaseAdmin
+      .from("otp_attempts")
+      .select("*")
+      .eq("phone", normalizedPhone)
+      .maybeSingle();
+
+    if (attempts?.locked_until && new Date(attempts.locked_until) > new Date()) {
+      const minutesLeft = Math.ceil((new Date(attempts.locked_until).getTime() - Date.now()) / 60000);
+      return new Response(
+        JSON.stringify({ error: `تم تجاوز عدد المحاولات. حاول بعد ${minutesLeft} دقائق` }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Find valid OTP
     const { data: otpRecord, error: otpError } = await supabaseAdmin
       .from("otp_codes")
@@ -42,9 +57,28 @@ Deno.serve(async (req) => {
       .single();
 
     if (otpError || !otpRecord) {
+      // Increment failed attempts
+      const currentAttempts = (attempts?.attempts || 0) + 1;
+      const lockout = currentAttempts >= 5
+        ? { locked_until: new Date(Date.now() + 15 * 60 * 1000).toISOString() }
+        : {};
+      await supabaseAdmin
+        .from("otp_attempts")
+        .upsert({
+          phone: normalizedPhone,
+          attempts: currentAttempts,
+          last_attempt: new Date().toISOString(),
+          ...lockout,
+        });
+
+      const remaining = 5 - currentAttempts;
+      const errorMsg = remaining <= 0
+        ? "تم تجاوز عدد المحاولات. حاول بعد 15 دقيقة"
+        : `رمز التحقق غير صحيح. المحاولات المتبقية: ${remaining}`;
+
       return new Response(
-        JSON.stringify({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: errorMsg }),
+        { status: remaining <= 0 ? 429 : 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -127,6 +161,12 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Reset attempts on successful verification
+    await supabaseAdmin
+      .from("otp_attempts")
+      .delete()
+      .eq("phone", normalizedPhone);
 
     return new Response(
       JSON.stringify({
