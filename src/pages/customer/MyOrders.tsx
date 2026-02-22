@@ -4,9 +4,11 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
-import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
+import { STATUS_LABELS, SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
 import { FileText, ShoppingBag, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
+import { playNotificationSound } from '@/lib/notificationSound';
 
 const MyOrders = () => {
   const navigate = useNavigate();
@@ -45,6 +47,11 @@ const MyOrders = () => {
         const row = payload.new as any;
         const old = payload.old as any;
         if (role === 'admin' || row?.customer_id === user.id || old?.customer_id === user.id) {
+          if (payload.eventType === 'UPDATE' && row?.status !== old?.status) {
+            const label = STATUS_LABELS[row.status as OrderStatus] || row.status;
+            playNotificationSound();
+            toast({ title: `🔔 تحديث على طلبك`, description: label });
+          }
           loadOrders();
         }
       })

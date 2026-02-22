@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { OrderStatus } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
 import { getDesignSignedUrl } from '@/lib/storage';
+import { playNotificationSound } from '@/lib/notificationSound';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -132,6 +133,7 @@ const OrderTracking = () => {
         table: 'designs',
         filter: `order_id=eq.${orderId}`,
       }, () => {
+        playNotificationSound();
         toast({ title: '🎨 المصمم رفع تصميم جديد!' });
         loadDesigns();
       })
@@ -140,7 +142,13 @@ const OrderTracking = () => {
         schema: 'public',
         table: 'orders',
         filter: `id=eq.${orderId}`,
-      }, () => {
+      }, (payload) => {
+        const newRow = payload.new as any;
+        const oldRow = payload.old as any;
+        if (newRow?.status !== oldRow?.status) {
+          playNotificationSound();
+          toast({ title: '🔔 تم تحديث حالة طلبك' });
+        }
         loadOrder();
       })
       .subscribe();
