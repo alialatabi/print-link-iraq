@@ -17,6 +17,8 @@ interface Service {
   icon_url: string | null;
   description: string;
   sort_order: number;
+  price: number;
+  cost: number;
 }
 
 interface Specialization {
@@ -45,7 +47,7 @@ const AdminServicesSpecs = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'service' | 'specialization'>('service');
   const [editing, setEditing] = useState<Service | Specialization | null>(null);
-  const [form, setForm] = useState({ id: '', label: '', icon: '', description: '' });
+  const [form, setForm] = useState({ id: '', label: '', icon: '', description: '', price: 0, cost: 0 });
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [existingIconUrl, setExistingIconUrl] = useState<string | null>(null);
@@ -67,7 +69,7 @@ const AdminServicesSpecs = () => {
   const openAdd = (type: 'service' | 'specialization') => {
     setDialogType(type);
     setEditing(null);
-    setForm({ id: '', label: '', icon: '', description: '' });
+    setForm({ id: '', label: '', icon: '', description: '', price: 0, cost: 0 });
     setIconFile(null);
     setIconPreview(null);
     setExistingIconUrl(null);
@@ -82,6 +84,8 @@ const AdminServicesSpecs = () => {
       label: item.label,
       icon: item.icon,
       description: 'description' in item ? (item as Service).description : '',
+      price: 'price' in item ? (item as Service).price : 0,
+      cost: 'cost' in item ? (item as Service).cost : 0,
     });
     setIconFile(null);
     setIconPreview(null);
@@ -128,7 +132,7 @@ const AdminServicesSpecs = () => {
           const iconUrl = await uploadIcon(editing.id);
           const { error } = await supabase
             .from('services')
-            .update({ label: form.label, icon: form.icon || '📄', description: form.description, icon_url: iconUrl } as any)
+            .update({ label: form.label, icon: form.icon || '📄', description: form.description, icon_url: iconUrl, price: form.price, cost: form.cost } as any)
             .eq('id', editing.id);
           if (error) throw error;
           toast.success('تم تحديث الخدمة');
@@ -138,7 +142,7 @@ const AdminServicesSpecs = () => {
           const iconUrl = await uploadIcon(id);
           const { error } = await supabase
             .from('services')
-            .insert({ id, label: form.label, icon: form.icon || '📄', description: form.description, sort_order: maxOrder + 1, icon_url: iconUrl } as any);
+            .insert({ id, label: form.label, icon: form.icon || '📄', description: form.description, sort_order: maxOrder + 1, icon_url: iconUrl, price: form.price, cost: form.cost } as any);
           if (error) throw error;
           toast.success('تمت إضافة الخدمة');
         }
@@ -223,7 +227,15 @@ const AdminServicesSpecs = () => {
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-foreground text-sm">{svc.label}</h4>
                   <p className="text-xs text-muted-foreground truncate">{svc.description}</p>
-                  <span className="text-[10px] text-muted-foreground/60 font-mono">ID: {svc.id}</span>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-[10px] text-muted-foreground/60 font-mono">ID: {svc.id}</span>
+                    {svc.price > 0 && (
+                      <span className="text-[10px] font-bold text-success">سعر: {svc.price.toLocaleString('en-US')} د.ع</span>
+                    )}
+                    {svc.cost > 0 && (
+                      <span className="text-[10px] font-bold text-destructive">تكلفة: {svc.cost.toLocaleString('en-US')} د.ع</span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(svc, 'service')}>
@@ -353,15 +365,48 @@ const AdminServicesSpecs = () => {
             </div>
 
             {dialogType === 'service' && (
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">الوصف</label>
-                <Textarea
-                  value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="وصف مختصر للخدمة..."
-                  className="rounded-xl min-h-[80px]"
-                />
-              </div>
+              <>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1 block">الوصف</label>
+                  <Textarea
+                    value={form.description}
+                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="وصف مختصر للخدمة..."
+                    className="rounded-xl min-h-[80px]"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 block">السعر (لكل 1000)</label>
+                    <Input
+                      type="number"
+                      value={form.price || ''}
+                      onChange={e => setForm(f => ({ ...f, price: parseInt(e.target.value) || 0 }))}
+                      placeholder="25000"
+                      className="rounded-xl"
+                      dir="ltr"
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 block">التكلفة (لكل 1000)</label>
+                    <Input
+                      type="number"
+                      value={form.cost || ''}
+                      onChange={e => setForm(f => ({ ...f, cost: parseInt(e.target.value) || 0 }))}
+                      placeholder="10000"
+                      className="rounded-xl"
+                      dir="ltr"
+                      min="0"
+                    />
+                  </div>
+                </div>
+                {form.price > 0 && form.cost > 0 && (
+                  <p className="text-[11px] text-success">
+                    ✓ هامش الربح: {((form.price - form.cost) / form.price * 100).toFixed(0)}% — صافي {(form.price - form.cost).toLocaleString('en-US')} د.ع لكل ألف
+                  </p>
+                )}
+              </>
             )}
             <div className="flex gap-2 pt-2">
               <Button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl">

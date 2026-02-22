@@ -166,9 +166,7 @@ const OrderForm = () => {
                 <p className="text-xs text-muted-foreground">رقم القالب</p>
                 <p className="font-mono font-bold text-primary text-lg tracking-widest">{shortId}</p>
               </div>
-              {template.price != null && (
-                <span className="text-sm font-bold text-success">{template.price.toLocaleString('en-US')} د.ع</span>
-              )}
+              {/* Price is now set per service, not per template */}
             </div>
           </div>
         )}

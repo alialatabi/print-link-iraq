@@ -1,40 +1,13 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
+import { Link } from 'react-router-dom';
 import { useServices } from '@/hooks/useServices';
 
 const ServiceSelection = () => {
   const { services, loading: servicesLoading } = useServices();
-  const [priceRanges, setPriceRanges] = useState<Record<string, { min: number; max: number } | null>>({});
 
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('templates')
-        .select('service_type, price');
-      if (!data) return;
-
-      const ranges: Record<string, { min: number; max: number }> = {};
-      for (const row of data) {
-        if (row.price == null) continue;
-        const st = row.service_type as string;
-        if (!ranges[st]) {
-          ranges[st] = { min: row.price, max: row.price };
-        } else {
-          ranges[st].min = Math.min(ranges[st].min, row.price);
-          ranges[st].max = Math.max(ranges[st].max, row.price);
-        }
-      }
-      setPriceRanges(ranges);
-    };
-    load();
-  }, []);
-
-  const formatPrice = (range: { min: number; max: number } | undefined) => {
-    if (!range) return null;
-    if (range.min === range.max) return `${range.min.toLocaleString('en-US')} د.ع`;
-    return `${range.min.toLocaleString('en-US')} - ${range.max.toLocaleString('en-US')} د.ع`;
+  const formatPrice = (price: number) => {
+    if (!price) return null;
+    return `${price.toLocaleString('en-US')} د.ع / ألف`;
   };
 
   if (servicesLoading) {
@@ -76,9 +49,9 @@ const ServiceSelection = () => {
                 </div>
                 <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{service.label}</h3>
                 <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">{service.description}</p>
-                {priceRanges[service.id] && (
+                {service.price > 0 && (
                   <p className="text-primary font-bold text-sm mt-4">
-                    {formatPrice(priceRanges[service.id]!)}
+                    {formatPrice(service.price)}
                   </p>
                 )}
               </Link>

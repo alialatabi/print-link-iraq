@@ -8,6 +8,8 @@ export interface DbService {
   icon_url: string | null;
   description: string;
   sort_order: number;
+  price: number;
+  cost: number;
 }
 
 export interface DbSpecialization {

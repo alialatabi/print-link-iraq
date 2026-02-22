@@ -8,6 +8,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useServices } from '@/hooks/useServices';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -23,7 +24,6 @@ interface DbTemplate {
   description: string | null;
   service_type: string;
   preview_url: string | null;
-  price: number | null;
   specializations: string[];
 }
 
@@ -143,11 +143,6 @@ const RelatedTemplates = ({ serviceType, currentId }: { serviceType: string; cur
               </div>
               <div className="p-3">
                 <p className="font-mono text-xs text-muted-foreground">{t.id.slice(0, 8).toUpperCase()}</p>
-                {t.price && (
-                  <p className="text-sm font-bold text-success mt-0.5">
-                    {t.price.toLocaleString('en-US')} <span className="text-xs font-normal text-muted-foreground">د.ع / ألف</span>
-                  </p>
-                )}
               </div>
             </Link>
           </motion.div>
@@ -163,6 +158,7 @@ const TemplateDetails = () => {
   const navigate = useNavigate();
   const { addItem, items } = useCart();
   const { toast } = useToast();
+  const { services } = useServices();
 
   const [template, setTemplate] = useState<DbTemplate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -181,7 +177,9 @@ const TemplateDetails = () => {
     load();
   }, [templateId]);
 
-  const unitPrice = template?.price || 0;
+  // Get price from service, not template
+  const serviceData = services.find(s => s.id === template?.service_type);
+  const unitPrice = serviceData?.price || 0;
   const totalPrice = unitPrice * quantity;
   const isInCart = items.some(i => i.templateId === templateId);
 

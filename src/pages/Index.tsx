@@ -14,7 +14,6 @@ interface PopularTemplate {
   name: string;
   description: string | null;
   preview_url: string | null;
-  price: number | null;
   service_type: string;
   order_count: number;
 }
@@ -103,7 +102,7 @@ const Index = () => {
       setLoading(true);
       const { data: templates } = await supabase
         .from('templates')
-        .select('id, name, description, preview_url, price, service_type');
+        .select('id, name, description, preview_url, service_type');
       if (!templates) { setLoading(false); return; }
       const { data: orders } = await supabase.from('orders').select('template_id');
       const countMap: Record<string, number> = {};
@@ -326,11 +325,7 @@ const Index = () => {
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${SERVICE_COLORS[template.service_type] || 'bg-muted text-muted-foreground'}`}>
                           {SERVICE_LABELS[template.service_type] || template.service_type}
                         </span>
-                        {template.price && (
-                          <span className="text-sm font-extrabold text-primary">
-                            {template.price.toLocaleString('ar-IQ')} د.ع
-                          </span>
-                        )}
+                        {/* Price now comes from service, shown on service selection page */}
                       </div>
                     </div>
                   </Link>
