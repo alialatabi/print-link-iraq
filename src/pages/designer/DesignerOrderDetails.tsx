@@ -41,11 +41,9 @@ const DesignerOrderDetails = () => {
       .maybeSingle();
     
     if (data) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('display_name, phone')
-        .eq('user_id', data.customer_id)
-        .maybeSingle();
+      const { data: profileData } = await supabase
+        .rpc('get_customer_names_for_designer', { customer_ids: [data.customer_id] });
+      const profile = profileData?.[0] || null;
       setOrder({ ...data, profiles: profile });
     } else {
       setOrder(null);
@@ -309,7 +307,7 @@ const DesignerOrderDetails = () => {
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold text-foreground">تفاصيل الطلب</h1>
-              <p className="text-muted-foreground text-sm mt-1">{order.templates?.name} • {order.profiles?.display_name || order.profiles?.phone || '-'}</p>
+              <p className="text-muted-foreground text-sm mt-1">{order.templates?.name} • {order.profiles?.display_name || '-'}</p>
             </div>
             <StatusBadge status={order.status as OrderStatus} />
           </div>
