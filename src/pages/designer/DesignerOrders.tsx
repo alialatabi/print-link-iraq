@@ -87,39 +87,56 @@ const DesignerOrders = () => {
 
   if (loading) return <div className="py-20 text-center"><p className="text-muted-foreground">جاري التحميل...</p></div>;
 
-  const OrderCard = ({ order, i }: { order: any; i: number }) => (
-    <motion.div
-      key={order.id}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: i * 0.06 }}
-      className="bg-card rounded-xl p-5 border border-border shadow-sm hover:shadow-md transition-all"
-    >
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <FileText className="w-6 h-6 text-primary" />
+  const OrderCard = ({ order, i }: { order: any; i: number }) => {
+    const isApproved = order.status === 'approved';
+    return (
+      <motion.div
+        key={order.id}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: i * 0.06 }}
+        className={cn(
+          'rounded-xl p-5 border shadow-sm hover:shadow-md transition-all',
+          isApproved
+            ? 'bg-success/5 border-success/30 ring-1 ring-success/20'
+            : 'bg-card border-border'
+        )}
+      >
+        {isApproved && (
+          <div className="flex items-center gap-2 text-success text-xs font-bold mb-3 bg-success/10 rounded-lg px-3 py-1.5 w-fit">
+            <Printer className="w-3.5 h-3.5 animate-pulse" />
+            بانتظار رفع ملف الطبع
           </div>
-          <div>
-            <h3 className="font-bold text-foreground">{order.templates?.name || '-'}</h3>
-            <p className="text-muted-foreground text-sm">
-              {order.profiles?.display_name || order.profiles?.phone || '-'} • {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
-            </p>
-            <p className="text-muted-foreground text-xs mt-1">{new Date(order.created_at).toLocaleDateString('ar')}</p>
+        )}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-4">
+            <div className={cn(
+              'w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0',
+              isApproved ? 'bg-success/15' : 'bg-primary/10'
+            )}>
+              <FileText className={cn('w-6 h-6', isApproved ? 'text-success' : 'text-primary')} />
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground">{order.templates?.name || '-'}</h3>
+              <p className="text-muted-foreground text-sm">
+                {order.profiles?.display_name || order.profiles?.phone || '-'} • {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
+              </p>
+              <p className="text-muted-foreground text-xs mt-1">{new Date(order.created_at).toLocaleDateString('ar')}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <StatusBadge status={order.status as OrderStatus} />
+            <Link to={`/designer/orders/${order.id}`}>
+              <Button size="sm" variant={isApproved ? 'default' : 'outline'} className={cn('rounded-lg', isApproved && 'bg-success hover:bg-success/90 text-success-foreground')}>
+                {isApproved ? <Printer className="w-4 h-4 ml-1" /> : <Eye className="w-4 h-4 ml-1" />}
+                {isApproved ? 'رفع الملف' : 'عرض'}
+              </Button>
+            </Link>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <StatusBadge status={order.status as OrderStatus} />
-          <Link to={`/designer/orders/${order.id}`}>
-            <Button size="sm" variant="outline" className="rounded-lg">
-              <Eye className="w-4 h-4 ml-1" />
-              عرض
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </motion.div>
-  );
+      </motion.div>
+    );
+  };
 
   const EmptyState = ({ message }: { message: string }) => (
     <div className="text-center py-16">
