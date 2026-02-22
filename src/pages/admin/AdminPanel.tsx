@@ -63,6 +63,11 @@ const AdminPanel = () => {
   const [adminForm, setAdminForm] = useState({ phone: '', display_name: '', password: '' });
   const [creatingAdmin, setCreatingAdmin] = useState(false);
 
+  // Designer management
+  const [designerDialogOpen, setDesignerDialogOpen] = useState(false);
+  const [designerForm, setDesignerForm] = useState({ phone: '', display_name: '', password: '' });
+  const [creatingDesigner, setCreatingDesigner] = useState(false);
+
   const loadOrders = useCallback(async () => {
     const { data: ordersData } = await supabase
       .from('orders')
@@ -264,6 +269,45 @@ const AdminPanel = () => {
       toast.error(err.message || 'فشل إنشاء حساب الأدمن');
     } finally {
       setCreatingAdmin(false);
+    }
+  };
+
+  const handleCreateDesigner = async () => {
+    if (!designerForm.phone.trim()) { toast.error('رقم الهاتف مطلوب'); return; }
+    if (!designerForm.password || designerForm.password.length < 6) { toast.error('كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return; }
+    setCreatingDesigner(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-designer', {
+        body: {
+          phone: designerForm.phone.trim(),
+          display_name: designerForm.display_name.trim() || undefined,
+          password: designerForm.password,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(data?.is_new ? 'تم إنشاء حساب المصمم بنجاح' : 'تم تحديث صلاحيات الحساب');
+      setDesignerDialogOpen(false);
+      setDesignerForm({ phone: '', display_name: '', password: '' });
+      Promise.all([loadAllUsers(), loadDesigners()]);
+    } catch (err: any) {
+      toast.error(err.message || 'فشل إنشاء حساب المصمم');
+    } finally {
+      setCreatingDesigner(false);
+    }
+  };
+
+  const handleDeleteDesigner = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success('تم حذف حساب المصمم');
+      Promise.all([loadAllUsers(), loadDesigners()]);
+    } catch (err: any) {
+      toast.error(err.message || 'فشل حذف الحساب');
     }
   };
 
@@ -820,64 +864,143 @@ const AdminPanel = () => {
 
           {/* USERS TAB - Designers management only */}
           <TabsContent value="users">
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground mb-4">إدارة المصممين وصلاحياتهم</p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <Palette className="w-5 h-5 text-primary" />
+                    إدارة المصممين
+                  </h3>
+                  <p className="text-sm text-muted-foreground">إضافة وحذف المصممين وتغيير صلاحياتهم</p>
+                </div>
+                <Button onClick={() => setDesignerDialogOpen(true)} className="rounded-xl gap-1.5">
+                  <Palette className="w-4 h-4" />
+                  إضافة مصمم جديد
+                </Button>
+              </div>
+
               {allUsers.filter(u => u.roles.includes('designer')).length === 0 ? (
                 <div className="text-center py-16">
                   <Palette className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
                   <p className="text-muted-foreground text-lg">لا يوجد مصممين</p>
                 </div>
               ) : (
-                allUsers.filter(u => u.roles.includes('designer')).map((u, i) => (
-                  <motion.div
-                    key={u.user_id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.04, 0.3) }}
-                    className="bg-card rounded-xl p-4 border border-border shadow-sm"
-                  >
-                    <div className="flex items-start justify-between flex-wrap gap-3">
-                      <div>
-                        <h3 className="font-bold text-foreground flex items-center gap-2 text-sm">
-                          <Palette className="w-4 h-4 text-muted-foreground" />
-                          {u.display_name || u.phone || 'مستخدم'}
-                        </h3>
-                        {u.phone && <p className="text-xs text-muted-foreground mt-0.5" dir="ltr">{u.phone}</p>}
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          {u.roles.map((r: string) => (
-                            <Badge
-                              key={r}
-                              variant={r === 'admin' ? 'default' : r === 'designer' ? 'secondary' : 'outline'}
-                              className="flex items-center gap-1 text-xs"
-                            >
-                              {r === 'admin' ? <ShieldCheck className="w-3 h-3" /> : r === 'designer' ? <Palette className="w-3 h-3" /> : <User className="w-3 h-3" />}
-                              {r === 'admin' ? 'أدمن' : r === 'designer' ? 'مصمم' : 'زبون'}
-                              {r === 'designer' && (
-                                <button
-                                  onClick={() => handleRemoveRole(u.user_id, r)}
-                                  className="mr-1 hover:text-destructive"
-                                  title="إزالة دور المصمم"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              )}
-                            </Badge>
-                          ))}
+                <div className="space-y-3">
+                  {allUsers.filter(u => u.roles.includes('designer')).map((u, i) => (
+                    <motion.div
+                      key={u.user_id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(i * 0.04, 0.3) }}
+                      className="bg-card rounded-xl p-4 border border-border shadow-sm"
+                    >
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-secondary/30 flex items-center justify-center">
+                            <Palette className="w-5 h-5 text-secondary-foreground" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-foreground text-sm">
+                              {u.display_name || u.phone || 'مستخدم'}
+                            </h4>
+                            {u.phone && <p className="text-xs text-muted-foreground mt-0.5" dir="ltr">{u.phone}</p>}
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              {u.roles.map((r: string) => (
+                                <Badge key={r} variant={r === 'admin' ? 'default' : r === 'designer' ? 'secondary' : 'outline'} className="text-[10px]">
+                                  {r === 'admin' ? 'أدمن' : r === 'designer' ? 'مصمم' : 'زبون'}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!u.roles.includes('admin') && isSuperAdmin && (
+                            <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg" onClick={() => handleAddRole(u.user_id, 'admin')}>
+                              <ShieldCheck className="w-3 h-3 ml-1" />
+                              ترقية لأدمن
+                            </Button>
+                          )}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10">
+                                <Trash2 className="w-3 h-3 ml-1" />
+                                حذف
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent dir="rtl">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>حذف حساب المصمم</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  هل أنت متأكد من حذف حساب "{u.display_name || u.phone}"؟ سيتم حذف الحساب نهائياً.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteDesigner(u.user_id)} className="bg-destructive hover:bg-destructive/90">
+                                  حذف نهائي
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {!u.roles.includes('admin') && isSuperAdmin && (
-                          <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg" onClick={() => handleAddRole(u.user_id, 'admin')}>
-                            <ShieldCheck className="w-3 h-3 ml-1" />
-                            أدمن
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))
+                    </motion.div>
+                  ))}
+                </div>
               )}
             </div>
+
+            {/* Create Designer Dialog */}
+            <Dialog open={designerDialogOpen} onOpenChange={setDesignerDialogOpen}>
+              <DialogContent className="max-w-md" dir="rtl">
+                <DialogHeader>
+                  <DialogTitle>إضافة حساب مصمم جديد</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-2">
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 block">رقم الهاتف *</label>
+                    <Input
+                      value={designerForm.phone}
+                      onChange={e => setDesignerForm(f => ({ ...f, phone: e.target.value }))}
+                      placeholder="07xxxxxxxxx"
+                      className="rounded-xl"
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 block">الاسم</label>
+                    <Input
+                      value={designerForm.display_name}
+                      onChange={e => setDesignerForm(f => ({ ...f, display_name: e.target.value }))}
+                      placeholder="اسم المصمم"
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 block">كلمة المرور *</label>
+                    <Input
+                      type="password"
+                      value={designerForm.password}
+                      onChange={e => setDesignerForm(f => ({ ...f, password: e.target.value }))}
+                      placeholder="6 أحرف على الأقل"
+                      className="rounded-xl"
+                      dir="ltr"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground bg-muted/50 rounded-lg p-3">
+                    سيتم إنشاء حساب مصمم جديد. يمكن للمصمم تسجيل الدخول عبر صفحة طاقم العمل باستخدام رقم الهاتف وكلمة المرور.
+                  </p>
+                  <div className="flex gap-2 pt-2">
+                    <Button onClick={handleCreateDesigner} disabled={creatingDesigner} className="flex-1 rounded-xl">
+                      {creatingDesigner ? 'جاري الإنشاء...' : 'إنشاء حساب مصمم'}
+                    </Button>
+                    <Button variant="outline" onClick={() => setDesignerDialogOpen(false)} disabled={creatingDesigner} className="rounded-xl">
+                      إلغاء
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* ADMINS TAB - Super Admin Only */}
