@@ -217,9 +217,9 @@ const AdminPanel = () => {
 
   const isSuperAdminPhone = (phone: string | null) => {
     if (!phone) return false;
-    const normalized = phone.replace(/^0/, '964');
-    const superNormalized = '07838774435'.replace(/^0/, '964');
-    return phone === '07838774435' || normalized === superNormalized;
+    // Normalize to digits only, then strip leading 964 or 0 to get local number
+    const normalize = (p: string) => p.replace(/\D/g, '').replace(/^964/, '0').replace(/^00/, '0');
+    return normalize(phone) === '07838774435';
   };
 
   const handleRemoveRole = async (userId: string, roleToRemove: string) => {
