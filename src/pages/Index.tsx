@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 import {
   CreditCard, FileText, Receipt, Zap, Star, Users,
@@ -89,9 +90,11 @@ const scaleIn = {
 };
 
 const Index = () => {
+  const { role } = useAuth();
   const [popularTemplates, setPopularTemplates] = useState<PopularTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [realDesigners, setRealDesigners] = useState<{ name: string; initials: string; color: string; completedOrders: number }[]>([]);
+
 
   useEffect(() => {
     const loadPopular = async () => {
@@ -152,6 +155,11 @@ const Index = () => {
     };
     loadDesigners();
   }, []);
+
+  // Designers should only see designer interface
+  if (role === 'designer') {
+    return <Navigate to="/designer/orders" replace />;
+  }
 
   return (
     <div className="overflow-hidden">
