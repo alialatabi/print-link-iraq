@@ -207,37 +207,38 @@ const AdminPanel = () => {
     loadOrders();
   };
 
-  const handleAddRole = async (userId: string, newRole: string) => {
-    const { error } = await supabase
-      .from('user_roles')
-      .insert({ user_id: userId, role: newRole as any });
-    if (error) {
-      if (error.code === '23505') toast.error('الدور موجود مسبقاً');
-      else toast.error('فشل إضافة الدور');
-      return;
-    }
-    toast.success('تمت إضافة الدور');
-    Promise.all([loadAllUsers(), loadDesigners()]);
-  };
-
   const ROLE_LABELS: Record<string, string> = { customer: 'زبون', designer: 'مصمم', admin: 'أدمن' };
 
-  const handleChangeRole = async (userId: string, newRole: string) => {
-    // Protect super admin from role changes
+  const handleToggleRole = async (userId: string, role: string, hasRole: boolean) => {
     const targetUser = allUsers.find(u => u.user_id === userId);
-    if (targetUser && isSuperAdminPhone(targetUser.phone) && newRole !== 'admin') {
-      toast.error('لا يمكن تغيير دور السوبر أدمن');
+    // Protect super admin
+    if (targetUser && isSuperAdminPhone(targetUser.phone) && role === 'admin' && hasRole) {
+      toast.error('لا يمكن إزالة دور الأدمن من السوبر أدمن');
+      return;
+    }
+    // Restrict admin role toggle to super admin only
+    if (role === 'admin' && !isSuperAdmin) {
+      toast.error('فقط السوبر أدمن يمكنه تعديل دور الأدمن');
       return;
     }
     try {
-      const { error: deleteError } = await supabase.from('user_roles').delete().eq('user_id', userId);
-      if (deleteError) throw deleteError;
-      const { error: insertError } = await supabase.from('user_roles').insert({ user_id: userId, role: newRole } as any);
-      if (insertError) throw insertError;
-      toast.success(`تم تغيير الدور إلى ${ROLE_LABELS[newRole]}`);
+      if (hasRole) {
+        // Remove role
+        const { error } = await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role as any);
+        if (error) throw error;
+        toast.success(`تم إزالة دور ${ROLE_LABELS[role]}`);
+      } else {
+        // Add role
+        const { error } = await supabase.from('user_roles').insert({ user_id: userId, role: role } as any);
+        if (error) {
+          if (error.code === '23505') { toast.error('الدور موجود مسبقاً'); return; }
+          throw error;
+        }
+        toast.success(`تم إضافة دور ${ROLE_LABELS[role]}`);
+      }
       Promise.all([loadAllUsers(), loadDesigners()]);
     } catch (err: any) {
-      toast.error(err.message || 'فشل تغيير الدور');
+      toast.error(err.message || 'فشل تعديل الدور');
     }
   };
 
@@ -247,25 +248,6 @@ const AdminPanel = () => {
     return normalize(phone) === '07838774435';
   };
 
-  const handleRemoveRole = async (userId: string, roleToRemove: string) => {
-    if (roleToRemove === 'customer') { toast.error('لا يمكن إزالة دور الزبون'); return; }
-    // Prevent removing admin role from super admin
-    if (roleToRemove === 'admin') {
-      const targetUser = allUsers.find(u => u.user_id === userId);
-      if (targetUser && isSuperAdminPhone(targetUser.phone)) {
-        toast.error('لا يمكن إزالة صلاحية الأدمن من السوبر أدمن');
-        return;
-      }
-    }
-    const { error } = await supabase
-      .from('user_roles')
-      .delete()
-      .eq('user_id', userId)
-      .eq('role', roleToRemove as any);
-    if (error) { toast.error('فشل إزالة الدور'); return; }
-    toast.success('تمت إزالة الدور');
-    Promise.all([loadAllUsers(), loadDesigners()]);
-  };
 
   const handleCreateAdmin = async () => {
     if (!adminForm.phone.trim()) { toast.error('رقم الهاتف مطلوب'); return; }
@@ -979,21 +961,24 @@ const AdminPanel = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {/* Role change dropdown */}
-                          <Select
-                            value={u.roles.includes('admin') ? 'admin' : u.roles.includes('designer') ? 'designer' : 'customer'}
-                            onValueChange={(val) => handleChangeRole(u.user_id, val)}
-                          >
-                            <SelectTrigger className="h-8 w-[100px] text-[11px] rounded-lg">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="customer">زبون</SelectItem>
-                              <SelectItem value="designer">مصمم</SelectItem>
-                              {isSuperAdmin && <SelectItem value="admin">أدمن</SelectItem>}
-                            </SelectContent>
-                          </Select>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {(['customer', 'designer', ...(isSuperAdmin ? ['admin'] : [])] as string[]).map(role => {
+                            const has = u.roles.includes(role);
+                            return (
+                              <button
+                                key={role}
+                                onClick={() => handleToggleRole(u.user_id, role, has)}
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                                  has
+                                    ? 'bg-primary/10 border-primary/30 text-primary'
+                                    : 'bg-muted/50 border-border text-muted-foreground hover:border-primary/30'
+                                }`}
+                              >
+                                {has ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border border-current" />}
+                                {ROLE_LABELS[role]}
+                              </button>
+                            );
+                          })}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10">
@@ -1130,21 +1115,24 @@ const AdminPanel = () => {
                             </div>
                           </div>
                           {!isSuperAdminUser && (
-                            <div className="flex items-center gap-2">
-                              {/* Role change dropdown */}
-                              <Select
-                                value="admin"
-                                onValueChange={(val) => handleChangeRole(u.user_id, val)}
-                              >
-                                <SelectTrigger className="h-8 w-[100px] text-[11px] rounded-lg">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="customer">زبون</SelectItem>
-                                  <SelectItem value="designer">مصمم</SelectItem>
-                                  <SelectItem value="admin">أدمن</SelectItem>
-                                </SelectContent>
-                              </Select>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {(['customer', 'designer', 'admin'] as string[]).map(role => {
+                                const has = u.roles.includes(role);
+                                return (
+                                  <button
+                                    key={role}
+                                    onClick={() => handleToggleRole(u.user_id, role, has)}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                                      has
+                                        ? 'bg-primary/10 border-primary/30 text-primary'
+                                        : 'bg-muted/50 border-border text-muted-foreground hover:border-primary/30'
+                                    }`}
+                                  >
+                                    {has ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border border-current" />}
+                                    {ROLE_LABELS[role]}
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
