@@ -142,10 +142,17 @@ const AdminPanel = () => {
     Promise.all([loadOrders(), loadDesigners(), loadAllUsers(), loadOnlineCount()]).then(() => setLoading(false));
   }, [loadOrders, loadDesigners, loadAllUsers, loadOnlineCount]);
 
-  // Refresh online count every 30 seconds
+  // Realtime subscription for online count updates
   useEffect(() => {
-    const interval = setInterval(loadOnlineCount, 30_000);
-    return () => clearInterval(interval);
+    const channel = supabase
+      .channel('online-count')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        () => { loadOnlineCount(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [loadOnlineCount]);
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
