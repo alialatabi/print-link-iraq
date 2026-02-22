@@ -19,7 +19,7 @@ interface Template {
   description: string | null;
   service_type: string;
   preview_url: string | null;
-  price: number | null;
+  
   text_fields: TextField[];
   specializations: string[];
 }
@@ -27,7 +27,7 @@ interface Template {
 interface TemplateFormData {
   description: string;
   service_type: string;
-  price: string;
+  
   specializations: string[];
 }
 
@@ -40,7 +40,7 @@ const AdminTemplates = () => {
   const [filterService, setFilterService] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [form, setForm] = useState<TemplateFormData>({ description: '', service_type: 'business_card', price: '', specializations: [] });
+  const [form, setForm] = useState<TemplateFormData>({ description: '', service_type: 'business_card', specializations: [] });
   const [textFields, setTextFields] = useState<TextField[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -64,7 +64,7 @@ const AdminTemplates = () => {
 
   const openAdd = () => {
     setEditingTemplate(null);
-    setForm({ description: '', service_type: 'business_card', price: '', specializations: [] });
+    setForm({ description: '', service_type: 'business_card', specializations: [] });
     setTextFields([]);
     setPreviewFile(null);
     setPreviewLocalUrl(null);
@@ -74,7 +74,7 @@ const AdminTemplates = () => {
 
   const openEdit = (t: Template) => {
     setEditingTemplate(t);
-    setForm({ description: t.description || '', service_type: t.service_type, price: t.price?.toString() || '', specializations: t.specializations || [] });
+    setForm({ description: t.description || '', service_type: t.service_type, specializations: t.specializations || [] });
     setTextFields(t.text_fields || []);
     setPreviewFile(null);
     setPreviewLocalUrl(t.preview_url);
@@ -193,7 +193,6 @@ const AdminTemplates = () => {
     try {
       if (editingTemplate) {
         const previewUrl = await uploadPreviewImage(editingTemplate.id);
-        const priceVal = form.price ? parseInt(form.price) : null;
         const { error } = await supabase
           .from('templates')
           .update({
@@ -201,7 +200,6 @@ const AdminTemplates = () => {
             description: form.description || null,
             service_type: form.service_type as any,
             preview_url: previewUrl,
-            price: priceVal,
             text_fields: textFields as any,
             specializations: form.specializations,
           } as any)
@@ -209,14 +207,12 @@ const AdminTemplates = () => {
         if (error) throw error;
         toast.success('تم تحديث القالب');
       } else {
-        const priceVal = form.price ? parseInt(form.price) : null;
         const { data: newTemplate, error } = await supabase
           .from('templates')
           .insert({
             name: 'template',
             description: form.description || null,
             service_type: form.service_type as any,
-            price: priceVal,
             text_fields: textFields as any,
             specializations: form.specializations,
           } as any)
@@ -337,12 +333,7 @@ const AdminTemplates = () => {
                 </div>
               </div>
               <div className="p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-mono font-bold text-primary text-xs tracking-widest">{t.id.slice(0, 8).toUpperCase()}</p>
-                  {t.price != null && (
-                    <span className="text-xs font-bold text-primary whitespace-nowrap">{t.price.toLocaleString('en-US')} د.ع</span>
-                  )}
-                </div>
+                <p className="font-mono font-bold text-primary text-xs tracking-widest">{t.id.slice(0, 8).toUpperCase()}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{serviceLabels[t.service_type] || t.service_type}</p>
               </div>
             </motion.div>
@@ -464,17 +455,6 @@ const AdminTemplates = () => {
               {form.specializations.length > 0 && (
                 <p className="text-xs text-muted-foreground mt-1">{form.specializations.length} تخصص محدد</p>
               )}
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">السعر (د.ع)</label>
-              <Input
-                type="number"
-                value={form.price}
-                onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                placeholder="مثال: 15000"
-                className="rounded-xl"
-                min="0"
-              />
             </div>
 
             {/* Description */}
