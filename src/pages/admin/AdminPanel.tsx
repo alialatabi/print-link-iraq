@@ -818,17 +818,17 @@ const AdminPanel = () => {
             <AdminCustomers />
           </TabsContent>
 
-          {/* USERS TAB - Designers & Admins only */}
+          {/* USERS TAB - Designers management only */}
           <TabsContent value="users">
             <div className="space-y-3">
-              <p className="text-sm text-muted-foreground mb-4">إدارة صلاحيات المصممين والأدمن</p>
-              {allUsers.filter(u => u.roles.includes('designer') || u.roles.includes('admin')).length === 0 ? (
+              <p className="text-sm text-muted-foreground mb-4">إدارة المصممين وصلاحياتهم</p>
+              {allUsers.filter(u => u.roles.includes('designer')).length === 0 ? (
                 <div className="text-center py-16">
-                  <Users className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-                  <p className="text-muted-foreground text-lg">لا يوجد مصممين أو أدمن</p>
+                  <Palette className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+                  <p className="text-muted-foreground text-lg">لا يوجد مصممين</p>
                 </div>
               ) : (
-                allUsers.filter(u => u.roles.includes('designer') || u.roles.includes('admin')).map((u, i) => (
+                allUsers.filter(u => u.roles.includes('designer')).map((u, i) => (
                   <motion.div
                     key={u.user_id}
                     initial={{ opacity: 0, y: 12 }}
@@ -839,7 +839,7 @@ const AdminPanel = () => {
                     <div className="flex items-start justify-between flex-wrap gap-3">
                       <div>
                         <h3 className="font-bold text-foreground flex items-center gap-2 text-sm">
-                          <User className="w-4 h-4 text-muted-foreground" />
+                          <Palette className="w-4 h-4 text-muted-foreground" />
                           {u.display_name || u.phone || 'مستخدم'}
                         </h3>
                         {u.phone && <p className="text-xs text-muted-foreground mt-0.5" dir="ltr">{u.phone}</p>}
@@ -852,11 +852,11 @@ const AdminPanel = () => {
                             >
                               {r === 'admin' ? <ShieldCheck className="w-3 h-3" /> : r === 'designer' ? <Palette className="w-3 h-3" /> : <User className="w-3 h-3" />}
                               {r === 'admin' ? 'أدمن' : r === 'designer' ? 'مصمم' : 'زبون'}
-                              {r !== 'customer' && !(r === 'admin' && isSuperAdminPhone(u.phone)) && (
+                              {r === 'designer' && (
                                 <button
                                   onClick={() => handleRemoveRole(u.user_id, r)}
                                   className="mr-1 hover:text-destructive"
-                                  title="إزالة الدور"
+                                  title="إزالة دور المصمم"
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
@@ -866,13 +866,7 @@ const AdminPanel = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {!u.roles.includes('designer') && (
-                          <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg" onClick={() => handleAddRole(u.user_id, 'designer')}>
-                            <Palette className="w-3 h-3 ml-1" />
-                            مصمم
-                          </Button>
-                        )}
-                        {!u.roles.includes('admin') && (
+                        {!u.roles.includes('admin') && isSuperAdmin && (
                           <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg" onClick={() => handleAddRole(u.user_id, 'admin')}>
                             <ShieldCheck className="w-3 h-3 ml-1" />
                             أدمن
