@@ -128,7 +128,7 @@ const Index = () => {
     <div className="overflow-hidden">
 
       {/* ─── Hero ─── */}
-      <section className="relative bg-gradient-to-bl from-secondary via-secondary to-secondary/90 text-secondary-foreground pt-12 pb-16 sm:pt-20 sm:pb-28 overflow-hidden">
+      <section className="relative bg-gradient-to-bl from-background via-muted/40 to-muted/60 dark:from-secondary dark:via-secondary dark:to-secondary/90 text-foreground dark:text-secondary-foreground pt-12 pb-16 sm:pt-20 sm:pb-28 overflow-hidden">
         {/* subtle bg pattern */}
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '32px 32px' }} />
         {/* decorative blobs */}
@@ -152,11 +152,11 @@ const Index = () => {
                 <span className="text-primary">بسهولة خلال دقائق</span>
               </motion.h1>
 
-              <motion.p className="text-secondary-foreground/60 text-sm sm:text-base leading-relaxed max-w-md mx-auto sm:mx-0 mb-2" initial="hidden" animate="visible" variants={fadeUp} custom={2}>
+              <motion.p className="text-muted-foreground text-sm sm:text-base leading-relaxed max-w-md mx-auto sm:mx-0 mb-2" initial="hidden" animate="visible" variants={fadeUp} custom={2}>
                 منصة مطبعتي تتيح لك تصميم وطلب المطبوعات أونلاين بجودة عالية وتسليم سريع داخل العراق
               </motion.p>
 
-              <motion.p className="text-secondary-foreground/35 text-xs mb-7" initial="hidden" animate="visible" variants={fadeUp} custom={3}>
+              <motion.p className="text-muted-foreground/60 text-xs mb-7" initial="hidden" animate="visible" variants={fadeUp} custom={3}>
                 آلاف التصاميم تم إنشاؤها عبر مطبعتي
               </motion.p>
 
@@ -168,7 +168,7 @@ const Index = () => {
                   </Button>
                 </Link>
                 <Link to="/services">
-                  <Button size="lg" variant="outline" className="gap-2 h-13 px-8 text-base border-secondary-foreground/20 bg-secondary-foreground/5 text-secondary-foreground hover:bg-secondary-foreground/10">
+                  <Button size="lg" variant="outline" className="gap-2 h-13 px-8 text-base border-border bg-muted/60 text-foreground hover:bg-muted dark:border-secondary-foreground/20 dark:bg-secondary-foreground/5 dark:text-secondary-foreground dark:hover:bg-secondary-foreground/10">
                     تصفح القوالب
                   </Button>
                 </Link>
@@ -187,7 +187,7 @@ const Index = () => {
               ].map((s, i) => (
                 <motion.div
                   key={i}
-                  className="flex flex-col items-center sm:items-start gap-2 bg-secondary-foreground/6 border border-secondary-foreground/10 rounded-2xl px-3 py-4 sm:px-6 sm:py-5 sm:min-w-[160px] sm:flex-row hover:bg-secondary-foreground/10 transition-colors duration-200"
+                  className="flex flex-col items-center sm:items-start gap-2 bg-card/80 border border-border/60 dark:bg-secondary-foreground/6 dark:border-secondary-foreground/10 rounded-2xl px-3 py-4 sm:px-6 sm:py-5 sm:min-w-[160px] sm:flex-row hover:bg-muted/80 dark:hover:bg-secondary-foreground/10 transition-colors duration-200 shadow-card"
                   initial="hidden" animate="visible" variants={fadeUp} custom={i + 3}
                 >
                   <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${s.bg} flex items-center justify-center flex-shrink-0`}>
@@ -195,7 +195,7 @@ const Index = () => {
                   </div>
                   <div className="text-center sm:text-right">
                     <div className={`text-xl sm:text-3xl font-extrabold ${s.color} leading-none`}>{s.val}</div>
-                    <div className="text-[10px] sm:text-xs text-secondary-foreground/55 mt-0.5 font-medium">{s.label}</div>
+                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 font-medium">{s.label}</div>
                   </div>
                 </motion.div>
               ))}
