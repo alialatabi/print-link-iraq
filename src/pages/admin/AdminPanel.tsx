@@ -907,7 +907,7 @@ const AdminPanel = () => {
                 {/* Current admins list */}
                 <div className="space-y-3">
                   {allUsers.filter(u => u.roles.includes('admin')).map((u, i) => {
-                    const isSuperAdminUser = u.phone === '07838774435' || (u.phone || '').replace(/^0/, '964') === '96407838774435';
+                    const isSuperAdminUser = isSuperAdminPhone(u.phone);
                     return (
                       <motion.div
                         key={u.user_id}
