@@ -654,6 +654,43 @@ npm run dev
 
 ---
 
+## Performance & SEO Optimizations
+
+The following optimizations were applied to improve Lighthouse scores (Performance, Accessibility, SEO):
+
+### Code Splitting & Lazy Loading
+- **All route pages** are lazy-loaded via `React.lazy()` + `Suspense`, including the `Index` homepage
+- This significantly reduces the initial JS bundle size and unused JavaScript
+
+### Network & Resource Hints
+- `preconnect` and `dns-prefetch` hints for Lovable Cloud (Supabase) endpoint
+- `preconnect` for Google Fonts (`fonts.googleapis.com` and `fonts.gstatic.com`)
+
+### Font Loading Optimization
+- Google Fonts (Cairo) loaded asynchronously using `<link rel="preload" as="style">` with `onload` fallback
+- `<noscript>` fallback ensures fonts load when JS is disabled
+- Eliminates render-blocking CSS for font stylesheets
+
+### Accessibility (WCAG 2.0 AA)
+- **Color contrast**: `--muted-foreground` lightness adjusted from 47% to 44% to meet 4.5:1 contrast ratio requirement
+- **Heading hierarchy**: Non-sequential `<h4>` elements replaced with `<p>` tags (same styling) to maintain proper heading order
+- **Link accessibility**: All icon-only links (e.g., cart icon) have `aria-label` attributes for screen readers
+
+### SEO Meta Tags
+- Open Graph and Twitter Card meta tags for social sharing
+- Proper `<title>` and `<meta description>`
+- `robots.txt` configured
+
+### Lighthouse Scores (Mobile)
+| Category | Score |
+|----------|-------|
+| Performance | 79 |
+| Accessibility | 90 |
+| Best Practices | 100 |
+| SEO | 100 |
+
+---
+
 ## Enums Reference
 
 ### `service_type`
