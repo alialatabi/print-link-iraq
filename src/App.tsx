@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,28 +10,30 @@ import { CartProvider } from "@/contexts/CartContext";
 import Layout from "@/components/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import AuthPage from "./pages/auth/AuthPage";
-import StaffLogin from "./pages/auth/StaffLogin";
-import ServiceSelection from "./pages/customer/ServiceSelection";
-import SpecializationSelection from "./pages/customer/SpecializationSelection";
-import TemplateSelection from "./pages/customer/TemplateSelection";
-import OrderForm from "./pages/customer/OrderForm";
-import OTPVerification from "./pages/customer/OTPVerification";
-import OrderSuccess from "./pages/customer/OrderSuccess";
-import OrderTracking from "./pages/customer/OrderTracking";
-import MyOrders from "./pages/customer/MyOrders";
-import ProfilePage from "./pages/customer/ProfilePage";
-import DesignerLogin from "./pages/designer/DesignerLogin";
-import DesignerOrders from "./pages/designer/DesignerOrders";
-import DesignerOrderDetails from "./pages/designer/DesignerOrderDetails";
-import AdminPanel from "./pages/admin/AdminPanel";
-import TemplateDetails from "./pages/customer/TemplateDetails";
-import CartPage from "./pages/customer/CartPage";
-import CheckoutPage from "./pages/customer/CheckoutPage";
-import CompleteProfile from "./pages/customer/CompleteProfile";
-import UploadDesignPage from "./pages/customer/UploadDesignPage";
-import DeliveryAddressPage from "./pages/customer/DeliveryAddressPage";
+
+// Lazy-loaded routes for code splitting
+const NotFound = lazy(() => import("./pages/NotFound"));
+const AuthPage = lazy(() => import("./pages/auth/AuthPage"));
+const StaffLogin = lazy(() => import("./pages/auth/StaffLogin"));
+const ServiceSelection = lazy(() => import("./pages/customer/ServiceSelection"));
+const SpecializationSelection = lazy(() => import("./pages/customer/SpecializationSelection"));
+const TemplateSelection = lazy(() => import("./pages/customer/TemplateSelection"));
+const OrderForm = lazy(() => import("./pages/customer/OrderForm"));
+const OTPVerification = lazy(() => import("./pages/customer/OTPVerification"));
+const OrderSuccess = lazy(() => import("./pages/customer/OrderSuccess"));
+const OrderTracking = lazy(() => import("./pages/customer/OrderTracking"));
+const MyOrders = lazy(() => import("./pages/customer/MyOrders"));
+const ProfilePage = lazy(() => import("./pages/customer/ProfilePage"));
+const DesignerLogin = lazy(() => import("./pages/designer/DesignerLogin"));
+const DesignerOrders = lazy(() => import("./pages/designer/DesignerOrders"));
+const DesignerOrderDetails = lazy(() => import("./pages/designer/DesignerOrderDetails"));
+const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
+const TemplateDetails = lazy(() => import("./pages/customer/TemplateDetails"));
+const CartPage = lazy(() => import("./pages/customer/CartPage"));
+const CheckoutPage = lazy(() => import("./pages/customer/CheckoutPage"));
+const CompleteProfile = lazy(() => import("./pages/customer/CompleteProfile"));
+const UploadDesignPage = lazy(() => import("./pages/customer/UploadDesignPage"));
+const DeliveryAddressPage = lazy(() => import("./pages/customer/DeliveryAddressPage"));
 
 const queryClient = new QueryClient();
 
@@ -44,6 +47,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Layout>
+              <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
               <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
@@ -78,6 +82,7 @@ const App = () => (
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
             </Layout>
           </BrowserRouter>
           </CartProvider>
