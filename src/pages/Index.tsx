@@ -63,12 +63,7 @@ const VALUE_PROPS = [
 ];
 
 
-const DESIGNERS = [
-  { name: 'أحمد الكربلائي', specialty: 'هوية بصرية وكروت شخصية', initials: 'أك', color: 'bg-primary' },
-  { name: 'سارة محمد', specialty: 'فلايرات وإعلانات', initials: 'سم', color: 'bg-cmyk-magenta' },
-  { name: 'علي حسن', specialty: 'قوائم طعام وإعلانات', initials: 'عح', color: 'bg-cmyk-cyan' },
-  { name: 'نور الزهراء', specialty: 'دعوات ومطبوعات خاصة', initials: 'نز', color: 'bg-success' },
-];
+const DESIGNER_COLORS = ['bg-primary', 'bg-cmyk-magenta', 'bg-cmyk-cyan', 'bg-success', 'bg-accent'];
 
 const PRINTED_WORKS = [
   { label: 'كرت شخصي فاخر', type: 'business_card', bg: 'from-primary/20 to-primary/5' },
@@ -96,6 +91,7 @@ const scaleIn = {
 const Index = () => {
   const [popularTemplates, setPopularTemplates] = useState<PopularTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [realDesigners, setRealDesigners] = useState<{ name: string; initials: string; color: string; completedOrders: number }[]>([]);
 
   useEffect(() => {
     const loadPopular = async () => {
@@ -115,6 +111,46 @@ const Index = () => {
       setLoading(false);
     };
     loadPopular();
+
+    // Load real designers
+    const loadDesigners = async () => {
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'designer');
+      if (!roleData || roleData.length === 0) return;
+      const userIds = roleData.map(r => r.user_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, is_active')
+        .in('user_id', userIds);
+      if (!profiles) return;
+      const activeDesigners = profiles.filter(p => p.is_active !== false);
+      // Get completed order counts
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('designer_id')
+        .in('designer_id', userIds)
+        .in('status', ['approved', 'print_ready', 'printed', 'delivered']);
+      const countMap: Record<string, number> = {};
+      (orders || []).forEach((o: any) => {
+        if (o.designer_id) countMap[o.designer_id] = (countMap[o.designer_id] || 0) + 1;
+      });
+      setRealDesigners(activeDesigners.map((d, i) => {
+        const name = d.display_name || 'مصمم';
+        const words = name.split(' ');
+        const initials = words.length >= 2
+          ? words[0][0] + words[1][0]
+          : name.slice(0, 2);
+        return {
+          name,
+          initials,
+          color: DESIGNER_COLORS[i % DESIGNER_COLORS.length],
+          completedOrders: countMap[d.user_id] || 0,
+        };
+      }));
+    };
+    loadDesigners();
   }, []);
 
   return (
@@ -404,19 +440,23 @@ const Index = () => {
           </motion.div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            {DESIGNERS.map((d, i) => (
+            {realDesigners.length > 0 ? realDesigners.map((d, i) => (
               <motion.div key={i} className="bg-card rounded-2xl p-5 border border-border/60 text-center shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={i}>
                 <div className={`w-14 h-14 rounded-full ${d.color} text-white flex items-center justify-center text-lg font-extrabold mx-auto mb-3 shadow-sm`}>
                   {d.initials}
                 </div>
                 <p className="font-bold text-foreground text-sm mb-1">{d.name}</p>
-                <p className="text-muted-foreground text-[11px] leading-relaxed">{d.specialty}</p>
+                {d.completedOrders > 0 && (
+                  <p className="text-muted-foreground text-[11px]">{d.completedOrders}+ طلب منجز</p>
+                )}
                 <div className="mt-3 inline-flex items-center gap-1 text-[10px] text-success font-semibold">
                   <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
                   متاح للطلبات
                 </div>
               </motion.div>
-            ))}
+            )) : (
+              <div className="col-span-full text-center py-8 text-muted-foreground text-sm">لا يوجد مصممين مسجلين حالياً</div>
+            )}
           </div>
         </div>
       </section>
