@@ -29,10 +29,12 @@ const Layout = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('theme', dark ? 'dark' : 'light');
   }, [dark]);
 
+  const isDesignerOnly = role === 'designer';
+
   const NAV_ITEMS = [
-    { label: 'الرئيسية', path: '/', icon: Home, show: true },
-    { label: 'طلباتي', path: '/my-orders', icon: User, show: !!user },
-    { label: 'حسابي', path: '/profile', icon: User, show: !!user },
+    { label: 'الرئيسية', path: '/', icon: Home, show: !isDesignerOnly },
+    { label: 'طلباتي', path: '/my-orders', icon: User, show: !!user && !isDesignerOnly },
+    { label: 'حسابي', path: '/profile', icon: User, show: !!user && !isDesignerOnly },
     { label: 'المصمم', path: '/designer/orders', icon: Palette, show: role === 'designer' || role === 'admin' },
     { label: 'الإدارة', path: '/admin', icon: ShieldCheck, show: role === 'admin' },
   ];
@@ -84,6 +86,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
               ))}
 
             {/* Cart icon */}
+            {!isDesignerOnly && (
             <Link to="/cart" aria-label="سلة التسوق" className="relative p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150">
               <ShoppingCart className="w-[18px] h-[18px]" />
               {itemCount > 0 && (
@@ -92,6 +95,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 </span>
               )}
             </Link>
+            )}
 
             {/* Notification bell */}
             {user && <NotificationBell />}
@@ -126,6 +130,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
           {/* Mobile menu button */}
           <div className="flex items-center gap-1 sm:hidden">
+            {!isDesignerOnly && (
             <Link to="/cart" aria-label="سلة التسوق" className="relative p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150">
               <ShoppingCart className="w-5 h-5" />
               {itemCount > 0 && (
@@ -134,6 +139,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 </span>
               )}
             </Link>
+            )}
             {user && <NotificationBell />}
             <button
               className="p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150"
@@ -145,8 +151,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
           </div>
         </div>
 
-        {/* Services sub-navbar - circular icons */}
-        {!pathname.startsWith('/auth') && !pathname.startsWith('/staff-login') && !pathname.startsWith('/designer/login') && (
+        {/* Services sub-navbar - circular icons (hidden for designers) */}
+        {!isDesignerOnly && !pathname.startsWith('/auth') && !pathname.startsWith('/staff-login') && !pathname.startsWith('/designer/login') && (
         <div className="bg-card/50 backdrop-blur-sm border-b border-border/30">
           <div className="container">
             <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide py-3 px-1">
@@ -205,7 +211,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                   </Link>
                 ))}
 
-                {/* Services links mobile */}
+                {!isDesignerOnly && (
                 <div className="pt-3 border-t border-border/30 mt-3">
                   <p className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">خدماتنا</p>
                   {services.map(service => (
@@ -220,6 +226,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                     </Link>
                   ))}
                 </div>
+                )}
 
                 {/* Dark mode toggle mobile */}
                 <button
