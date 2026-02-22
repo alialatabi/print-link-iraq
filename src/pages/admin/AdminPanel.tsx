@@ -223,6 +223,12 @@ const AdminPanel = () => {
   const ROLE_LABELS: Record<string, string> = { customer: 'زبون', designer: 'مصمم', admin: 'أدمن' };
 
   const handleChangeRole = async (userId: string, newRole: string) => {
+    // Protect super admin from role changes
+    const targetUser = allUsers.find(u => u.user_id === userId);
+    if (targetUser && isSuperAdminPhone(targetUser.phone) && newRole !== 'admin') {
+      toast.error('لا يمكن تغيير دور السوبر أدمن');
+      return;
+    }
     try {
       const { error: deleteError } = await supabase.from('user_roles').delete().eq('user_id', userId);
       if (deleteError) throw deleteError;
