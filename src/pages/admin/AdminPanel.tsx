@@ -24,7 +24,7 @@ import {
   Trash2, Palette, User, LayoutGrid,
   ShieldCheck, Search, Calendar, ArrowUpDown,
   TrendingUp, Clock, CheckCircle, Truck, FileText, Download,
-  WifiOff, XCircle
+  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 import AdminTemplates from '@/components/admin/AdminTemplates';
@@ -592,53 +592,101 @@ const AdminPanel = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredOrders.map((order, i) => (
-                  <motion.div
-                    key={order.id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.03, 0.3) }}
-                    className="bg-card rounded-xl p-4 border border-border shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex flex-col gap-3">
-                      {/* Header row */}
-                      <div className="flex items-start justify-between flex-wrap gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <h3 className="font-bold text-foreground text-sm">{order.templates?.name || '-'}</h3>
-                            <StatusBadge status={order.status as OrderStatus} />
-                            <span className="text-xs text-muted-foreground font-mono">#{order.id.slice(0, 8)}</span>
+                {filteredOrders.map((order, i) => {
+                  const details = (order.details || {}) as Record<string, any>;
+                  const DETAIL_LABELS: Record<string, string> = {
+                    name: 'الاسم', phone: 'الهاتف', job_title: 'المسمى الوظيفي',
+                    address: 'العنوان', email: 'البريد', notes: 'ملاحظات',
+                    quantity: 'الكمية', delivery_phone: 'هاتف التوصيل',
+                    delivery_province: 'المحافظة', delivery_area: 'المنطقة',
+                    delivery_landmark: 'أقرب نقطة دالة', delivery_label: 'عنوان التوصيل',
+                    approved_at: 'تاريخ الموافقة',
+                  };
+                  const deliveryKeys = ['delivery_province', 'delivery_area', 'delivery_landmark', 'delivery_label', 'delivery_phone'];
+                  const hasDelivery = deliveryKeys.some(k => details[k]);
+                  const contentFields = Object.entries(details)
+                    .filter(([key, val]) => !deliveryKeys.includes(key) && key !== 'approved_at' && val && typeof val !== 'object')
+                    .map(([key, val]) => ({ key, label: DETAIL_LABELS[key] || key, value: String(val) }));
+                  const deliveryFields = deliveryKeys
+                    .filter(k => details[k])
+                    .map(k => ({ key: k, label: DETAIL_LABELS[k] || k, value: String(details[k]) }));
+
+                  return (
+                    <motion.div
+                      key={order.id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                      className="bg-card rounded-2xl border border-border shadow-sm hover:shadow-md transition-all overflow-hidden"
+                    >
+                      {/* Card Header */}
+                      <div className="p-4 pb-3">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-foreground text-sm leading-tight">{order.templates?.name || '-'}</h3>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {SERVICE_LABELS[order.templates?.service_type] || ''} · <span className="font-mono">#{order.id.slice(0, 8)}</span>
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                            <span>{order.profiles?.display_name || '-'}</span>
-                            <span dir="ltr">{order.profiles?.phone || '-'}</span>
-                            <span>{SERVICE_LABELS[order.templates?.service_type] || ''}</span>
-                            <span>{new Date(order.created_at).toLocaleDateString('ar')}</span>
-                          </div>
+                          <StatusBadge status={order.status as OrderStatus} />
+                        </div>
+
+                        {/* Customer info row */}
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+                          <span className="flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5" />
+                            {order.profiles?.display_name || '-'}
+                          </span>
+                          <span className="flex items-center gap-1.5" dir="ltr">
+                            <Phone className="w-3.5 h-3.5" />
+                            {order.profiles?.phone || '-'}
+                          </span>
+                          <span className="flex items-center gap-1.5 mr-auto">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {new Date(order.created_at).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Details (collapsed) */}
-                      {order.details && (
-                        <div className="bg-muted/40 rounded-lg p-2.5 text-xs">
-                          <div className="flex flex-wrap gap-x-4 gap-y-1">
-                            {Object.entries(order.details as Record<string, any>)
-                              .filter(([_, val]) => typeof val === 'string' && val)
-                              .map(([key, val]) => (
-                                <span key={key}>
-                                  <span className="text-muted-foreground">
-                                    {key === 'name' ? 'الاسم' : key === 'phone' ? 'الهاتف' : key === 'job_title' ? 'المسمى' : key === 'address' ? 'العنوان' : key === 'email' ? 'البريد' : key === 'notes' ? 'ملاحظات' : key}:
-                                  </span>{' '}
-                                  <span className="text-foreground">{val as string}</span>
-                                </span>
-                              ))}
+                      {/* Content Details */}
+                      {contentFields.length > 0 && (
+                        <div className="px-4 pb-3">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-xs">
+                            {contentFields.map(f => (
+                              <div key={f.key}>
+                                <span className="text-muted-foreground">{f.label}</span>
+                                <p className="text-foreground font-medium truncate">{f.value}</p>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
 
-                      {/* Actions row */}
-                      <div className="flex items-center gap-3 flex-wrap">
-                        {/* Assign Designer */}
+                      {/* Delivery Info */}
+                      {hasDelivery && (
+                        <div className="mx-4 mb-3 bg-primary/5 border border-primary/10 rounded-lg p-3">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-2">
+                            <MapPin className="w-3.5 h-3.5" />
+                            معلومات التوصيل
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 text-xs">
+                            {deliveryFields.map(f => (
+                              <div key={f.key}>
+                                <span className="text-muted-foreground">{f.label}</span>
+                                <p className="text-foreground font-medium">{f.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="border-t border-border bg-muted/20 px-4 py-3 flex items-center gap-3 flex-wrap">
                         <div className="flex items-center gap-2">
                           <Palette className="w-4 h-4 text-muted-foreground" />
                           <Select
@@ -663,7 +711,6 @@ const AdminPanel = () => {
                           </Select>
                         </div>
 
-                        {/* Change Status */}
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-muted-foreground" />
                           <Select
@@ -681,11 +728,10 @@ const AdminPanel = () => {
                           </Select>
                         </div>
 
-                        {/* Cancel Order */}
                         {order.status !== 'draft' && order.status !== 'delivered' && order.status !== 'cancelled' && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm" className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50 gap-1.5 ml-auto">
+                              <Button variant="outline" size="sm" className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50 gap-1.5 mr-auto">
                                 <XCircle className="w-3.5 h-3.5" />
                                 إلغاء الطلب
                               </Button>
@@ -711,9 +757,9 @@ const AdminPanel = () => {
                           </AlertDialog>
                         )}
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
