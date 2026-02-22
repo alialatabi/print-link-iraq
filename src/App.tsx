@@ -9,7 +9,7 @@ import { AppProvider } from "@/contexts/AppContext";
 import { CartProvider } from "@/contexts/CartContext";
 import Layout from "@/components/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import Index from "./pages/Index";
+const Index = lazy(() => import("./pages/Index"));
 
 // Lazy-loaded routes for code splitting
 const NotFound = lazy(() => import("./pages/NotFound"));
