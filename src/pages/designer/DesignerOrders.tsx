@@ -53,12 +53,15 @@ const DesignerOrders = () => {
         event: '*',
         schema: 'public',
         table: 'orders',
-        filter: `designer_id=eq.${user.id}`,
       }, (payload) => {
-        if (payload.eventType === 'UPDATE' && payload.new?.status === 'assigned' && payload.old?.status !== 'assigned') {
-          toast({ title: '📝 عميل طلب تعديل على تصميم' });
+        const newRow = payload.new as any;
+        const oldRow = payload.old as any;
+        if (newRow?.designer_id === user.id || oldRow?.designer_id === user.id) {
+          if (payload.eventType === 'UPDATE' && newRow?.designer_id === user.id && oldRow?.designer_id !== user.id) {
+            toast({ title: '🎨 تم تعيين طلب جديد لك!' });
+          }
+          loadOrders();
         }
-        loadOrders();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
