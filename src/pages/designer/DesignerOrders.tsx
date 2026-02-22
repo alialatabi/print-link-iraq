@@ -32,11 +32,9 @@ const DesignerOrders = () => {
 
     const customerIds = [...new Set(ordersData.map(o => o.customer_id))];
     const { data: profilesData } = await supabase
-      .from('profiles')
-      .select('user_id, display_name, phone')
-      .in('user_id', customerIds);
+      .rpc('get_customer_names_for_designer', { customer_ids: customerIds });
     
-    const profileMap = new Map((profilesData || []).map(p => [p.user_id, p]));
+    const profileMap = new Map((profilesData || []).map((p: any) => [p.user_id, p]));
     
     setOrders(ordersData.map(o => ({
       ...o,
@@ -119,7 +117,7 @@ const DesignerOrders = () => {
             <div>
               <h3 className="font-bold text-foreground">{order.templates?.name || '-'}</h3>
               <p className="text-muted-foreground text-sm">
-                {order.profiles?.display_name || order.profiles?.phone || '-'} • {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
+                {order.profiles?.display_name || '-'} • {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
               </p>
               <p className="text-muted-foreground text-xs mt-1">{new Date(order.created_at).toLocaleDateString('ar')}</p>
             </div>
