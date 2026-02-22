@@ -94,8 +94,10 @@ Deno.serve(async (req) => {
     }
 
     // New user — send OTP for first-time verification
-    // Generate 6-digit OTP
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    // Generate 6-digit OTP using cryptographically secure randomness
+    const randomBytes = new Uint32Array(1);
+    crypto.getRandomValues(randomBytes);
+    const code = String(100000 + (randomBytes[0] % 900000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     // Invalidate previous unused codes for this phone

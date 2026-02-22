@@ -20,7 +20,7 @@ const DesignerOrders = () => {
     if (!user) return;
     const { data: ordersData } = await supabase
       .from('orders')
-      .select('*, templates(name, service_type)')
+      .select('id, customer_id, designer_id, template_id, status, details, created_at, updated_at, templates(name, service_type)')
       .eq('designer_id', user.id)
       .order('created_at', { ascending: false });
     

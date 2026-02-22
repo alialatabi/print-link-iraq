@@ -36,7 +36,7 @@ const DesignerOrderDetails = () => {
   const loadOrder = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('*, templates(name, service_type, preview_url)')
+      .select('id, customer_id, designer_id, template_id, status, details, created_at, updated_at, templates(name, service_type, preview_url)')
       .eq('id', orderId || '')
       .maybeSingle();
     
