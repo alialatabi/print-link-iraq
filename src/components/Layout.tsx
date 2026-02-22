@@ -259,26 +259,67 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-border/40 py-12 mt-auto bg-muted/30">
-        <div className="container text-center">
-          <div className="flex items-center justify-center gap-2.5 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-destructive to-destructive/80 flex items-center justify-center">
-              <TrendingUp className="w-3.5 h-3.5 text-destructive-foreground" />
+      <footer className="border-t border-border/30 mt-auto bg-card">
+        <div className="container max-w-5xl py-14">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8 text-center sm:text-right">
+            {/* Brand */}
+            <div className="flex flex-col items-center sm:items-start gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-destructive to-destructive/80 flex items-center justify-center shadow-sm">
+                  <TrendingUp className="w-4 h-4 text-destructive-foreground" />
+                </div>
+                <span className="text-base font-extrabold bg-gradient-to-l from-accent to-accent/80 bg-clip-text text-transparent">
+                  مطبعتي
+                </span>
+              </div>
+              <p className="text-muted-foreground text-xs leading-relaxed max-w-[220px]">
+                حلول طباعة متكاملة للأفراد والشركات، بجودة احترافية وتوصيل سريع.
+              </p>
             </div>
-            <span className="text-sm font-extrabold bg-gradient-to-l from-accent to-accent/80 bg-clip-text text-transparent">
-              مطبعتي
-            </span>
+
+            {/* Quick links */}
+            <div>
+              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-4">روابط سريعة</h4>
+              <ul className="space-y-2.5">
+                {[
+                  { label: 'الخدمات', path: '/services' },
+                  { label: 'طلباتي', path: '/my-orders' },
+                  { label: 'ارفع تصميمك', path: '/upload-design' },
+                ].map(link => (
+                  <li key={link.path}>
+                    <Link to={link.path} className="text-sm text-muted-foreground hover:text-primary transition-colors duration-150">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Contact / Info */}
+            <div>
+              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-4">تواصل معنا</h4>
+              <ul className="space-y-2.5 text-sm text-muted-foreground">
+                <li>توصيل لجميع أنحاء العراق</li>
+                <li>طباعة خلال ٧٢ ساعة</li>
+                <li>دعم سريع وموثوق</li>
+              </ul>
+            </div>
           </div>
-          <p className="text-muted-foreground text-xs">
-            حلقة الوصل بين الزبون والمصمم © {new Date().getFullYear()}
-          </p>
         </div>
-        {/* CMYK color strip */}
-        <div className="flex h-0.5 mt-8">
-          <div className="flex-1 bg-cmyk-cyan" />
-          <div className="flex-1 bg-cmyk-magenta" />
-          <div className="flex-1 bg-cmyk-yellow" />
-          <div className="flex-1 bg-cmyk-key" />
+
+        {/* Bottom bar */}
+        <div className="border-t border-border/30">
+          <div className="container max-w-5xl py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-muted-foreground text-[11px]">
+              © {new Date().getFullYear()} مطبعتي — جميع الحقوق محفوظة
+            </p>
+            <div className="flex h-0.5 w-24 rounded-full overflow-hidden">
+              <div className="flex-1 bg-cmyk-cyan" />
+              <div className="flex-1 bg-cmyk-magenta" />
+              <div className="flex-1 bg-cmyk-yellow" />
+              <div className="flex-1 bg-cmyk-key" />
+            </div>
+          </div>
         </div>
       </footer>
     </div>

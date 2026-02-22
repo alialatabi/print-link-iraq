@@ -39,6 +39,45 @@ const toFileSlot = (f: File): Promise<FileSlot> =>
     }
   });
 
+/** Interactive drag & drop zone */
+const DropZone = ({ onDrop, onClick }: { onDrop: (e: React.DragEvent) => void; onClick: () => void }) => {
+  const [dragging, setDragging] = useState(false);
+  return (
+    <motion.div
+      onDrop={(e) => { setDragging(false); onDrop(e); }}
+      onDragOver={e => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onClick={onClick}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
+      className={`relative border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300 group ${
+        dragging
+          ? 'border-primary bg-primary/5 scale-[1.02]'
+          : 'border-border/60 hover:border-primary/40 hover:bg-primary/3'
+      }`}
+    >
+      <motion.div
+        className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/10 transition-colors duration-300"
+        animate={dragging ? { scale: 1.15, rotate: -5 } : { scale: 1, rotate: 0 }}
+        transition={{ type: 'spring', stiffness: 300 }}
+      >
+        <Upload className={`w-7 h-7 transition-colors duration-300 ${dragging ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`} />
+      </motion.div>
+      <p className="font-bold text-foreground text-sm mb-1">
+        {dragging ? 'أفلت الملف هنا' : 'اسحب الملف هنا أو اضغط للاختيار'}
+      </p>
+      <p className="text-muted-foreground text-xs">PNG, JPEG, PDF, PSD — حتى 30MB</p>
+      {dragging && (
+        <motion.div
+          className="absolute inset-0 rounded-2xl border-2 border-primary/30 pointer-events-none"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        />
+      )}
+    </motion.div>
+  );
+};
+
 /** Mini file card used for both slots */
 const FileCard = ({ slot, onRemove, onReplace, inputRef }: {
   slot: FileSlot;
@@ -212,18 +251,10 @@ const UploadDesignPage = () => {
               <div>
                 <Label className="text-sm font-bold text-foreground mb-2 block">الملف الأول <span className="text-destructive">*</span></Label>
                 {!slot1 ? (
-                  <div
+                  <DropZone
                     onDrop={handleDrop}
-                    onDragOver={e => e.preventDefault()}
                     onClick={() => fileInput1Ref.current?.click()}
-                    className="border-2 border-dashed border-border hover:border-primary/50 rounded-2xl p-10 text-center cursor-pointer transition-all hover:bg-primary/3 group"
-                  >
-                    <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 group-hover:scale-105 transition-transform">
-                      <Upload className="w-7 h-7 text-muted-foreground" />
-                    </div>
-                    <p className="font-bold text-foreground text-sm mb-1">اسحب الملف هنا أو اضغط للاختيار</p>
-                    <p className="text-muted-foreground text-xs">PNG, JPEG, PDF, PSD — حتى 30MB</p>
-                  </div>
+                  />
                 ) : (
                   <FileCard
                     slot={slot1}
@@ -243,9 +274,11 @@ const UploadDesignPage = () => {
                 {!slot2 ? (
                   <button
                     onClick={() => fileInput2Ref.current?.click()}
-                    className="w-full border-2 border-dashed border-border/50 hover:border-primary/40 rounded-2xl p-6 text-center cursor-pointer transition-all hover:bg-primary/3 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+                    className="w-full border-2 border-dashed border-border/40 hover:border-primary/40 rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 hover:bg-primary/3 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground group"
                   >
-                    <Plus className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-xl bg-muted/60 flex items-center justify-center group-hover:scale-110 group-hover:bg-primary/10 transition-all duration-300">
+                      <Plus className="w-5 h-5" />
+                    </div>
                     <span className="text-sm font-medium">إضافة ملف ثانٍ (اختياري)</span>
                   </button>
                 ) : (
