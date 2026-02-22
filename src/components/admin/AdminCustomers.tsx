@@ -11,11 +11,15 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Search, Users, Package, DollarSign,
   ArrowUpDown, ArrowUp, ArrowDown, Clock,
-  Phone, MessageCircle, Trash2, ShieldOff, ShieldCheck,
+  Phone, MessageCircle, Trash2, ShieldOff, ShieldCheck, UserCog,
 } from 'lucide-react';
 
 interface CustomerData {
@@ -30,7 +34,20 @@ interface CustomerData {
   total_time_seconds: number;
   orderCount: number;
   totalSpent: number;
+  role: 'customer' | 'designer' | 'admin';
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  customer: 'زبون',
+  designer: 'مصمم',
+  admin: 'أدمن',
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  customer: 'bg-primary/10 text-primary',
+  designer: 'bg-cmyk-magenta/10 text-cmyk-magenta',
+  admin: 'bg-success/10 text-success',
+};
 
 type SortKey = 'display_name' | 'phone' | 'orderCount' | 'totalSpent' | 'last_seen';
 type SortDir = 'asc' | 'desc';
@@ -72,24 +89,37 @@ const formatPhone = (phone: string | null): string => {
 };
 
 const AdminCustomers = () => {
+  const { user: currentUser, isSuperAdmin } = useAuth();
   const [customers, setCustomers] = useState<CustomerData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('orderCount');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
 
   const loadCustomers = useCallback(async () => {
+    // Fetch ALL user roles
     const { data: roleData } = await supabase
       .from('user_roles')
-      .select('user_id')
-      .eq('role', 'customer');
+      .select('user_id, role');
 
-    const customerIds = (roleData || []).map(r => r.user_id);
-    if (customerIds.length === 0) { setCustomers([]); setLoading(false); return; }
+    if (!roleData || roleData.length === 0) { setCustomers([]); setLoading(false); return; }
+
+    // Build role map (use highest role per user)
+    const roleMap = new Map<string, string>();
+    roleData.forEach(r => {
+      const current = roleMap.get(r.user_id);
+      const priority: Record<string, number> = { admin: 3, designer: 2, customer: 1 };
+      if (!current || (priority[r.role] || 0) > (priority[current] || 0)) {
+        roleMap.set(r.user_id, r.role);
+      }
+    });
+
+    const allUserIds = [...roleMap.keys()];
 
     const [{ data: profiles }, { data: orders }] = await Promise.all([
-      supabase.from('profiles').select('*').in('user_id', customerIds),
-      supabase.from('orders').select('customer_id, paid_amount').in('customer_id', customerIds),
+      supabase.from('profiles').select('*').in('user_id', allUserIds),
+      supabase.from('orders').select('customer_id, paid_amount').in('customer_id', allUserIds),
     ]);
 
     const customerMap: CustomerData[] = (profiles || []).map(p => {
@@ -106,6 +136,7 @@ const AdminCustomers = () => {
         total_time_seconds: (p as any).total_time_seconds ?? 0,
         orderCount: customerOrders.length,
         totalSpent: customerOrders.reduce((sum, o) => sum + (o.paid_amount || 0), 0),
+        role: (roleMap.get(p.user_id) || 'customer') as CustomerData['role'],
       };
     });
 
@@ -135,6 +166,31 @@ const AdminCustomers = () => {
     loadCustomers();
   };
 
+  const handleChangeRole = async (userId: string, newRole: string) => {
+    // Prevent changing own role or super admin role
+    if (userId === currentUser?.id) { toast.error('لا يمكنك تغيير دورك الخاص'); return; }
+
+    try {
+      // Delete existing roles for user
+      const { error: deleteError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+      if (deleteError) throw deleteError;
+
+      // Insert new role
+      const { error: insertError } = await supabase
+        .from('user_roles')
+        .insert({ user_id: userId, role: newRole } as any);
+      if (insertError) throw insertError;
+
+      toast.success(`تم تغيير الدور إلى ${ROLE_LABELS[newRole]}`);
+      loadCustomers();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل تغيير الدور');
+    }
+  };
+
   const fmt = (n: number) => n.toLocaleString('en-US');
 
   const handleSort = (key: SortKey) => {
@@ -148,6 +204,7 @@ const AdminCustomers = () => {
   };
 
   let filtered = customers;
+  if (roleFilter !== 'all') filtered = filtered.filter(c => c.role === roleFilter);
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
     filtered = filtered.filter(c =>
@@ -196,15 +253,28 @@ const AdminCustomers = () => {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="بحث بالاسم أو الهاتف أو المنطقة..."
-          className="pr-9 rounded-lg"
-        />
+      {/* Search & Filter */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="بحث بالاسم أو الهاتف أو المنطقة..."
+            className="pr-9 rounded-lg"
+          />
+        </div>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[130px] rounded-lg">
+            <SelectValue placeholder="الدور" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">جميع الأدوار</SelectItem>
+            <SelectItem value="customer">زبون</SelectItem>
+            <SelectItem value="designer">مصمم</SelectItem>
+            <SelectItem value="admin">أدمن</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Table */}
@@ -237,6 +307,9 @@ const AdminCustomers = () => {
                   </TableHead>
                   <TableHead className="text-right text-[11px] font-semibold w-[90px]">
                     <span className="inline-flex items-center gap-1">⏱️ وقت التصفح</span>
+                  </TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold w-[100px]">
+                    <span className="inline-flex items-center gap-1"><UserCog className="w-3 h-3" /> الدور</span>
                   </TableHead>
                   <TableHead className="text-right text-[11px] font-semibold w-[160px]">إجراءات</TableHead>
                 </TableRow>
@@ -291,6 +364,23 @@ const AdminCustomers = () => {
                         <span className="text-[11px] text-muted-foreground">
                           {c.total_time_seconds > 0 ? formatTimeSpent(c.total_time_seconds) : '-'}
                         </span>
+                      </TableCell>
+                      {/* Role */}
+                      <TableCell>
+                        {c.user_id === currentUser?.id ? (
+                          <Badge className={`text-[10px] ${ROLE_COLORS[c.role]}`}>{ROLE_LABELS[c.role]}</Badge>
+                        ) : (
+                          <Select value={c.role} onValueChange={(val) => handleChangeRole(c.user_id, val)}>
+                            <SelectTrigger className="h-7 w-[90px] text-[11px] rounded-lg">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="customer">زبون</SelectItem>
+                              <SelectItem value="designer">مصمم</SelectItem>
+                              {isSuperAdmin && <SelectItem value="admin">أدمن</SelectItem>}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 flex-wrap">
@@ -368,7 +458,7 @@ const AdminCustomers = () => {
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground text-center">عرض {filtered.length} من {customers.length} زبون</p>
+      <p className="text-xs text-muted-foreground text-center">عرض {filtered.length} من {customers.length} مستخدم</p>
     </div>
   );
 };
