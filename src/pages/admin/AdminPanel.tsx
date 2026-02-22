@@ -220,9 +220,23 @@ const AdminPanel = () => {
     Promise.all([loadAllUsers(), loadDesigners()]);
   };
 
+  const ROLE_LABELS: Record<string, string> = { customer: 'زبون', designer: 'مصمم', admin: 'أدمن' };
+
+  const handleChangeRole = async (userId: string, newRole: string) => {
+    try {
+      const { error: deleteError } = await supabase.from('user_roles').delete().eq('user_id', userId);
+      if (deleteError) throw deleteError;
+      const { error: insertError } = await supabase.from('user_roles').insert({ user_id: userId, role: newRole } as any);
+      if (insertError) throw insertError;
+      toast.success(`تم تغيير الدور إلى ${ROLE_LABELS[newRole]}`);
+      Promise.all([loadAllUsers(), loadDesigners()]);
+    } catch (err: any) {
+      toast.error(err.message || 'فشل تغيير الدور');
+    }
+  };
+
   const isSuperAdminPhone = (phone: string | null) => {
     if (!phone) return false;
-    // Normalize to digits only, then strip leading 964 or 0 to get local number
     const normalize = (p: string) => p.replace(/\D/g, '').replace(/^964/, '0').replace(/^00/, '0');
     return normalize(phone) === '07838774435';
   };
@@ -960,12 +974,20 @@ const AdminPanel = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {!u.roles.includes('admin') && isSuperAdmin && (
-                            <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg" onClick={() => handleAddRole(u.user_id, 'admin')}>
-                              <ShieldCheck className="w-3 h-3 ml-1" />
-                              ترقية لأدمن
-                            </Button>
-                          )}
+                          {/* Role change dropdown */}
+                          <Select
+                            value={u.roles.includes('admin') ? 'admin' : u.roles.includes('designer') ? 'designer' : 'customer'}
+                            onValueChange={(val) => handleChangeRole(u.user_id, val)}
+                          >
+                            <SelectTrigger className="h-8 w-[100px] text-[11px] rounded-lg">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="customer">زبون</SelectItem>
+                              <SelectItem value="designer">مصمم</SelectItem>
+                              {isSuperAdmin && <SelectItem value="admin">أدمن</SelectItem>}
+                            </SelectContent>
+                          </Select>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10">
@@ -1102,28 +1124,22 @@ const AdminPanel = () => {
                             </div>
                           </div>
                           {!isSuperAdminUser && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10">
-                                  <Trash2 className="w-3 h-3 ml-1" />
-                                  إزالة صلاحية الأدمن
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent dir="rtl">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>إزالة صلاحية الأدمن</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    هل أنت متأكد من إزالة صلاحية الأدمن من "{u.display_name || u.phone}"؟ سيبقى حسابه كزبون.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleRemoveRole(u.user_id, 'admin')} className="bg-destructive hover:bg-destructive/90">
-                                    إزالة
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            <div className="flex items-center gap-2">
+                              {/* Role change dropdown */}
+                              <Select
+                                value="admin"
+                                onValueChange={(val) => handleChangeRole(u.user_id, val)}
+                              >
+                                <SelectTrigger className="h-8 w-[100px] text-[11px] rounded-lg">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="customer">زبون</SelectItem>
+                                  <SelectItem value="designer">مصمم</SelectItem>
+                                  <SelectItem value="admin">أدمن</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
                         </div>
                       </motion.div>
