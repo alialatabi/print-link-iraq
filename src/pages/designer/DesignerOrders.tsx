@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
-import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox } from 'lucide-react';
+import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox, Printer } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -66,7 +66,7 @@ const DesignerOrders = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user, loadOrders]);
 
-  const hiddenStatuses: OrderStatus[] = ['approved', 'printed', 'delivered'];
+  const hiddenStatuses: OrderStatus[] = ['printed', 'delivered'];
   const visibleOrders = orders.filter(o => !hiddenStatuses.includes(o.status));
 
   const tabs: { key: string; label: string; status?: OrderStatus; icon: typeof Inbox; color: string }[] = [
@@ -74,7 +74,8 @@ const DesignerOrders = () => {
     { key: 'assigned', label: 'بانتظار الرفع', status: 'assigned', icon: Upload, color: 'text-cmyk-magenta' },
     { key: 'design_uploaded', label: 'تم الرفع', status: 'design_uploaded', icon: FileText, color: 'text-primary' },
     { key: 'waiting_approval', label: 'بانتظار الموافقة', status: 'waiting_approval', icon: Clock, color: 'text-cmyk-yellow' },
-    { key: 'print_ready', label: 'جاهز للطباعة', status: 'print_ready', icon: CheckCircle2, color: 'text-success' },
+    { key: 'approved', label: 'تمت الموافقة', status: 'approved', icon: CheckCircle2, color: 'text-success' },
+    { key: 'print_ready', label: 'جاهز للطباعة', status: 'print_ready', icon: Printer, color: 'text-success' },
   ];
 
   const getCount = (status?: OrderStatus) =>
