@@ -29,14 +29,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Generate secure password using SHA-256 + secret salt
-    const salt = Deno.env.get("PHONE_AUTH_SECRET_SALT") || "";
-    const encoder = new TextEncoder();
-    const data = encoder.encode(`${salt}:${normalizedPhone}`);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
 
     // Look up user by email to check existence (works regardless of password)
@@ -73,24 +65,51 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Regular returning customer — auto-login with hashed password
-      const { data: signInData } = await supabaseAdmin.auth.signInWithPassword({
-        email: syntheticEmail,
-        password: hashedPassword,
+      // Regular returning customer — auto-login via magic link (reliable)
+      const { data: linkData, error: linkError } =
+        await supabaseAdmin.auth.admin.generateLink({
+          type: "magiclink",
+          email: syntheticEmail,
+        });
+
+      if (linkError || !linkData?.properties?.hashed_token) {
+        console.error("Generate link error for returning user:", linkError);
+        return new Response(
+          JSON.stringify({ error: "فشل تسجيل الدخول التلقائي" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Exchange magic link token for a real session
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const verifyResp = await fetch(`${supabaseUrl}/auth/v1/verify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,
+        },
+        body: JSON.stringify({
+          type: "magiclink",
+          token_hash: linkData.properties.hashed_token,
+        }),
       });
 
-      if (signInData?.session) {
+      const sessionData = await verifyResp.json();
+
+      if (verifyResp.ok && sessionData?.access_token) {
         return new Response(
           JSON.stringify({
             success: true,
             existingUser: true,
             isStaff: false,
-            session: signInData.session,
+            session: sessionData,
             phone: normalizedPhone,
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      console.error("Session exchange failed for returning user:", JSON.stringify(sessionData));
     }
 
     // New user — send OTP for first-time verification
