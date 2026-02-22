@@ -6,11 +6,14 @@ import { useHeartbeat } from '@/hooks/useHeartbeat';
 type AppRole = 'customer' | 'designer' | 'admin';
 type SignOutCallback = () => void;
 
+const SUPER_ADMIN_PHONE = '07838774435';
+
 interface AuthState {
   user: User | null;
   session: Session | null;
   role: AppRole | null;
   loading: boolean;
+  isSuperAdmin: boolean;
   phoneLogin: (phone: string, password?: string) => Promise<{ error: any; isNewUser?: boolean }>;
   signOut: () => Promise<void>;
 }
@@ -28,17 +31,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const fetchRole = async (userId: string) => {
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId);
-    const roles = (data || []).map(r => r.role);
-    if (roles.includes('admin')) setRole('admin');
-    else if (roles.includes('designer')) setRole('designer');
+    const [{ data: roles }, { data: profile }] = await Promise.all([
+      supabase.from('user_roles').select('role').eq('user_id', userId),
+      supabase.from('profiles').select('phone').eq('user_id', userId).single(),
+    ]);
+    const roleList = (roles || []).map(r => r.role);
+    if (roleList.includes('admin')) setRole('admin');
+    else if (roleList.includes('designer')) setRole('designer');
     else setRole('customer');
-    // All roles get heartbeat via useHeartbeat hook (updates last_seen + time tracking)
+    
+    // Check super admin by phone
+    const phone = profile?.phone || '';
+    setIsSuperAdmin(phone === SUPER_ADMIN_PHONE || phone.replace(/^0/, '964') === SUPER_ADMIN_PHONE.replace(/^0/, '964'));
   };
 
   useEffect(() => {
@@ -94,6 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setSession(null);
     setRole(null);
+    setIsSuperAdmin(false);
     await supabase.auth.signOut();
   };
 
@@ -101,7 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useHeartbeat(user?.id, !!user);
 
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, phoneLogin, signOut }}>
+    <AuthContext.Provider value={{ user, session, role, loading, isSuperAdmin, phoneLogin, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import StatusBadge from '@/components/StatusBadge';
 import { STATUS_LABELS, OrderStatus } from '@/data/mockData';
 import { useServices, buildLabelMap } from '@/hooks/useServices';
@@ -37,7 +38,7 @@ const ORDER_STATUSES: OrderStatus[] = [
 ];
 
 const AdminPanel = () => {
-  const { role } = useAuth();
+  const { role, isSuperAdmin } = useAuth();
   const { services } = useServices();
   const SERVICE_LABELS = buildLabelMap(services);
   const [orders, setOrders] = useState<any[]>([]);
@@ -56,6 +57,11 @@ const AdminPanel = () => {
   // Quick stat filter: overrides statusFilter when set
   type QuickFilter = 'all' | 'pending' | 'inprogress' | 'completed' | null;
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
+
+  // Admin management (super admin only)
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [adminForm, setAdminForm] = useState({ phone: '', display_name: '', password: '' });
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
 
   const loadOrders = useCallback(async () => {
     const { data: ordersData } = await supabase
@@ -221,6 +227,31 @@ const AdminPanel = () => {
     Promise.all([loadAllUsers(), loadDesigners()]);
   };
 
+  const handleCreateAdmin = async () => {
+    if (!adminForm.phone.trim()) { toast.error('رقم الهاتف مطلوب'); return; }
+    if (!adminForm.password || adminForm.password.length < 6) { toast.error('كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return; }
+    setCreatingAdmin(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-admin', {
+        body: {
+          phone: adminForm.phone.trim(),
+          display_name: adminForm.display_name.trim() || undefined,
+          password: adminForm.password,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(data?.is_new ? 'تم إنشاء حساب الأدمن بنجاح' : 'تم تحديث صلاحيات الحساب');
+      setAdminDialogOpen(false);
+      setAdminForm({ phone: '', display_name: '', password: '' });
+      Promise.all([loadAllUsers(), loadDesigners()]);
+    } catch (err: any) {
+      toast.error(err.message || 'فشل إنشاء حساب الأدمن');
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
   const handleExportPrintedOrders = () => {
     const printedOrders = orders.filter(o => o.status === 'printed' || o.status === 'delivered');
     if (printedOrders.length === 0) {
@@ -377,7 +408,7 @@ const AdminPanel = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setQuickFilter(null); }} dir="rtl">
-          <TabsList className="grid w-full grid-cols-7 mb-6">
+          <TabsList className={`grid w-full mb-6 ${isSuperAdmin ? 'grid-cols-8' : 'grid-cols-7'}`}>
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ClipboardList className="w-4 h-4" />
               <span className="hidden sm:inline">الطلبات</span>
@@ -406,6 +437,12 @@ const AdminPanel = () => {
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">المستخدمين</span>
             </TabsTrigger>
+            {isSuperAdmin && (
+              <TabsTrigger value="admins" className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4" />
+                <span className="hidden sm:inline">الأدمنز</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ORDERS TAB */}
@@ -833,6 +870,143 @@ const AdminPanel = () => {
               )}
             </div>
           </TabsContent>
+
+          {/* ADMINS TAB - Super Admin Only */}
+          {isSuperAdmin && (
+            <TabsContent value="admins">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-primary" />
+                      إدارة حسابات الأدمن
+                    </h3>
+                    <p className="text-sm text-muted-foreground">هذه الصفحة متاحة فقط للسوبر أدمن</p>
+                  </div>
+                  <Button onClick={() => setAdminDialogOpen(true)} className="rounded-xl gap-1.5">
+                    <ShieldCheck className="w-4 h-4" />
+                    إضافة أدمن جديد
+                  </Button>
+                </div>
+
+                {/* Current admins list */}
+                <div className="space-y-3">
+                  {allUsers.filter(u => u.roles.includes('admin')).map((u, i) => {
+                    const isSuperAdminUser = u.phone === '07838774435' || (u.phone || '').replace(/^0/, '964') === '96407838774435';
+                    return (
+                      <motion.div
+                        key={u.user_id}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: Math.min(i * 0.04, 0.3) }}
+                        className="bg-card rounded-xl p-4 border border-border shadow-sm"
+                      >
+                        <div className="flex items-center justify-between flex-wrap gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSuperAdminUser ? 'bg-primary/15' : 'bg-muted'}`}>
+                              <ShieldCheck className={`w-5 h-5 ${isSuperAdminUser ? 'text-primary' : 'text-muted-foreground'}`} />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-foreground text-sm flex items-center gap-2">
+                                {u.display_name || u.phone || 'مستخدم'}
+                                {isSuperAdminUser && (
+                                  <Badge variant="default" className="text-[10px]">سوبر أدمن</Badge>
+                                )}
+                              </h4>
+                              {u.phone && <p className="text-xs text-muted-foreground mt-0.5" dir="ltr">{u.phone}</p>}
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {u.roles.map((r: string) => (
+                                  <Badge key={r} variant={r === 'admin' ? 'default' : r === 'designer' ? 'secondary' : 'outline'} className="text-[10px]">
+                                    {r === 'admin' ? 'أدمن' : r === 'designer' ? 'مصمم' : 'زبون'}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          {!isSuperAdminUser && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10">
+                                  <Trash2 className="w-3 h-3 ml-1" />
+                                  إزالة صلاحية الأدمن
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent dir="rtl">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>إزالة صلاحية الأدمن</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    هل أنت متأكد من إزالة صلاحية الأدمن من "{u.display_name || u.phone}"؟ سيبقى حسابه كزبون.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleRemoveRole(u.user_id, 'admin')} className="bg-destructive hover:bg-destructive/90">
+                                    إزالة
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Create Admin Dialog */}
+              <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
+                <DialogContent className="max-w-md" dir="rtl">
+                  <DialogHeader>
+                    <DialogTitle>إضافة حساب أدمن جديد</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-2">
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">رقم الهاتف *</label>
+                      <Input
+                        value={adminForm.phone}
+                        onChange={e => setAdminForm(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="07xxxxxxxxx"
+                        className="rounded-xl"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">الاسم</label>
+                      <Input
+                        value={adminForm.display_name}
+                        onChange={e => setAdminForm(f => ({ ...f, display_name: e.target.value }))}
+                        placeholder="اسم المستخدم"
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">كلمة المرور *</label>
+                      <Input
+                        type="password"
+                        value={adminForm.password}
+                        onChange={e => setAdminForm(f => ({ ...f, password: e.target.value }))}
+                        placeholder="6 أحرف على الأقل"
+                        className="rounded-xl"
+                        dir="ltr"
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground bg-muted/50 rounded-lg p-3">
+                      سيتم إنشاء حساب أدمن جديد. يمكن للمستخدم تسجيل الدخول عبر صفحة طاقم العمل باستخدام رقم الهاتف وكلمة المرور.
+                    </p>
+                    <div className="flex gap-2 pt-2">
+                      <Button onClick={handleCreateAdmin} disabled={creatingAdmin} className="flex-1 rounded-xl">
+                        {creatingAdmin ? 'جاري الإنشاء...' : 'إنشاء حساب أدمن'}
+                      </Button>
+                      <Button variant="outline" onClick={() => setAdminDialogOpen(false)} disabled={creatingAdmin} className="rounded-xl">
+                        إلغاء
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>
