@@ -612,24 +612,37 @@ const AdminPanel = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {designerWorkload.map((d) => {
                     const isActive = (d as any).is_active !== false;
+                    const lastSeen = (d as any).last_seen ? new Date((d as any).last_seen) : null;
+                    const isOnline = lastSeen && (Date.now() - lastSeen.getTime()) < 3 * 60 * 1000; // 3 minutes
                     return (
                     <div key={d.user_id} className={`bg-card rounded-xl p-5 border transition-all ${isActive ? 'border-border' : 'border-destructive/30 opacity-70'}`}>
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isActive ? 'bg-cmyk-magenta/10' : 'bg-muted'}`}>
-                            {isActive
-                              ? <Palette className="w-5 h-5 text-cmyk-magenta" />
-                              : <WifiOff className="w-5 h-5 text-muted-foreground" />
-                            }
+                          <div className="relative">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isOnline ? 'bg-success/10' : isActive ? 'bg-cmyk-magenta/10' : 'bg-muted'}`}>
+                              {isOnline
+                                ? <Palette className="w-5 h-5 text-success" />
+                                : isActive
+                                  ? <Palette className="w-5 h-5 text-cmyk-magenta" />
+                                  : <WifiOff className="w-5 h-5 text-muted-foreground" />
+                              }
+                            </div>
+                            {/* Online indicator dot */}
+                            <span className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${isOnline ? 'bg-success' : 'bg-muted-foreground/40'}`} />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
                               <h4 className="font-bold text-foreground">{d.display_name || d.phone || 'مصمم'}</h4>
-                              <Badge variant={isActive ? 'default' : 'outline'} className={`text-[10px] px-1.5 py-0 ${isActive ? 'bg-success/15 text-success border-success/30' : 'text-muted-foreground'}`}>
-                                {isActive ? 'نشط' : 'غير نشط'}
+                              <Badge variant={isOnline ? 'default' : 'outline'} className={`text-[10px] px-1.5 py-0 ${isOnline ? 'bg-success/15 text-success border-success/30' : 'text-muted-foreground'}`}>
+                                {isOnline ? 'متصل الآن' : 'غير متصل'}
                               </Badge>
                             </div>
                             {d.phone && <p className="text-xs text-muted-foreground" dir="ltr">{d.phone}</p>}
+                            {lastSeen && !isOnline && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                آخر ظهور: {lastSeen.toLocaleDateString('ar')} {lastSeen.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            )}
                           </div>
                         </div>
                         {/* Toggle active */}
