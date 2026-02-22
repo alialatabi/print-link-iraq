@@ -11,7 +11,6 @@ interface DbTemplate {
   description: string | null;
   service_type: string;
   preview_url: string | null;
-  price: number | null;
 }
 
 const TemplateSelection = () => {
