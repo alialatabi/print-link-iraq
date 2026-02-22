@@ -49,6 +49,39 @@ export type Database = {
           },
         ]
       }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string
+          expense_date: string
+          id: string
+          notes: string | null
+          title: string
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          title: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -265,30 +298,36 @@ export type Database = {
       }
       services: {
         Row: {
+          cost: number
           created_at: string
           description: string
           icon: string
           icon_url: string | null
           id: string
           label: string
+          price: number
           sort_order: number
         }
         Insert: {
+          cost?: number
           created_at?: string
           description?: string
           icon?: string
           icon_url?: string | null
           id: string
           label: string
+          price?: number
           sort_order?: number
         }
         Update: {
+          cost?: number
           created_at?: string
           description?: string
           icon?: string
           icon_url?: string | null
           id?: string
           label?: string
+          price?: number
           sort_order?: number
         }
         Relationships: []

@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { STATUS_LABELS, SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
+import { useServices } from '@/hooks/useServices';
 import { FileText, ShoppingBag, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -15,12 +16,13 @@ const MyOrders = () => {
   const { user, role } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { services } = useServices();
 
   const loadOrders = useCallback(async () => {
     if (!user) return;
     let query = supabase
       .from('orders')
-      .select('*, templates(name, service_type, price)')
+      .select('*, templates(name, service_type)')
       .order('created_at', { ascending: false });
     
     if (role !== 'admin') {
@@ -58,9 +60,11 @@ const MyOrders = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, role, loadOrders]);
-  const formatPrice = (price: number | null, quantity: number) => {
-    if (!price) return '-';
-    const total = (price / 1000) * quantity;
+  const formatPrice = (serviceType: string | undefined, quantity: number) => {
+    if (!serviceType) return '-';
+    const svc = services.find(s => s.id === serviceType);
+    if (!svc || !svc.price) return '-';
+    const total = (svc.price / 1000) * quantity;
     return `${total.toLocaleString('en-US')} د.ع`;
   };
 
@@ -117,7 +121,7 @@ const MyOrders = () => {
                         <p className="text-muted-foreground text-[11px]">{new Date(order.created_at).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
                         <span className="text-muted-foreground/40 text-[11px]">·</span>
                         <p className="text-[11px] font-semibold text-foreground">
-                          {formatPrice(order.templates?.price, (order.details as any)?.quantity || 1000)}
+                          {formatPrice(order.templates?.service_type, (order.details as any)?.quantity || 1000)}
                         </p>
                       </div>
                     </div>
