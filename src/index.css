@@ -103,6 +103,7 @@
     font-family: 'Cairo', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
   }
 
   body {
@@ -165,5 +166,14 @@
   }
   .section-spacing-sm {
     @apply py-10 sm:py-16;
+  }
+
+  /* CTA Glow pulse animation */
+  @keyframes cta-glow {
+    0%, 100% { box-shadow: 0 0 8px 0 hsl(var(--accent) / 0.4); }
+    50% { box-shadow: 0 0 20px 4px hsl(var(--accent) / 0.5); }
+  }
+  .animate-cta-glow {
+    animation: cta-glow 2s ease-in-out infinite;
   }
 }

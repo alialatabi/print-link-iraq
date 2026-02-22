@@ -63,12 +63,6 @@ const VALUE_PROPS = [
   { icon: Shield, text: 'دعم سريع وموثوق' },
 ];
 
-const DELIVERY_TRUST = [
-  { icon: Printer, text: 'طباعة احترافية' },
-  { icon: CheckCircle, text: 'مراجعة قبل الطباعة' },
-  { icon: Home, text: 'دفع عند الاستلام' },
-  { icon: Truck, text: 'توصيل لجميع المحافظات' },
-];
 
 const DESIGNERS = [
   { name: 'أحمد الكربلائي', specialty: 'هوية بصرية وكروت شخصية', initials: 'أك', color: 'bg-primary' },
@@ -147,22 +141,18 @@ const Index = () => {
               </motion.div>
 
               <motion.h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.15] mb-5 tracking-tight" initial="hidden" animate="visible" variants={fadeUp} custom={1}>
-                صمّم واطبع منتجاتك
+                اطبع تصاميمك
                 <br />
-                <span className="text-primary">بسهولة خلال دقائق</span>
+                <span className="text-primary">بجودة احترافية وتوصيل سريع</span>
               </motion.h1>
 
-              <motion.p className="text-muted-foreground text-sm sm:text-base leading-relaxed max-w-md mx-auto sm:mx-0 mb-2" initial="hidden" animate="visible" variants={fadeUp} custom={2}>
-                منصة مطبعتي تتيح لك تصميم وطلب المطبوعات أونلاين بجودة عالية وتسليم سريع داخل العراق
+              <motion.p className="text-muted-foreground text-sm sm:text-base leading-relaxed max-w-md mx-auto sm:mx-0 mb-8" initial="hidden" animate="visible" variants={fadeUp} custom={2}>
+                حلول طباعة متكاملة للأفراد والشركات، بضغطة زر.
               </motion.p>
 
-              <motion.p className="text-muted-foreground/60 text-xs mb-7" initial="hidden" animate="visible" variants={fadeUp} custom={3}>
-                آلاف التصاميم تم إنشاؤها عبر مطبعتي
-              </motion.p>
-
-              <motion.div className="flex flex-wrap gap-3 justify-center sm:justify-start" initial="hidden" animate="visible" variants={fadeUp} custom={4}>
+              <motion.div className="flex flex-wrap gap-3 justify-center sm:justify-start" initial="hidden" animate="visible" variants={fadeUp} custom={3}>
                 <Link to="/services">
-                  <Button size="lg" className="gap-2 h-13 px-10 text-base shadow-elevated hover:-translate-y-0.5 transition-transform">
+                  <Button size="lg" className="gap-2 h-13 px-10 text-base animate-cta-glow bg-accent text-accent-foreground hover:bg-accent/90 hover:-translate-y-0.5 transition-transform font-extrabold">
                     ابدأ التصميم الآن
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
@@ -269,7 +259,7 @@ const Index = () => {
       </section>
 
       {/* ─── Popular Templates Grid ─── */}
-      <section className="py-14 sm:py-20 bg-background">
+      <section className="py-16 sm:py-24 bg-background">
         <div className="container max-w-5xl">
           <motion.div className="flex items-end justify-between mb-8" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
             <div>
@@ -299,7 +289,7 @@ const Index = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
               {popularTemplates.map((template, i) => (
                 <motion.div key={template.id} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-20px' }} variants={scaleIn} custom={i}>
-                  <Link to={`/template/${template.id}`} className="group block rounded-2xl overflow-hidden border border-border/60 hover:border-primary/25 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 bg-card">
+                  <Link to={`/template/${template.id}`} className="group block rounded-2xl overflow-hidden border border-border/40 hover:border-primary/25 shadow-card hover:shadow-card-hover transition-all duration-400 hover:-translate-y-1.5 bg-card/80 backdrop-blur-sm">
                     {/* Image with mockup feel */}
                     <div className="relative aspect-[3/4] bg-muted/40 overflow-hidden">
                       {template.preview_url ? (
@@ -368,7 +358,7 @@ const Index = () => {
       </section>
 
       {/* ─── Printed Works (نماذج مطبوعة) ─── */}
-      <section className="py-14 sm:py-20 bg-muted/30 border-y border-border/40">
+      <section className="py-16 sm:py-24 bg-muted/20 border-y border-border/30">
         <div className="container max-w-5xl">
           <motion.div className="text-center mb-10" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/8 text-primary text-xs font-bold mb-3">
@@ -405,7 +395,7 @@ const Index = () => {
       </section>
 
       {/* ─── Designer Presence ─── */}
-      <section className="py-14 sm:py-20 bg-background">
+      <section className="py-16 sm:py-24 bg-background">
         <div className="container max-w-4xl">
           <motion.div className="text-center mb-10" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cmyk-magenta/10 text-cmyk-magenta text-xs font-bold mb-3">
@@ -436,32 +426,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* ─── How it works ─── */}
-      <section className="py-14 sm:py-20 bg-muted/30">
-        <div className="container max-w-4xl">
-          <motion.div className="text-center mb-12" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2 tracking-tight">كيف تعمل مطبعتي</h2>
-            <p className="text-muted-foreground text-sm sm:text-base">ثلاث خطوات بسيطة للحصول على تصميمك المطبوع</p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-            {[
-              { step: '١', label: 'اختر المنتج والقالب', desc: 'كرت، منيو، ملصق، فاتورة…', icon: CheckCircle, color: 'bg-primary text-primary-foreground' },
-              { step: '٢', label: 'صمّم بسهولة', desc: 'دزلنا التفاصيل واستلم تصميمك جاهز', icon: Palette, color: 'bg-cmyk-magenta text-white' },
-              { step: '٣', label: 'اطلب التوصيل', desc: 'نطبع ونوصّل لبابك', icon: Truck, color: 'bg-success text-success-foreground' },
-            ].map((s, i) => (
-              <motion.div key={i} className="flex flex-col items-center text-center group" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-30px' }} variants={fadeUp} custom={i + 1}>
-                <div className={`w-16 h-16 rounded-2xl ${s.color} flex items-center justify-center mx-auto mb-4 text-2xl font-extrabold group-hover:scale-110 group-hover:shadow-elevated transition-all duration-300 shadow-sm`}>
-                  {s.step}
-                </div>
-                <h3 className="font-bold text-foreground text-base mb-1.5">{s.label}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{s.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ─── Value Proposition / لماذا مطبعتي ─── */}
       <section className="py-14 sm:py-20 bg-background">
         <div className="container max-w-4xl">
@@ -480,25 +444,6 @@ const Index = () => {
                   <span className="text-primary font-bold ml-1">✓</span>
                   {item.text}
                 </span>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Delivery & Trust ─── */}
-      <section className="py-12 sm:py-16 bg-muted/30 border-y border-border/40">
-        <div className="container max-w-4xl">
-          <motion.div className="text-center mb-8" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-foreground mb-1 tracking-tight">طباعة موثوقة وتوصيل سريع</h2>
-          </motion.div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {DELIVERY_TRUST.map((item, i) => (
-              <motion.div key={i} className="flex flex-col items-center gap-2 p-5 rounded-2xl bg-card border border-border/60 text-center shadow-card" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={i}>
-                <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center flex-shrink-0">
-                  <item.icon className="w-5 h-5 text-success" />
-                </div>
-                <span className="text-xs sm:text-sm font-semibold text-foreground leading-snug">{item.text}</span>
               </motion.div>
             ))}
           </div>
