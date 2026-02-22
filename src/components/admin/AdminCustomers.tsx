@@ -27,6 +27,7 @@ interface CustomerData {
   landmark: string | null;
   last_seen: string | null;
   is_active: boolean;
+  total_time_seconds: number;
   orderCount: number;
   totalSpent: number;
 }
@@ -46,6 +47,18 @@ const formatLastSeen = (ts: string | null): string => {
   if (days < 30) return `منذ ${days} يوم`;
   const months = Math.floor(days / 30);
   return `منذ ${months} شهر`;
+};
+
+const formatTimeSpent = (seconds: number): string => {
+  if (seconds < 60) return 'أقل من دقيقة';
+  const mins = Math.floor(seconds / 60);
+  if (mins < 60) return `${mins} دقيقة`;
+  const hrs = Math.floor(mins / 60);
+  const remainMins = mins % 60;
+  if (hrs < 24) return `${hrs} ساعة ${remainMins > 0 ? `و ${remainMins} د` : ''}`;
+  const days = Math.floor(hrs / 24);
+  const remainHrs = hrs % 24;
+  return `${days} يوم ${remainHrs > 0 ? `و ${remainHrs} س` : ''}`;
 };
 
 // Format phone for tel: and wa.me links
@@ -90,6 +103,7 @@ const AdminCustomers = () => {
         landmark: p.landmark,
         last_seen: (p as any).last_seen ?? null,
         is_active: p.is_active,
+        total_time_seconds: (p as any).total_time_seconds ?? 0,
         orderCount: customerOrders.length,
         totalSpent: customerOrders.reduce((sum, o) => sum + (o.paid_amount || 0), 0),
       };
@@ -221,6 +235,9 @@ const AdminCustomers = () => {
                   <TableHead className="text-right text-[11px] font-semibold w-[100px] cursor-pointer select-none" onClick={() => handleSort('last_seen')}>
                     <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> آخر نشاط <SortIcon col="last_seen" /></span>
                   </TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold w-[90px]">
+                    <span className="inline-flex items-center gap-1">⏱️ وقت التصفح</span>
+                  </TableHead>
                   <TableHead className="text-right text-[11px] font-semibold w-[160px]">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
@@ -235,6 +252,13 @@ const AdminCustomers = () => {
                     <TableRow key={c.user_id} className={!c.is_active ? 'opacity-60 bg-destructive/5' : ''}>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
+                          {/* Online dot */}
+                          {(() => {
+                            const isOnline = c.last_seen && (Date.now() - new Date(c.last_seen).getTime()) < 3 * 60 * 1000;
+                            return (
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-success' : 'bg-muted-foreground/30'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'} />
+                            );
+                          })()}
                           {!c.is_active && (
                             <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded font-medium">محظور</span>
                           )}
@@ -262,6 +286,11 @@ const AdminCustomers = () => {
                         ) : (
                           <span className="text-[11px] text-muted-foreground/50">-</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[11px] text-muted-foreground">
+                          {c.total_time_seconds > 0 ? formatTimeSpent(c.total_time_seconds) : '-'}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 flex-wrap">

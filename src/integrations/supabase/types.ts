@@ -193,6 +193,7 @@ export type Database = {
           last_seen: string | null
           phone: string | null
           province: string | null
+          total_time_seconds: number
           updated_at: string
           user_id: string
         }
@@ -206,6 +207,7 @@ export type Database = {
           last_seen?: string | null
           phone?: string | null
           province?: string | null
+          total_time_seconds?: number
           updated_at?: string
           user_id: string
         }
@@ -219,6 +221,7 @@ export type Database = {
           last_seen?: string | null
           phone?: string | null
           province?: string | null
+          total_time_seconds?: number
           updated_at?: string
           user_id?: string
         }
