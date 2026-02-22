@@ -142,18 +142,23 @@ const AdminPanel = () => {
     Promise.all([loadOrders(), loadDesigners(), loadAllUsers(), loadOnlineCount()]).then(() => setLoading(false));
   }, [loadOrders, loadDesigners, loadAllUsers, loadOnlineCount]);
 
-  // Realtime subscription for online count updates
+  // Realtime subscriptions for live updates
   useEffect(() => {
-    const channel = supabase
+    const profilesChannel = supabase
       .channel('online-count')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'profiles' },
-        () => { loadOnlineCount(); }
-      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => { loadOnlineCount(); })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [loadOnlineCount]);
+
+    const ordersChannel = supabase
+      .channel('admin-orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => { loadOrders(); })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(ordersChannel);
+    };
+  }, [loadOnlineCount, loadOrders]);
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const { error } = await supabase
