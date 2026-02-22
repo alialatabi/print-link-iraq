@@ -92,10 +92,20 @@ const DeliveryAddressPage = () => {
 
     setSubmitting(true);
 
-    // Update order with delivery info and set status to approved
+    // Fetch current order details to merge
+    const { data: currentOrder } = await supabase
+      .from('orders')
+      .select('details')
+      .eq('id', orderId)
+      .single();
+
+    const currentDetails = (currentOrder?.details || {}) as Record<string, any>;
+
+    // Update order with delivery info and set status to approved (merge with existing details)
     const { error } = await supabase.from('orders').update({
       status: 'approved' as any,
       details: {
+        ...currentDetails,
         delivery_phone: selected.phone,
         delivery_province: selected.province,
         delivery_area: selected.area,

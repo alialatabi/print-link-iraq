@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.phone-login]
 verify_jwt = false
+
+[functions.send-to-telegram]
+verify_jwt = false

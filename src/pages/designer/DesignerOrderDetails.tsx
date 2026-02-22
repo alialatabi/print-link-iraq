@@ -31,6 +31,7 @@ const DesignerOrderDetails = () => {
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const printFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadOrder = useCallback(async () => {
     const { data } = await supabase
@@ -161,6 +162,56 @@ const DesignerOrderDetails = () => {
     toast({ title: '✅ تم تحويل الطلب للطبع' });
     loadOrder();
     setSendingPrint(false);
+  };
+
+  // Upload final print-ready file and send to Telegram
+  const handleUploadAndSendToTelegram = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !orderId) return;
+
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast({ title: 'الملف كبير جداً', description: 'الحد الأقصى 10MB', variant: 'destructive' });
+      return;
+    }
+
+    setSendingPrint(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const filePath = `${orderId}/print-ready.${ext}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('designs')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Also save as a design version
+      const nextVersion = designs.length > 0 ? designs[0].version + 1 : 1;
+      await supabase.from('designs').insert({
+        order_id: orderId,
+        version: nextVersion,
+        file_url: filePath,
+        approved: true,
+      });
+
+      // Call edge function to send to Telegram and update status
+      const { error: fnError } = await supabase.functions.invoke('send-to-telegram', {
+        body: { orderId, designFilePath: filePath },
+      });
+
+      if (fnError) throw fnError;
+
+      toast({ title: '✅ تم إرسال التصميم للطبع وإلى التيليغرام' });
+      loadOrder();
+      loadDesigns();
+    } catch (err: any) {
+      toast({ title: 'فشل الإرسال', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setSendingPrint(false);
+      if (printFileInputRef.current) printFileInputRef.current.value = '';
+    }
   };
 
   // For ready_design orders: reject with revision note
@@ -594,9 +645,28 @@ const DesignerOrderDetails = () => {
             )}
 
             {order.status === 'approved' && (
-              <div className="mt-4 bg-success/10 rounded-lg p-4 text-center">
-                <CheckCircle2 className="w-6 h-6 text-success mx-auto mb-2" />
-                <p className="font-medium text-foreground">تمت موافقة العميل على التصميم!</p>
+              <div className="mt-4 space-y-3">
+                <div className="bg-success/10 rounded-lg p-4 text-center">
+                  <CheckCircle2 className="w-6 h-6 text-success mx-auto mb-2" />
+                  <p className="font-medium text-foreground">تمت موافقة العميل على التصميم!</p>
+                  <p className="text-muted-foreground text-sm mt-1">ارفع التصميم الجاهز للطبع لإرساله للمطبعة</p>
+                </div>
+                <input
+                  ref={printFileInputRef}
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.psd"
+                  onChange={handleUploadAndSendToTelegram}
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => printFileInputRef.current?.click()}
+                  disabled={sendingPrint}
+                  size="lg"
+                  className="w-full bg-success hover:bg-success/90 text-success-foreground text-base py-5 rounded-xl"
+                >
+                  <Printer className="w-5 h-5 ml-2" />
+                  {sendingPrint ? 'جاري الإرسال...' : 'رفع التصميم الجاهز وإرسال للمطبعة 🖨'}
+                </Button>
               </div>
             )}
           </div>
