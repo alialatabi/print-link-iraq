@@ -29,9 +29,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check if user already exists by looking up their account
+    // Generate secure password using SHA-256 + secret salt
+    const salt = Deno.env.get("PHONE_AUTH_SECRET_SALT") || "";
+    const encoder = new TextEncoder();
+    const data = encoder.encode(`${salt}:${normalizedPhone}`);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
-    const deterministicPassword = `PHONE_AUTH_${normalizedPhone}_SECRET_KEY_2024`;
 
     // Look up user by email to check existence (works regardless of password)
     const { data: profileData } = await supabaseAdmin
@@ -67,10 +73,10 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Regular returning customer — auto-login with deterministic password
+      // Regular returning customer — auto-login with hashed password
       const { data: signInData } = await supabaseAdmin.auth.signInWithPassword({
         email: syntheticEmail,
-        password: deterministicPassword,
+        password: hashedPassword,
       });
 
       if (signInData?.session) {
