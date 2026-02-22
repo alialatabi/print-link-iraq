@@ -4,21 +4,45 @@ import { supabase } from '@/integrations/supabase/client';
 const HEARTBEAT_INTERVAL = 60_000; // 60 seconds
 
 /**
- * Sends a heartbeat (updates last_seen) every 60s while the user has the site open.
- * Also updates on visibility change (tab focus/blur).
+ * Sends a heartbeat (updates last_seen + increments total_time_seconds) every 60s
+ * while the user has the site open. Also updates on visibility change.
  */
 export const useHeartbeat = (userId: string | undefined, enabled: boolean) => {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isFirstRef = useRef(true);
 
   useEffect(() => {
     if (!userId || !enabled) return;
+    isFirstRef.current = true;
 
-    const sendHeartbeat = () => {
-      supabase
-        .from('profiles')
-        .update({ last_seen: new Date().toISOString() } as any)
-        .eq('user_id', userId)
-        .then(() => {});
+    const sendHeartbeat = async () => {
+      const now = new Date().toISOString();
+
+      if (isFirstRef.current) {
+        // First heartbeat: just set last_seen, don't increment time
+        isFirstRef.current = false;
+        await supabase
+          .from('profiles')
+          .update({ last_seen: now } as any)
+          .eq('user_id', userId);
+      } else {
+        // Subsequent: update last_seen AND increment time by 60s
+        // Use RPC to atomically increment
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('total_time_seconds')
+          .eq('user_id', userId)
+          .single();
+        
+        const currentTime = (profile as any)?.total_time_seconds || 0;
+        await supabase
+          .from('profiles')
+          .update({ 
+            last_seen: now, 
+            total_time_seconds: currentTime + 60 
+          } as any)
+          .eq('user_id', userId);
+      }
     };
 
     // Send immediately on mount
@@ -35,38 +59,11 @@ export const useHeartbeat = (userId: string | undefined, enabled: boolean) => {
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
-    // On unmount / tab close, set last_seen to null to mark offline
-    const handleBeforeUnload = () => {
-      // Use sendBeacon for reliable delivery on page close
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/profiles?user_id=eq.${userId}`;
-      const headers = {
-        'Content-Type': 'application/json',
-        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        'Prefer': 'return=minimal',
-      };
-      const body = JSON.stringify({ last_seen: null });
-      
-      // Try sendBeacon first (most reliable on page close)
-      const blob = new Blob([body], { type: 'application/json' });
-      // sendBeacon doesn't support custom headers, so fall back to fetch keepalive
-      try {
-        fetch(url, {
-          method: 'PATCH',
-          headers,
-          body,
-          keepalive: true,
-        });
-      } catch {
-        // Best effort
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
+    // On unmount / tab close — no longer nullify last_seen, keep the timestamp
+    // so admin can see "آخر ظهور" properly
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [userId, enabled]);
 };

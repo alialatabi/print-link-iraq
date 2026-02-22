@@ -43,6 +43,7 @@ const AdminPanel = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [designers, setDesigners] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [onlineCount, setOnlineCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('orders');
 
@@ -128,9 +129,24 @@ const AdminPanel = () => {
     setAllUsers(userMap);
   }, []);
 
+  const loadOnlineCount = useCallback(async () => {
+    const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+    const { count } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .gte('last_seen', threeMinAgo);
+    setOnlineCount(count || 0);
+  }, []);
+
   useEffect(() => {
-    Promise.all([loadOrders(), loadDesigners(), loadAllUsers()]).then(() => setLoading(false));
-  }, [loadOrders, loadDesigners, loadAllUsers]);
+    Promise.all([loadOrders(), loadDesigners(), loadAllUsers(), loadOnlineCount()]).then(() => setLoading(false));
+  }, [loadOrders, loadDesigners, loadAllUsers, loadOnlineCount]);
+
+  // Refresh online count every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(loadOnlineCount, 30_000);
+    return () => clearInterval(interval);
+  }, [loadOnlineCount]);
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const { error } = await supabase
@@ -292,10 +308,21 @@ const AdminPanel = () => {
             </h1>
             <p className="text-muted-foreground">إدارة شاملة للطلبات والمستخدمين</p>
           </div>
-          <Button onClick={handleExportPrintedOrders} variant="outline" className="rounded-xl">
-            <Download className="w-4 h-4 ml-2" />
-            تصدير الطلبات المطبوعة (Excel)
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Online visitors indicator */}
+            <div className="flex items-center gap-2 bg-success/10 border border-success/20 rounded-xl px-4 py-2.5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-success" />
+              </span>
+              <span className="text-sm font-bold text-success">{onlineCount}</span>
+              <span className="text-xs text-muted-foreground">متصل الآن</span>
+            </div>
+            <Button onClick={handleExportPrintedOrders} variant="outline" className="rounded-xl">
+              <Download className="w-4 h-4 ml-2" />
+              تصدير الطلبات المطبوعة (Excel)
+            </Button>
+          </div>
         </div>
 
         {/* Quick Stats Dashboard */}

@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS total_time_seconds integer NOT NULL DEFAULT 0;
