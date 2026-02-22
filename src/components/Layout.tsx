@@ -84,7 +84,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
               ))}
 
             {/* Cart icon */}
-            <Link to="/cart" className="relative p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150">
+            <Link to="/cart" aria-label="سلة التسوق" className="relative p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150">
               <ShoppingCart className="w-[18px] h-[18px]" />
               {itemCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
@@ -126,7 +126,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
           {/* Mobile menu button */}
           <div className="flex items-center gap-1 sm:hidden">
-            <Link to="/cart" className="relative p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150">
+            <Link to="/cart" aria-label="سلة التسوق" className="relative p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150">
               <ShoppingCart className="w-5 h-5" />
               {itemCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
