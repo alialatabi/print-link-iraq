@@ -6,8 +6,6 @@ import { useHeartbeat } from '@/hooks/useHeartbeat';
 type AppRole = 'customer' | 'designer' | 'admin';
 type SignOutCallback = () => void;
 
-const SUPER_ADMIN_PHONE = '07838774435';
-
 interface AuthState {
   user: User | null;
   session: Session | null;
@@ -36,16 +34,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchRole = async (userId: string) => {
     const [{ data: roles }, { data: profile }] = await Promise.all([
       supabase.from('user_roles').select('role').eq('user_id', userId),
-      supabase.from('profiles').select('phone').eq('user_id', userId).single(),
+      supabase.from('profiles').select('phone, is_super_admin').eq('user_id', userId).single(),
     ]);
     const roleList = (roles || []).map(r => r.role);
     if (roleList.includes('admin')) setRole('admin');
     else if (roleList.includes('designer')) setRole('designer');
     else setRole('customer');
     
-    // Check super admin by phone
-    const phone = profile?.phone || '';
-    setIsSuperAdmin(phone === SUPER_ADMIN_PHONE || phone.replace(/^0/, '964') === SUPER_ADMIN_PHONE.replace(/^0/, '964'));
+    // Check super admin from database
+    setIsSuperAdmin(profile?.is_super_admin === true);
   };
 
   useEffect(() => {

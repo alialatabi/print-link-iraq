@@ -24,7 +24,7 @@ import {
   Trash2, Palette, User, LayoutGrid,
   ShieldCheck, Search, Calendar, ArrowUpDown,
   TrendingUp, Clock, CheckCircle, Truck, FileText, Download,
-  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp
+  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp, Crown
 } from 'lucide-react';
 
 import AdminTemplates from '@/components/admin/AdminTemplates';
@@ -38,7 +38,7 @@ const ORDER_STATUSES: OrderStatus[] = [
 ];
 
 const AdminPanel = () => {
-  const { role, isSuperAdmin } = useAuth();
+  const { role, isSuperAdmin, user } = useAuth();
   const { services } = useServices();
   const SERVICE_LABELS = buildLabelMap(services);
   const [orders, setOrders] = useState<any[]>([]);
@@ -131,7 +131,7 @@ const AdminPanel = () => {
     if (userIds.length === 0) { setAllUsers([]); return; }
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('*')
+      .select('*, is_super_admin')
       .in('user_id', userIds);
     const userMap = (profiles || []).map(p => ({
       ...p,
@@ -211,9 +211,14 @@ const AdminPanel = () => {
 
   const handleToggleRole = async (userId: string, role: string, hasRole: boolean) => {
     const targetUser = allUsers.find(u => u.user_id === userId);
-    // Protect super admin
-    if (targetUser && isSuperAdminPhone(targetUser.phone) && role === 'admin' && hasRole) {
-      toast.error('لا يمكن إزالة دور الأدمن من السوبر أدمن');
+    // Protect super admins: no one can change another super admin's roles
+    if (targetUser?.is_super_admin && userId !== user?.id) {
+      toast.error('لا يمكن تغيير صلاحيات سوبر أدمن آخر');
+      return;
+    }
+    // Protect own super admin: can't remove admin role while super admin
+    if (targetUser?.is_super_admin && role === 'admin' && hasRole) {
+      toast.error('أزل صلاحية السوبر أدمن أولاً قبل إزالة دور الأدمن');
       return;
     }
     // Restrict admin role toggle to super admin only
@@ -223,12 +228,10 @@ const AdminPanel = () => {
     }
     try {
       if (hasRole) {
-        // Remove role
         const { error } = await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role as any);
         if (error) throw error;
         toast.success(`تم إزالة دور ${ROLE_LABELS[role]}`);
       } else {
-        // Add role
         const { error } = await supabase.from('user_roles').insert({ user_id: userId, role: role } as any);
         if (error) {
           if (error.code === '23505') { toast.error('الدور موجود مسبقاً'); return; }
@@ -239,6 +242,36 @@ const AdminPanel = () => {
       Promise.all([loadAllUsers(), loadDesigners()]);
     } catch (err: any) {
       toast.error(err.message || 'فشل تعديل الدور');
+    }
+  };
+
+  const handleToggleSuperAdmin = async (userId: string, currentlySuper: boolean) => {
+    // Only super admins can toggle super admin
+    if (!isSuperAdmin) {
+      toast.error('فقط السوبر أدمن يمكنه تعديل هذه الصلاحية');
+      return;
+    }
+    // Can't change another super admin - only yourself
+    if (currentlySuper && userId !== user?.id) {
+      toast.error('لا يمكنك إزالة صلاحية سوبر أدمن من شخص آخر — فقط هو يمكنه ذلك');
+      return;
+    }
+    // Can't grant super admin to non-admin
+    const targetUser = allUsers.find(u => u.user_id === userId);
+    if (!currentlySuper && !targetUser?.roles.includes('admin')) {
+      toast.error('يجب أن يكون المستخدم أدمن أولاً');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_super_admin: !currentlySuper } as any)
+        .eq('user_id', userId);
+      if (error) throw error;
+      toast.success(currentlySuper ? 'تم إزالة صلاحية السوبر أدمن' : 'تم ترقية المستخدم إلى سوبر أدمن');
+      loadAllUsers();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل تعديل الصلاحية');
     }
   };
 
@@ -1083,7 +1116,8 @@ const AdminPanel = () => {
                 {/* Current admins list */}
                 <div className="space-y-3">
                   {allUsers.filter(u => u.roles.includes('admin')).map((u, i) => {
-                    const isSuperAdminUser = isSuperAdminPhone(u.phone);
+                    const isSuperAdminUser = u.is_super_admin === true;
+                    const isMe = u.user_id === user?.id;
                     return (
                       <motion.div
                         key={u.user_id}
@@ -1095,7 +1129,7 @@ const AdminPanel = () => {
                         <div className="flex items-center justify-between flex-wrap gap-3">
                           <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSuperAdminUser ? 'bg-primary/15' : 'bg-muted'}`}>
-                              <ShieldCheck className={`w-5 h-5 ${isSuperAdminUser ? 'text-primary' : 'text-muted-foreground'}`} />
+                              {isSuperAdminUser ? <Crown className="w-5 h-5 text-primary" /> : <ShieldCheck className={`w-5 h-5 text-muted-foreground`} />}
                             </div>
                             <div>
                               <h4 className="font-bold text-foreground text-sm flex items-center gap-2">
@@ -1114,27 +1148,48 @@ const AdminPanel = () => {
                               </div>
                             </div>
                           </div>
-                          {!isSuperAdminUser && (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {(['customer', 'designer', 'admin'] as string[]).map(role => {
-                                const has = u.roles.includes(role);
-                                return (
-                                  <button
-                                    key={role}
-                                    onClick={() => handleToggleRole(u.user_id, role, has)}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
-                                      has
-                                        ? 'bg-primary/10 border-primary/30 text-primary'
-                                        : 'bg-muted/50 border-border text-muted-foreground hover:border-primary/30'
-                                    }`}
-                                  >
-                                    {has ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border border-current" />}
-                                    {ROLE_LABELS[role]}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Super admin toggle: only show for self-removal or granting to non-super admins */}
+                            {isSuperAdmin && (
+                              <button
+                                onClick={() => handleToggleSuperAdmin(u.user_id, isSuperAdminUser)}
+                                disabled={isSuperAdminUser && !isMe}
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                                  isSuperAdminUser
+                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-600'
+                                    : 'bg-muted/50 border-border text-muted-foreground hover:border-amber-500/30'
+                                } ${isSuperAdminUser && !isMe ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                <Crown className="w-3 h-3" />
+                                سوبر أدمن
+                              </button>
+                            )}
+                            {/* Role toggles: disabled for other super admins */}
+                            {(!isSuperAdminUser || isMe) && (
+                              <>
+                                {(['customer', 'designer', 'admin'] as string[]).map(role => {
+                                  const has = u.roles.includes(role);
+                                  return (
+                                    <button
+                                      key={role}
+                                      onClick={() => handleToggleRole(u.user_id, role, has)}
+                                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                                        has
+                                          ? 'bg-primary/10 border-primary/30 text-primary'
+                                          : 'bg-muted/50 border-border text-muted-foreground hover:border-primary/30'
+                                      }`}
+                                    >
+                                      {has ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border border-current" />}
+                                      {ROLE_LABELS[role]}
+                                    </button>
+                                  );
+                                })}
+                              </>
+                            )}
+                            {isSuperAdminUser && !isMe && (
+                              <span className="text-[10px] text-muted-foreground">محمي — فقط هو يمكنه تعديل صلاحياته</span>
+                            )}
+                          </div>
                         </div>
                       </motion.div>
                     );
