@@ -222,6 +222,7 @@ export type Database = {
           display_name: string | null
           id: string
           is_active: boolean
+          is_super_admin: boolean
           landmark: string | null
           last_seen: string | null
           phone: string | null
@@ -236,6 +237,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_active?: boolean
+          is_super_admin?: boolean
           landmark?: string | null
           last_seen?: string | null
           phone?: string | null
@@ -250,6 +252,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_active?: boolean
+          is_super_admin?: boolean
           landmark?: string | null
           last_seen?: string | null
           phone?: string | null
