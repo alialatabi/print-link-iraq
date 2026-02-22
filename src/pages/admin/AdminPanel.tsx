@@ -215,8 +215,23 @@ const AdminPanel = () => {
     Promise.all([loadAllUsers(), loadDesigners()]);
   };
 
+  const isSuperAdminPhone = (phone: string | null) => {
+    if (!phone) return false;
+    const normalized = phone.replace(/^0/, '964');
+    const superNormalized = '07838774435'.replace(/^0/, '964');
+    return phone === '07838774435' || normalized === superNormalized;
+  };
+
   const handleRemoveRole = async (userId: string, roleToRemove: string) => {
     if (roleToRemove === 'customer') { toast.error('لا يمكن إزالة دور الزبون'); return; }
+    // Prevent removing admin role from super admin
+    if (roleToRemove === 'admin') {
+      const targetUser = allUsers.find(u => u.user_id === userId);
+      if (targetUser && isSuperAdminPhone(targetUser.phone)) {
+        toast.error('لا يمكن إزالة صلاحية الأدمن من السوبر أدمن');
+        return;
+      }
+    }
     const { error } = await supabase
       .from('user_roles')
       .delete()
@@ -837,7 +852,7 @@ const AdminPanel = () => {
                             >
                               {r === 'admin' ? <ShieldCheck className="w-3 h-3" /> : r === 'designer' ? <Palette className="w-3 h-3" /> : <User className="w-3 h-3" />}
                               {r === 'admin' ? 'أدمن' : r === 'designer' ? 'مصمم' : 'زبون'}
-                              {r !== 'customer' && (
+                              {r !== 'customer' && !(r === 'admin' && isSuperAdminPhone(u.phone)) && (
                                 <button
                                   onClick={() => handleRemoveRole(u.user_id, r)}
                                   className="mr-1 hover:text-destructive"
