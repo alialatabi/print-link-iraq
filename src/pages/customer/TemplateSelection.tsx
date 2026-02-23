@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_COLORS, TEMPLATE_ASPECT_RATIOS, SPECIALIZATION_LABELS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Palette } from 'lucide-react';
+import logoImg from '@/assets/logo.png';
 
 interface DbTemplate {
   id: string;
@@ -78,8 +79,8 @@ const TemplateSelection = () => {
                     {template.preview_url ? (
                       <img src={template.preview_url} alt={template.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500" loading="lazy" />
                     ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                        <Palette className="w-7 h-7 text-primary" />
+                      <div className="flex flex-col items-center justify-center gap-2 p-4">
+                        <img src={logoImg} alt="مطبعتي" className="w-16 h-16 object-contain opacity-40" />
                       </div>
                     )}
                   </div>
