@@ -3,12 +3,7 @@ import { Link } from 'react-router-dom';
 import { useServices } from '@/hooks/useServices';
 
 const ServiceSelection = () => {
-  const { services, loading: servicesLoading } = useServices();
-
-  const formatPrice = (price: number) => {
-    if (!price) return null;
-    return `${price.toLocaleString('en-US')} د.ع / ألف`;
-  };
+  const { parentServices, loading: servicesLoading } = useServices();
 
   if (servicesLoading) {
     return (
@@ -29,7 +24,7 @@ const ServiceSelection = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-5 sm:gap-6">
-          {services.map((service, i) => (
+          {parentServices.map((service, i) => (
             <motion.div
               key={service.id}
               initial={{ opacity: 0, scale: 0.96 }}
@@ -37,7 +32,7 @@ const ServiceSelection = () => {
               transition={{ delay: i * 0.07 }}
             >
               <Link
-                to={`/specializations/${service.id}`}
+                to={`/sub-services/${service.id}`}
                 className="group block bg-card rounded-2xl p-6 sm:p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60"
               >
                 <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-5 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
@@ -49,11 +44,6 @@ const ServiceSelection = () => {
                 </div>
                 <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{service.label}</h3>
                 <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">{service.description}</p>
-                {service.price > 0 && (
-                  <p className="text-primary font-bold text-sm mt-4">
-                    {formatPrice(service.price)}
-                  </p>
-                )}
               </Link>
             </motion.div>
           ))}

@@ -387,6 +387,7 @@ export type Database = {
           icon_url: string | null
           id: string
           label: string
+          parent_id: string | null
           price: number
           sort_order: number
         }
@@ -398,6 +399,7 @@ export type Database = {
           icon_url?: string | null
           id: string
           label: string
+          parent_id?: string | null
           price?: number
           sort_order?: number
         }
@@ -409,10 +411,19 @@ export type Database = {
           icon_url?: string | null
           id?: string
           label?: string
+          parent_id?: string | null
           price?: number
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "services_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       specializations: {
         Row: {

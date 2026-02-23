@@ -152,12 +152,12 @@ const Layout = ({ children }: { children: ReactNode }) => {
         <div className="bg-card/50 dark:bg-white/50 dark:text-[hsl(222,47%,11%)] backdrop-blur-sm border-b border-border/30">
           <div className="container">
             <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide py-3 px-1">
-              {services.map((service) => {
-                const isActive = pathname.includes(`/specializations/${service.id}`) || pathname.includes(`/templates/${service.id}`);
+              {services.filter(s => !s.parent_id).map((service) => {
+                const isActive = pathname.includes(`/sub-services/${service.id}`) || pathname.includes(`/specializations/${service.id}`) || pathname.includes(`/templates/${service.id}`);
                 return (
                   <Link
                     key={service.id}
-                    to={`/specializations/${service.id}`}
+                    to={`/sub-services/${service.id}`}
                     className="flex flex-col items-center gap-1.5 min-w-[60px] group"
                   >
                     <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${
@@ -210,10 +210,10 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 {!isDesignerOnly && (
                 <div className="pt-3 border-t border-border/30 mt-3">
                   <p className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">خدماتنا</p>
-                  {services.map(service => (
+                  {services.filter(s => !s.parent_id).map(service => (
                     <Link
                       key={service.id}
-                      to={`/specializations/${service.id}`}
+                      to={`/sub-services/${service.id}`}
                       onClick={closeMobile}
                       className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150"
                     >

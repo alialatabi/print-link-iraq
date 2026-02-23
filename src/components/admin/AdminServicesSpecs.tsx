@@ -19,6 +19,7 @@ interface Service {
   sort_order: number;
   price: number;
   cost: number;
+  parent_id: string | null;
 }
 
 interface Specialization {
@@ -47,7 +48,7 @@ const AdminServicesSpecs = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'service' | 'specialization'>('service');
   const [editing, setEditing] = useState<Service | Specialization | null>(null);
-  const [form, setForm] = useState({ id: '', label: '', icon: '', description: '', price: 0, cost: 0 });
+  const [form, setForm] = useState({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '' });
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [existingIconUrl, setExistingIconUrl] = useState<string | null>(null);
@@ -69,7 +70,7 @@ const AdminServicesSpecs = () => {
   const openAdd = (type: 'service' | 'specialization') => {
     setDialogType(type);
     setEditing(null);
-    setForm({ id: '', label: '', icon: '', description: '', price: 0, cost: 0 });
+    setForm({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '' });
     setIconFile(null);
     setIconPreview(null);
     setExistingIconUrl(null);
@@ -86,6 +87,7 @@ const AdminServicesSpecs = () => {
       description: 'description' in item ? (item as Service).description : '',
       price: 'price' in item ? (item as Service).price : 0,
       cost: 'cost' in item ? (item as Service).cost : 0,
+      parent_id: 'parent_id' in item ? ((item as Service).parent_id || '') : '',
     });
     setIconFile(null);
     setIconPreview(null);
@@ -132,7 +134,7 @@ const AdminServicesSpecs = () => {
           const iconUrl = await uploadIcon(editing.id);
           const { error } = await supabase
             .from('services')
-            .update({ label: form.label, icon: form.icon || '📄', description: form.description, icon_url: iconUrl, price: form.price, cost: form.cost } as any)
+            .update({ label: form.label, icon: form.icon || '📄', description: form.description, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null } as any)
             .eq('id', editing.id);
           if (error) throw error;
           toast.success('تم تحديث الخدمة');
@@ -142,7 +144,7 @@ const AdminServicesSpecs = () => {
           const iconUrl = await uploadIcon(id);
           const { error } = await supabase
             .from('services')
-            .insert({ id, label: form.label, icon: form.icon || '📄', description: form.description, sort_order: maxOrder + 1, icon_url: iconUrl, price: form.price, cost: form.cost } as any);
+            .insert({ id, label: form.label, icon: form.icon || '📄', description: form.description, sort_order: maxOrder + 1, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null } as any);
           if (error) throw error;
           toast.success('تمت إضافة الخدمة');
         }
@@ -208,45 +210,80 @@ const AdminServicesSpecs = () => {
         {/* SERVICES */}
         <TabsContent value="services">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-muted-foreground">الخدمات المقدمة (كروت، فلايرات، الخ)</p>
+            <p className="text-sm text-muted-foreground">الخدمات العامة والفرعية</p>
             <Button onClick={() => openAdd('service')} className="rounded-xl">
               <Plus className="w-4 h-4 ml-1" />
               إضافة خدمة
             </Button>
           </div>
           <div className="space-y-2">
-            {services.map((svc, i) => (
-              <motion.div
-                key={svc.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03 }}
-                className="bg-card rounded-xl p-4 border border-border flex items-center gap-3 group"
-              >
-                <IconDisplay icon={svc.icon} iconUrl={svc.icon_url} />
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-foreground text-sm">{svc.label}</h4>
-                  <p className="text-xs text-muted-foreground truncate">{svc.description}</p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-[10px] text-muted-foreground/60 font-mono">ID: {svc.id}</span>
-                    {svc.price > 0 && (
-                      <span className="text-[10px] font-bold text-success">سعر: {svc.price.toLocaleString('en-US')} د.ع</span>
-                    )}
-                    {svc.cost > 0 && (
-                      <span className="text-[10px] font-bold text-destructive">تكلفة: {svc.cost.toLocaleString('en-US')} د.ع</span>
-                    )}
-                  </div>
+            {services.filter(s => !s.parent_id).map((parent, i) => {
+              const children = services.filter(s => s.parent_id === parent.id);
+              return (
+                <div key={parent.id}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="bg-card rounded-xl p-4 border border-border flex items-center gap-3 group"
+                  >
+                    <IconDisplay icon={parent.icon} iconUrl={parent.icon_url} />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-foreground text-sm">{parent.label}</h4>
+                      <p className="text-xs text-muted-foreground truncate">{parent.description}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-[10px] text-muted-foreground/60 font-mono">ID: {parent.id}</span>
+                        <span className="text-[10px] font-bold text-primary">خدمة عامة • {children.length} فرعية</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(parent, 'service')}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => handleDelete(parent, 'service')}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                  {/* Sub-services */}
+                  {children.length > 0 && (
+                    <div className="mr-8 mt-1 space-y-1 border-r-2 border-primary/20 pr-3">
+                      {children.map((child, j) => (
+                        <motion.div
+                          key={child.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: (i * 0.03) + (j * 0.02) }}
+                          className="bg-muted/40 rounded-lg p-3 border border-border/60 flex items-center gap-3 group"
+                        >
+                          <IconDisplay icon={child.icon} iconUrl={child.icon_url} size="sm" />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-foreground text-xs">{child.label}</h4>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground/60 font-mono">ID: {child.id}</span>
+                              {child.price > 0 && (
+                                <span className="text-[10px] font-bold text-success">سعر: {child.price.toLocaleString('en-US')} د.ع</span>
+                              )}
+                              {child.cost > 0 && (
+                                <span className="text-[10px] font-bold text-destructive">تكلفة: {child.cost.toLocaleString('en-US')} د.ع</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(child, 'service')}>
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => handleDelete(child, 'service')}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(svc, 'service')}>
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => handleDelete(svc, 'service')}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
+              );
+            })}
           </div>
         </TabsContent>
 
@@ -366,6 +403,20 @@ const AdminServicesSpecs = () => {
 
             {dialogType === 'service' && (
               <>
+                {/* Parent service selector */}
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1 block">تابعة لخدمة عامة (اتركها فارغة لجعلها خدمة عامة)</label>
+                  <select
+                    value={form.parent_id}
+                    onChange={e => setForm(f => ({ ...f, parent_id: e.target.value }))}
+                    className="w-full h-10 rounded-xl border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">— خدمة عامة (رئيسية) —</option>
+                    {services.filter(s => !s.parent_id && s.id !== form.id).map(s => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1 block">الوصف</label>
                   <Textarea
@@ -375,42 +426,47 @@ const AdminServicesSpecs = () => {
                     className="rounded-xl min-h-[80px]"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1 block">السعر (لكل 1000)</label>
-                    <Input
-                      type="number"
-                      value={form.price || ''}
-                      onChange={e => setForm(f => ({ ...f, price: parseInt(e.target.value) || 0 }))}
-                      placeholder="25000"
-                      className="rounded-xl"
-                      dir="ltr"
-                      min="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1 block">التكلفة (لكل 1000)</label>
-                    <Input
-                      type="number"
-                      value={form.cost || ''}
-                      onChange={e => setForm(f => ({ ...f, cost: parseInt(e.target.value) || 0 }))}
-                      placeholder="10000"
-                      className="rounded-xl"
-                      dir="ltr"
-                      min="0"
-                    />
-                  </div>
-                </div>
-                {form.price > 0 && form.cost > 0 && (
-                  form.cost > form.price ? (
-                    <p className="text-[11px] text-destructive">
-                      ⚠ التكلفة أعلى من السعر! الخسارة: {(form.cost - form.price).toLocaleString('en-US')} د.ع لكل ألف
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-success">
-                      ✓ هامش الربح: {((form.price - form.cost) / form.price * 100).toFixed(0)}% — صافي {(form.price - form.cost).toLocaleString('en-US')} د.ع لكل ألف
-                    </p>
-                  )
+                {/* Only show price/cost for sub-services */}
+                {form.parent_id && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-1 block">السعر (لكل 1000)</label>
+                        <Input
+                          type="number"
+                          value={form.price || ''}
+                          onChange={e => setForm(f => ({ ...f, price: parseInt(e.target.value) || 0 }))}
+                          placeholder="25000"
+                          className="rounded-xl"
+                          dir="ltr"
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-1 block">التكلفة (لكل 1000)</label>
+                        <Input
+                          type="number"
+                          value={form.cost || ''}
+                          onChange={e => setForm(f => ({ ...f, cost: parseInt(e.target.value) || 0 }))}
+                          placeholder="10000"
+                          className="rounded-xl"
+                          dir="ltr"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                    {form.price > 0 && form.cost > 0 && (
+                      form.cost > form.price ? (
+                        <p className="text-[11px] text-destructive">
+                          ⚠ التكلفة أعلى من السعر! الخسارة: {(form.cost - form.price).toLocaleString('en-US')} د.ع لكل ألف
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-success">
+                          ✓ هامش الربح: {((form.price - form.cost) / form.price * 100).toFixed(0)}% — صافي {(form.price - form.cost).toLocaleString('en-US')} د.ع لكل ألف
+                        </p>
+                      )
+                    )}
+                  </>
                 )}
               </>
             )}
