@@ -59,7 +59,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
       </div>
 
       <header className="sticky top-0 z-50">
-        <div className="bg-card/90 dark:bg-[hsl(210,20%,96%)]/90 dark:text-[hsl(222,47%,11%)] backdrop-blur-xl border-b border-border/50 shadow-card">
+        <div className="bg-card/90 dark:bg-white/90 dark:text-[hsl(222,47%,11%)] backdrop-blur-xl border-b border-border/50 shadow-card">
           <div className="container flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2.5 group" onClick={closeMobile}>
               <img src={logoImg} alt="مطبعتي" className="h-14 w-auto object-contain drop-shadow-md" />
@@ -149,7 +149,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
         {/* Services sub-navbar - circular icons (hidden for designers) */}
         {!isDesignerOnly && !pathname.startsWith('/auth') && !pathname.startsWith('/staff-login') && !pathname.startsWith('/designer/login') && (
-        <div className="bg-card/50 dark:bg-[hsl(210,20%,96%)]/50 dark:text-[hsl(222,47%,11%)] backdrop-blur-sm border-b border-border/30">
+        <div className="bg-card/50 dark:bg-white/50 dark:text-[hsl(222,47%,11%)] backdrop-blur-sm border-b border-border/30">
           <div className="container">
             <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide py-3 px-1">
               {services.map((service) => {
@@ -188,7 +188,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="sm:hidden overflow-hidden border-t border-border/30 bg-card/95 dark:bg-[hsl(210,20%,96%)]/95 dark:text-[hsl(222,47%,11%)] backdrop-blur-xl"
+              className="sm:hidden overflow-hidden border-t border-border/30 bg-card/95 dark:bg-white/95 dark:text-[hsl(222,47%,11%)] backdrop-blur-xl"
             >
               <div className="container py-4 space-y-1">
                 {NAV_ITEMS.filter(i => i.show).map(item => (
