@@ -1,6 +1,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon, ShoppingCart } from 'lucide-react';
+import { Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon, ShoppingCart } from 'lucide-react';
+import logoImg from '@/assets/logo.jpg';
 import NotificationBell from '@/components/NotificationBell';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,12 +62,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         <div className="bg-card/90 backdrop-blur-xl border-b border-border/50 shadow-card">
           <div className="container flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2.5 group" onClick={closeMobile}>
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-destructive to-destructive/80 flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
-                <TrendingUp className="w-4.5 h-4.5 text-destructive-foreground" />
-              </div>
-              <span className="text-lg font-extrabold bg-gradient-to-l from-accent to-accent/80 bg-clip-text text-transparent">
-                مطبعتي
-              </span>
+              <img src={logoImg} alt="مطبعتي" className="h-10 w-auto object-contain" />
             </Link>
 
             {/* Desktop nav */}
@@ -271,14 +267,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8 text-center sm:text-right">
             {/* Brand */}
             <div className="flex flex-col items-center sm:items-start gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-destructive to-destructive/80 flex items-center justify-center shadow-sm">
-                  <TrendingUp className="w-4 h-4 text-destructive-foreground" />
-                </div>
-                <span className="text-base font-extrabold bg-gradient-to-l from-accent to-accent/80 bg-clip-text text-transparent">
-                  مطبعتي
-                </span>
-              </div>
+              <img src={logoImg} alt="مطبعتي" className="h-10 w-auto object-contain" />
               <p className="text-muted-foreground text-xs leading-relaxed max-w-[220px]">
                 حلول طباعة متكاملة للأفراد والشركات، بجودة احترافية وتوصيل سريع.
               </p>
