@@ -11,6 +11,7 @@ export interface DbService {
   price: number;
   cost: number;
   parent_id: string | null;
+  completion_days: number;
 }
 
 export interface DbSpecialization {

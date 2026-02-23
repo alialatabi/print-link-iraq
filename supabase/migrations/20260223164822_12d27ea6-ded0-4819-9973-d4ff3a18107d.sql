@@ -1,0 +1,1 @@
+ALTER TABLE public.services ADD COLUMN completion_days integer NOT NULL DEFAULT 0;

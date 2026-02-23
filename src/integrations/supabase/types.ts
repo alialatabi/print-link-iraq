@@ -380,6 +380,7 @@ export type Database = {
       }
       services: {
         Row: {
+          completion_days: number
           cost: number
           created_at: string
           description: string
@@ -392,6 +393,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          completion_days?: number
           cost?: number
           created_at?: string
           description?: string
@@ -404,6 +406,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          completion_days?: number
           cost?: number
           created_at?: string
           description?: string
