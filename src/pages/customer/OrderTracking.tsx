@@ -314,35 +314,48 @@ const OrderTracking = () => {
                           <div className="p-5">
                             <h4 className="font-bold text-foreground text-sm mb-4">التصميم</h4>
 
-                            {previewUrl && (
-                              <div className="rounded-xl overflow-hidden border border-border/50 bg-muted/30 mb-4">
-                                <img src={previewUrl} alt="معاينة" className="w-full object-contain cursor-pointer" onClick={() => window.open(previewUrl, '_blank')} />
-                                <p className="text-center text-muted-foreground text-[11px] py-2">اضغط لفتح بالحجم الكامل</p>
-                              </div>
-                            )}
-
                             {itemDesigns.length > 0 && (
                               <div className="space-y-2 mb-4">
-                                {itemDesigns.map((design, i) => (
-                                  <div key={design.id} className={cn('rounded-xl p-3 flex items-center justify-between gap-3', i === 0 ? 'bg-primary/5 border border-primary/10' : 'bg-muted/40 border border-border/50')}>
-                                    <div className="flex items-center gap-3">
-                                      <FileText className={cn('w-4 h-4', i === 0 ? 'text-primary' : 'text-muted-foreground')} />
-                                      <div>
-                                        <p className="font-medium text-foreground text-sm">الإصدار {design.version} {i === 0 && <span className="text-primary text-[11px] mr-1">(الأحدث)</span>}</p>
-                                        <p className="text-muted-foreground text-[11px]">{new Date(design.uploaded_at).toLocaleDateString('ar')}</p>
+                                {itemDesigns.map((design, i) => {
+                                  const isSelected = previewUrls[`${item.id}_selected`] === design.id;
+                                  return (
+                                    <div key={design.id}>
+                                      <div
+                                        onClick={async () => {
+                                          if (!design.file_url) return;
+                                          if (isSelected) {
+                                            setPreviewUrls(prev => { const n = { ...prev }; delete n[`${item.id}_selected`]; delete n[`${item.id}_inline`]; return n; });
+                                          } else {
+                                            const url = await getDesignSignedUrl(design.file_url);
+                                            if (url) setPreviewUrls(prev => ({ ...prev, [`${item.id}_selected`]: design.id, [`${item.id}_inline`]: url }));
+                                          }
+                                        }}
+                                        className={cn(
+                                          'rounded-xl p-3 flex items-center justify-between gap-3 cursor-pointer transition-all',
+                                          isSelected ? 'bg-primary/10 border-2 border-primary/30' : i === 0 ? 'bg-primary/5 border border-primary/10 hover:bg-primary/8' : 'bg-muted/40 border border-border/50 hover:bg-muted/60'
+                                        )}
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <FileText className={cn('w-4 h-4', isSelected || i === 0 ? 'text-primary' : 'text-muted-foreground')} />
+                                          <div>
+                                            <p className="font-medium text-foreground text-sm">الإصدار {design.version} {i === 0 && <span className="text-primary text-[11px] mr-1">(الأحدث)</span>}</p>
+                                            <p className="text-muted-foreground text-[11px]">{new Date(design.uploaded_at).toLocaleDateString('ar')}</p>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                          {design.approved && <span className="text-[11px] bg-success/10 text-success px-2 py-0.5 rounded-lg flex items-center gap-1"><CheckCircle className="w-3 h-3" />معتمد</span>}
+                                          {isSelected ? <ChevronUp className="w-4 h-4 text-primary" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
+                                        </div>
                                       </div>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      {design.approved && <span className="text-[11px] bg-success/10 text-success px-2 py-0.5 rounded-lg flex items-center gap-1"><CheckCircle className="w-3 h-3" />معتمد</span>}
-                                      {design.file_url && (
-                                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={async () => {
-                                          const url = await getDesignSignedUrl(design.file_url!);
-                                          if (url) setPreviewUrls(prev => ({ ...prev, [item.id]: url }));
-                                        }}><Eye className="w-3 h-3 ml-1" />عرض</Button>
+                                      {/* Inline image preview */}
+                                      {isSelected && previewUrls[`${item.id}_inline`] && (
+                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-2 rounded-xl overflow-hidden border border-border/50 bg-muted/20">
+                                          <img src={previewUrls[`${item.id}_inline`]} alt={`الإصدار ${design.version}`} className="w-full object-contain" />
+                                        </motion.div>
                                       )}
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
 
