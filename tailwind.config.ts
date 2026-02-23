@@ -85,9 +85,14 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        'card': '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
-        'card-hover': '0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.04)',
-        'elevated': '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.03)',
+        'card': '0 1px 4px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
+        'card-hover': '0 12px 24px -6px rgb(0 0 0 / 0.1), 0 4px 8px -4px rgb(0 0 0 / 0.06)',
+        'elevated': '0 6px 16px -4px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.04)',
+        'brand': '0 4px 20px -4px hsl(190 85% 38% / 0.15)',
+        'brand-hover': '0 8px 30px -4px hsl(190 85% 38% / 0.25)',
+        'dark-card': '0 2px 8px 0 rgb(0 0 0 / 0.3), 0 1px 3px -1px rgb(0 0 0 / 0.2)',
+        'dark-card-hover': '0 16px 40px -8px rgb(0 0 0 / 0.4), 0 6px 12px -4px rgb(0 0 0 / 0.25)',
+        'dark-elevated': '0 8px 24px -4px rgb(0 0 0 / 0.35), 0 4px 8px -2px rgb(0 0 0 / 0.2)',
       },
       keyframes: {
         "accordion-down": {
