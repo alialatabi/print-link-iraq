@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
 
-type Step = 'upload' | 'service';
+type Step = 'service' | 'upload';
 
 const ACCEPTED = '.png,.jpg,.jpeg,.pdf,.psd';
 const ALLOWED_EXTS = ['png', 'jpg', 'jpeg', 'pdf', 'psd'];
@@ -126,11 +126,18 @@ const UploadDesignPage = () => {
   const fileInput2Ref = useRef<HTMLInputElement>(null);
   const { services, loading: servicesLoading } = useServices();
 
-  const [step, setStep] = useState<Step>('upload');
+  const [step, setStep] = useState<Step>('service');
   const [slot1, setSlot1] = useState<FileSlot | null>(null);
   const [slot2, setSlot2] = useState<FileSlot | null>(null);
   const [selectedService, setSelectedService] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+
+  const selectedServiceData = services.find(s => s.id === selectedService);
+
+  const formatPrice = (price: number) => {
+    if (!price) return null;
+    return `${price.toLocaleString('en-US')} د.ع / ألف`;
+  };
 
   const handleFileSelect = async (f: File, slot: 1 | 2) => {
     const err = validateFile(f);
@@ -163,8 +170,6 @@ const UploadDesignPage = () => {
         .insert({
           customer_id: user.id,
           status: 'submitted' as any,
-          customer_name: user.id,
-          customer_phone: '-',
           details: { order_type: 'ready_design', service_type: selectedService, attachment_urls: [] } as any,
         })
         .select('id')
@@ -201,7 +206,12 @@ const UploadDesignPage = () => {
     }
   };
 
-  const canProceed = step === 'upload' ? !!slot1 : !!selectedService;
+  const canProceed = step === 'service' ? !!selectedService : !!slot1;
+
+  const steps: { key: Step; label: string }[] = [
+    { key: 'service', label: 'نوع الخدمة' },
+    { key: 'upload', label: 'رفع الملف' },
+  ];
 
   return (
     <div className="section-spacing-sm">
@@ -218,11 +228,11 @@ const UploadDesignPage = () => {
 
         {/* Steps indicator */}
         <div className="flex items-center justify-center gap-3 mb-8">
-          {(['upload', 'service'] as Step[]).map((s, i) => {
-            const isActive = s === step;
-            const isDone = step === 'service' && s === 'upload';
+          {steps.map((s, i) => {
+            const isActive = s.key === step;
+            const isDone = (step === 'upload' && s.key === 'service');
             return (
-              <div key={s} className="flex items-center gap-2">
+              <div key={s.key} className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                   isDone ? 'bg-success text-success-foreground' :
                   isActive ? 'bg-primary text-primary-foreground' :
@@ -231,7 +241,7 @@ const UploadDesignPage = () => {
                   {isDone ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
                 </div>
                 <span className={`text-xs font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {s === 'upload' ? 'رفع الملف' : 'نوع الخدمة'}
+                  {s.label}
                 </span>
                 {i === 0 && <ChevronLeft className="w-4 h-4 text-muted-foreground/40" />}
               </div>
@@ -240,9 +250,67 @@ const UploadDesignPage = () => {
         </div>
 
         <AnimatePresence mode="wait">
-          {/* Step 1: Upload files */}
+          {/* Step 1: Select service */}
+          {step === 'service' && (
+            <motion.div key="service" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <Label className="text-foreground font-semibold text-base block mb-4">اختر نوع الطباعة المطلوبة</Label>
+              {servicesLoading ? (
+                <div className="text-center py-12 text-muted-foreground text-sm">جاري تحميل الخدمات...</div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {services.map(service => (
+                    <button
+                      key={service.id}
+                      onClick={() => setSelectedService(service.id)}
+                      className={`p-4 rounded-xl border-2 text-center transition-all ${
+                        selectedService === service.id
+                          ? 'border-primary bg-primary/8 text-primary'
+                          : 'border-border bg-card hover:border-primary/30'
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-2 overflow-hidden">
+                        {service.icon_url ? (
+                          <img src={service.icon_url} alt={service.label} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xl">{service.icon}</span>
+                        )}
+                      </div>
+                      <p className="text-xs font-semibold">{service.label}</p>
+                      {service.price > 0 && (
+                        <p className="text-primary/80 font-bold text-xs mt-1">{formatPrice(service.price)}</p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Step 2: Upload files */}
           {step === 'upload' && (
             <motion.div key="upload" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+              {/* Selected service summary */}
+              {selectedServiceData && (
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">
+                      {selectedServiceData.icon_url ? (
+                        <img src={selectedServiceData.icon_url} alt={selectedServiceData.label} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xl">{selectedServiceData.icon}</span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{selectedServiceData.label}</p>
+                      {selectedServiceData.price > 0 && (
+                        <p className="text-primary font-bold text-xs">{formatPrice(selectedServiceData.price)}</p>
+                      )}
+                    </div>
+                  </div>
+                  <button onClick={() => setStep('service')} className="text-xs text-primary underline underline-offset-2">تغيير</button>
+                </div>
+              )}
+
               {/* Hidden inputs */}
               <input ref={fileInput1Ref} type="file" accept={ACCEPTED} className="hidden" onChange={e => handleInputChange(e, 1)} />
               <input ref={fileInput2Ref} type="file" accept={ACCEPTED} className="hidden" onChange={e => handleInputChange(e, 2)} />
@@ -292,51 +360,18 @@ const UploadDesignPage = () => {
               </div>
             </motion.div>
           )}
-
-          {/* Step 2: Select service */}
-          {step === 'service' && (
-            <motion.div key="service" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <Label className="text-foreground font-semibold text-base block mb-4">اختر نوع الطباعة المطلوبة</Label>
-              {servicesLoading ? (
-                <div className="text-center py-12 text-muted-foreground text-sm">جاري تحميل الخدمات...</div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {services.map(service => (
-                    <button
-                      key={service.id}
-                      onClick={() => setSelectedService(service.id)}
-                      className={`p-4 rounded-xl border-2 text-center transition-all ${
-                        selectedService === service.id
-                          ? 'border-primary bg-primary/8 text-primary'
-                          : 'border-border bg-card hover:border-primary/30'
-                      }`}
-                    >
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-2 overflow-hidden">
-                        {service.icon_url ? (
-                          <img src={service.icon_url} alt={service.label} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xl">{service.icon}</span>
-                        )}
-                      </div>
-                      <p className="text-xs font-semibold">{service.label}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          )}
         </AnimatePresence>
 
         {/* Navigation */}
         <div className="flex gap-3 mt-8">
-          {step === 'service' && (
-            <Button variant="outline" onClick={() => setStep('upload')} className="flex-1" disabled={submitting}>
+          {step === 'upload' && (
+            <Button variant="outline" onClick={() => setStep('service')} className="flex-1" disabled={submitting}>
               <ChevronRight className="w-4 h-4 ml-1" />
               السابق
             </Button>
           )}
-          {step === 'upload' ? (
-            <Button onClick={() => setStep('service')} disabled={!canProceed} size="lg" className="w-full">
+          {step === 'service' ? (
+            <Button onClick={() => setStep('upload')} disabled={!canProceed} size="lg" className="w-full">
               التالي
               <ChevronLeft className="w-4 h-4 mr-1" />
             </Button>
