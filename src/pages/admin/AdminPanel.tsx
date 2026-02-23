@@ -702,10 +702,10 @@ const AdminPanel = () => {
                         {order._items?.length > 1 && (
                           <div className="flex flex-wrap gap-1.5 mb-2">
                             {order._items.map((item: any, idx: number) => (
-                              <span key={idx} className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground flex items-center gap-1">
+                              <div key={idx} className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground flex items-center gap-1">
                                 <StatusBadge status={item.status as OrderStatus} />
                                 {item.templates?.name || SERVICE_LABELS[item.templates?.service_type] || '-'}
-                              </span>
+                              </div>
                             ))}
                           </div>
                         )}
