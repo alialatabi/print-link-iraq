@@ -26,11 +26,13 @@ import {
   TrendingUp, Clock, CheckCircle, Truck, FileText, Download,
   WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp, Crown
 } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 import AdminTemplates from '@/components/admin/AdminTemplates';
 import AdminAccounts from '@/components/admin/AdminAccounts';
 import AdminCustomers from '@/components/admin/AdminCustomers';
 import AdminServicesSpecs from '@/components/admin/AdminServicesSpecs';
+import AdminActivityLog from '@/components/admin/AdminActivityLog';
 
 const ORDER_STATUSES: OrderStatus[] = [
   'draft', 'submitted', 'assigned', 'design_uploaded',
@@ -67,6 +69,21 @@ const AdminPanel = () => {
   const [designerDialogOpen, setDesignerDialogOpen] = useState(false);
   const [designerForm, setDesignerForm] = useState({ phone: '', display_name: '', password: '' });
   const [creatingDesigner, setCreatingDesigner] = useState(false);
+
+  // Activity logging helper
+  const logActivity = useCallback(async (action: string, targetUserId?: string | null, details?: Record<string, any>) => {
+    if (!user) return;
+    try {
+      await supabase.from('activity_logs' as any).insert({
+        actor_id: user.id,
+        action,
+        target_user_id: targetUserId || null,
+        details: details || {},
+      });
+    } catch (e) {
+      console.error('Failed to log activity', e);
+    }
+  }, [user]);
 
   const loadOrders = useCallback(async () => {
     const { data: ordersData } = await supabase
@@ -133,6 +150,8 @@ const AdminPanel = () => {
       .update({ is_active: !currentActive } as any)
       .eq('user_id', userId);
     if (error) { toast.error('فشل تحديث حالة المصمم'); return; }
+    const designer = designers.find(d => d.user_id === userId);
+    logActivity('toggle_designer_active', userId, { target_name: designer?.display_name || designer?.phone || '-', new_status: !currentActive ? 'نشط' : 'معطّل', actor_name: 'أدمن' });
     toast.success(!currentActive ? 'تم تفعيل المصمم' : 'تم تعطيل المصمم');
     loadDesigners();
   };
@@ -191,6 +210,8 @@ const AdminPanel = () => {
       .update({ status: newStatus as any })
       .eq('id', orderId);
     if (error) { toast.error('فشل تحديث الحالة'); return; }
+    const order = orders.find(o => o.id === orderId);
+    logActivity('change_order_status', order?.customer_id, { order_id: orderId, new_status: newStatus, actor_name: 'أدمن' });
     toast.success('تم تحديث الحالة');
     loadOrders();
   };
@@ -201,6 +222,7 @@ const AdminPanel = () => {
       .update({ status: 'cancelled' as any, designer_id: null })
       .eq('id', orderId);
     if (error) { toast.error('فشل إلغاء الطلب'); return; }
+    logActivity('cancel_order', null, { order_id: orderId, actor_name: 'أدمن' });
     toast.success('تم إلغاء الطلب');
     loadOrders();
   };
@@ -217,6 +239,8 @@ const AdminPanel = () => {
       .update(updateData)
       .eq('id', orderId);
     if (error) { toast.error('فشل تعيين المصمم'); return; }
+    const designer = designers.find(d => d.user_id === designerId);
+    logActivity('assign_designer', designerId, { order_id: orderId, designer_name: designer?.display_name || 'مصمم', actor_name: 'أدمن' });
     toast.success('تم تعيين المصمم');
     loadOrders();
   };
@@ -244,6 +268,7 @@ const AdminPanel = () => {
       if (hasRole) {
         const { error } = await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role as any);
         if (error) throw error;
+        logActivity('revoke_role', userId, { role, target_name: targetUser?.display_name || targetUser?.phone || '-', actor_name: 'أدمن' });
         toast.success(`تم إزالة دور ${ROLE_LABELS[role]}`);
       } else {
         const { error } = await supabase.from('user_roles').insert({ user_id: userId, role: role } as any);
@@ -251,6 +276,7 @@ const AdminPanel = () => {
           if (error.code === '23505') { toast.error('الدور موجود مسبقاً'); return; }
           throw error;
         }
+        logActivity('grant_role', userId, { role, target_name: targetUser?.display_name || targetUser?.phone || '-', actor_name: 'أدمن' });
         toast.success(`تم إضافة دور ${ROLE_LABELS[role]}`);
       }
       Promise.all([loadAllUsers(), loadDesigners()]);
@@ -282,6 +308,7 @@ const AdminPanel = () => {
         .update({ is_super_admin: !currentlySuper } as any)
         .eq('user_id', userId);
       if (error) throw error;
+      logActivity(currentlySuper ? 'revoke_super_admin' : 'grant_super_admin', userId, { target_name: targetUser?.display_name || targetUser?.phone || '-', actor_name: 'أدمن' });
       toast.success(currentlySuper ? 'تم إزالة صلاحية السوبر أدمن' : 'تم ترقية المستخدم إلى سوبر أدمن');
       loadAllUsers();
     } catch (err: any) {
@@ -311,6 +338,7 @@ const AdminPanel = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success(data?.is_new ? 'تم إنشاء حساب الأدمن بنجاح' : 'تم تحديث صلاحيات الحساب');
+      logActivity('create_admin', data?.user_id, { target_name: adminForm.display_name.trim() || adminForm.phone.trim(), actor_name: 'أدمن' });
       setAdminDialogOpen(false);
       setAdminForm({ phone: '', display_name: '', password: '' });
       Promise.all([loadAllUsers(), loadDesigners()]);
@@ -336,6 +364,7 @@ const AdminPanel = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success(data?.is_new ? 'تم إنشاء حساب المصمم بنجاح' : 'تم تحديث صلاحيات الحساب');
+      logActivity('create_designer', data?.user_id, { target_name: designerForm.display_name.trim() || designerForm.phone.trim(), actor_name: 'أدمن' });
       setDesignerDialogOpen(false);
       setDesignerForm({ phone: '', display_name: '', password: '' });
       Promise.all([loadAllUsers(), loadDesigners()]);
@@ -353,6 +382,8 @@ const AdminPanel = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      const deletedUser = allUsers.find(u => u.user_id === userId);
+      logActivity('delete_user', userId, { target_name: deletedUser?.display_name || deletedUser?.phone || '-', actor_name: 'أدمن' });
       toast.success('تم حذف حساب المصمم');
       Promise.all([loadAllUsers(), loadDesigners()]);
     } catch (err: any) {
@@ -551,6 +582,10 @@ const AdminPanel = () => {
                 <span className="hidden sm:inline">الأدمنز</span>
               </TabsTrigger>
             )}
+            <TabsTrigger value="activity" className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              <span className="hidden sm:inline">السجل</span>
+            </TabsTrigger>
           </TabsList>
 
           {/* ORDERS TAB */}
@@ -1349,6 +1384,11 @@ const AdminPanel = () => {
               </Dialog>
             </TabsContent>
           )}
+
+          {/* ACTIVITY LOG TAB */}
+          <TabsContent value="activity">
+            <AdminActivityLog />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
