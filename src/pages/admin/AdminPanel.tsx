@@ -547,46 +547,48 @@ const AdminPanel = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setQuickFilter(null); }} dir="rtl">
-          <TabsList className={`grid w-full mb-6 ${isSuperAdmin ? 'grid-cols-8' : 'grid-cols-7'}`}>
-            <TabsTrigger value="orders" className="flex items-center gap-2">
-              <ClipboardList className="w-4 h-4" />
-              <span className="hidden sm:inline">الطلبات</span>
-            </TabsTrigger>
-            <TabsTrigger value="accounts" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">الحسابات</span>
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="flex items-center gap-2">
-              <LayoutGrid className="w-4 h-4" />
-              <span className="hidden sm:inline">القوالب</span>
-            </TabsTrigger>
-            <TabsTrigger value="services" className="flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              <span className="hidden sm:inline">الخدمات</span>
-            </TabsTrigger>
-            <TabsTrigger value="designers" className="flex items-center gap-2">
-              <Palette className="w-4 h-4" />
-              <span className="hidden sm:inline">المصممين</span>
-            </TabsTrigger>
-            <TabsTrigger value="customers" className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              <span className="hidden sm:inline">الزبائن</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">المستخدمين</span>
-            </TabsTrigger>
-            {isSuperAdmin && (
-              <TabsTrigger value="admins" className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4" />
-                <span className="hidden sm:inline">الأدمنز</span>
+          <div className="overflow-x-auto scrollbar-hide mb-6 -mx-1 px-1">
+            <TabsList className="inline-flex w-auto min-w-full gap-1 bg-muted/50 p-1 rounded-xl">
+              <TabsTrigger value="orders" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <ClipboardList className="w-4 h-4 flex-shrink-0" />
+                الطلبات
               </TabsTrigger>
-            )}
-            <TabsTrigger value="activity" className="flex items-center gap-2">
-              <Activity className="w-4 h-4" />
-              <span className="hidden sm:inline">السجل</span>
-            </TabsTrigger>
-          </TabsList>
+              <TabsTrigger value="accounts" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <BarChart3 className="w-4 h-4 flex-shrink-0" />
+                الحسابات
+              </TabsTrigger>
+              <TabsTrigger value="templates" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <LayoutGrid className="w-4 h-4 flex-shrink-0" />
+                القوالب
+              </TabsTrigger>
+              <TabsTrigger value="services" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <Package className="w-4 h-4 flex-shrink-0" />
+                الخدمات
+              </TabsTrigger>
+              <TabsTrigger value="designers" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <Palette className="w-4 h-4 flex-shrink-0" />
+                المصممين
+              </TabsTrigger>
+              <TabsTrigger value="customers" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <User className="w-4 h-4 flex-shrink-0" />
+                الزبائن
+              </TabsTrigger>
+              <TabsTrigger value="users" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <Users className="w-4 h-4 flex-shrink-0" />
+                المستخدمين
+              </TabsTrigger>
+              {isSuperAdmin && (
+                <TabsTrigger value="admins" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                  <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+                  الأدمنز
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="activity" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <Activity className="w-4 h-4 flex-shrink-0" />
+                السجل
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ORDERS TAB */}
           <TabsContent value="orders">
