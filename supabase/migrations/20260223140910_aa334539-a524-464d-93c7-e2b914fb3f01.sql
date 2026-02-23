@@ -1,0 +1,1 @@
+UPDATE public.profiles SET is_super_admin = true WHERE user_id IN (SELECT user_id FROM public.user_roles WHERE role = 'admin');

@@ -1211,20 +1211,57 @@ const AdminPanel = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            {/* Super admin toggle: only show for self-removal or granting to non-super admins */}
+                            {/* Super admin toggle with confirmation dialog */}
                             {isSuperAdmin && (
-                              <button
-                                onClick={() => handleToggleSuperAdmin(u.user_id, isSuperAdminUser)}
-                                disabled={isSuperAdminUser && !isMe}
-                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
-                                  isSuperAdminUser
-                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-600'
-                                    : 'bg-muted/50 border-border text-muted-foreground hover:border-amber-500/30'
-                                } ${isSuperAdminUser && !isMe ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <Crown className="w-3 h-3" />
-                                سوبر أدمن
-                              </button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <button
+                                    disabled={isSuperAdminUser && !isMe}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                                      isSuperAdminUser
+                                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-600'
+                                        : 'bg-muted/50 border-border text-muted-foreground hover:border-amber-500/30'
+                                    } ${isSuperAdminUser && !isMe ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  >
+                                    <Crown className="w-3 h-3" />
+                                    سوبر أدمن
+                                  </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent dir="rtl">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle className="flex items-center gap-2">
+                                      <Crown className={`w-5 h-5 ${isSuperAdminUser ? 'text-destructive' : 'text-amber-500'}`} />
+                                      {isSuperAdminUser ? 'إزالة صلاحية السوبر أدمن' : 'منح صلاحية السوبر أدمن'}
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription className="text-right">
+                                      {isSuperAdminUser ? (
+                                        <span className="space-y-2 block">
+                                          <span className="block text-destructive font-bold">⚠️ تحذير: هذا إجراء خطير!</span>
+                                          <span className="block">أنت على وشك إزالة صلاحية السوبر أدمن من <strong>{u.display_name || u.phone || 'هذا المستخدم'}</strong>.</span>
+                                          <span className="block">سيفقد القدرة على إدارة حسابات الأدمن الأخرى وتعديل الصلاحيات الحساسة.</span>
+                                        </span>
+                                      ) : (
+                                        <span className="space-y-2 block">
+                                          <span className="block">هل تريد منح صلاحية السوبر أدمن لـ <strong>{u.display_name || u.phone || 'هذا المستخدم'}</strong>؟</span>
+                                          <span className="block text-muted-foreground">سيحصل على كامل الصلاحيات بما فيها إدارة حسابات الأدمن وتعديل الأدوار الحساسة.</span>
+                                        </span>
+                                      )}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter className="flex-row-reverse gap-2">
+                                    <AlertDialogCancel>تراجع</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleToggleSuperAdmin(u.user_id, isSuperAdminUser)}
+                                      className={isSuperAdminUser
+                                        ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                                        : 'bg-amber-500 text-white hover:bg-amber-600'
+                                      }
+                                    >
+                                      {isSuperAdminUser ? 'نعم، إزالة الصلاحية' : 'نعم، منح الصلاحية'}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             )}
                             {/* Role toggles: disabled for other super admins */}
                             {(!isSuperAdminUser || isMe) && (
