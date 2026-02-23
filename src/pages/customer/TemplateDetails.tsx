@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Check, Shield, Truck, Printer } from 'lucide-react';
+import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Check, Shield, Truck, Printer, Clock } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -288,6 +288,16 @@ const TemplateDetails = () => {
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line bg-muted/30 rounded-xl p-4 border border-border/40">
                 {template.description}
               </p>
+            )}
+
+            {/* Completion days */}
+            {serviceData && serviceData.completion_days > 0 && (
+              <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-primary/5 border border-primary/15">
+                <Clock className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-sm font-semibold text-foreground">
+                  فترة الإنجاز: {serviceData.completion_days} {serviceData.completion_days === 1 ? 'يوم' : 'أيام'}
+                </span>
+              </div>
             )}
 
             <div className="h-px bg-border/30" />
