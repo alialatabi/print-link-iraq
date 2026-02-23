@@ -787,6 +787,7 @@ const AdminPanel = () => {
                             onValueChange={(val) => {
                               if (val !== 'none') handleAssignDesigner(order.id, val);
                             }}
+                            disabled={order.status === 'print_ready' || order.status === 'printed' || order.status === 'delivered'}
                           >
                             <SelectTrigger className="w-40 h-8 text-xs rounded-lg">
                               <SelectValue placeholder="تعيين مصمم" />
@@ -814,7 +815,10 @@ const AdminPanel = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {ORDER_STATUSES.map(s => (
+                              {(order.status === 'print_ready'
+                                ? (['print_ready', 'printed'] as OrderStatus[])
+                                : ORDER_STATUSES
+                              ).map(s => (
                                 <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
                               ))}
                             </SelectContent>
