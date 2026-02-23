@@ -12,7 +12,10 @@ const SpecializationSelection = () => {
   const [availableSpecs, setAvailableSpecs] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  const serviceLabel = services.find(s => s.id === serviceType)?.label || 'التصميم';
+  const currentService = services.find(s => s.id === serviceType);
+  const serviceLabel = currentService?.label || 'التصميم';
+  // Find parent for back navigation
+  const parentId = currentService?.parent_id;
 
   useEffect(() => {
     const load = async () => {
@@ -44,9 +47,9 @@ const SpecializationSelection = () => {
   return (
     <div className="section-spacing-sm">
       <div className="container max-w-4xl">
-        <Link to="/services" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
+        <Link to={parentId ? `/sub-services/${parentId}` : '/services'} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
           <ArrowRight className="w-4 h-4" />
-          العودة لاختيار الخدمة
+          العودة
         </Link>
 
         <div className="text-center mb-12">

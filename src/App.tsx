@@ -16,6 +16,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const AuthPage = lazy(() => import("./pages/auth/AuthPage"));
 const StaffLogin = lazy(() => import("./pages/auth/StaffLogin"));
 const ServiceSelection = lazy(() => import("./pages/customer/ServiceSelection"));
+const SubServiceSelection = lazy(() => import("./pages/customer/SubServiceSelection"));
 const SpecializationSelection = lazy(() => import("./pages/customer/SpecializationSelection"));
 const TemplateSelection = lazy(() => import("./pages/customer/TemplateSelection"));
 const OrderForm = lazy(() => import("./pages/customer/OrderForm"));
@@ -54,6 +55,7 @@ const App = () => (
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/staff-login" element={<StaffLogin />} />
                 <Route path="/services" element={<ServiceSelection />} />
+                <Route path="/sub-services/:parentId" element={<SubServiceSelection />} />
                 <Route path="/specializations/:serviceType" element={<SpecializationSelection />} />
                 <Route path="/templates/:serviceType/:specialization" element={<TemplateSelection />} />
                 <Route path="/templates/:serviceType" element={<TemplateSelection />} />

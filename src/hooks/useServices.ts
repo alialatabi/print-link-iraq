@@ -10,6 +10,7 @@ export interface DbService {
   sort_order: number;
   price: number;
   cost: number;
+  parent_id: string | null;
 }
 
 export interface DbSpecialization {
@@ -35,7 +36,12 @@ export function useServices() {
 
   useEffect(() => { load(); }, []);
 
-  return { services, loading, reload: load };
+  // Parent services (no parent_id)
+  const parentServices = services.filter(s => !s.parent_id);
+  // Get sub-services for a given parent
+  const getSubServices = (parentId: string) => services.filter(s => s.parent_id === parentId);
+
+  return { services, parentServices, getSubServices, loading, reload: load };
 }
 
 export function useSpecializations() {
