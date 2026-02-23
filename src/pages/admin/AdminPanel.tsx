@@ -443,7 +443,7 @@ const AdminPanel = () => {
   // Designer workload
   const designerWorkload = designers.map(d => ({
     ...d,
-    activeOrders: orders.filter(o => o.designer_id === d.user_id && !['delivered', 'draft', 'cancelled'].includes(o.status)).length,
+    activeOrders: orders.filter(o => o.designer_id === d.user_id && !['approved', 'print_ready', 'printed', 'delivered', 'draft', 'cancelled'].includes(o.status)).length,
     totalOrders: orders.filter(o => o.designer_id === d.user_id).length,
     completedOrders: orders.filter(o => o.designer_id === d.user_id && ['approved', 'print_ready', 'printed', 'delivered'].includes(o.status)).length,
   }));
