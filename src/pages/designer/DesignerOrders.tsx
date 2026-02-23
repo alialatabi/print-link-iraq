@@ -98,7 +98,6 @@ const DesignerOrders = () => {
     { key: 'all', label: 'الكل', icon: Inbox, color: 'text-primary' },
     { key: 'assigned', label: 'بانتظار الرفع', icon: Upload, color: 'text-cmyk-magenta' },
     { key: 'revisions', label: 'تعديلات', icon: Edit2, color: 'text-destructive' },
-    { key: 'design_uploaded', label: 'تم الرفع', icon: FileText, color: 'text-primary' },
     { key: 'waiting_approval', label: 'بانتظار الموافقة', icon: Clock, color: 'text-cmyk-yellow' },
     { key: 'approved', label: 'تمت الموافقة', icon: CheckCircle2, color: 'text-success' },
     { key: 'print_ready', label: 'جاهز للطباعة', icon: Printer, color: 'text-success' },
