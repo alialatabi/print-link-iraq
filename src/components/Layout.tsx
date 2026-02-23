@@ -1,7 +1,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon, ShoppingCart } from 'lucide-react';
-import logoImg from '@/assets/logo.jpg';
+import logoImg from '@/assets/logo.png';
 import NotificationBell from '@/components/NotificationBell';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,7 +62,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         <div className="bg-card/90 backdrop-blur-xl border-b border-border/50 shadow-card">
           <div className="container flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2.5 group" onClick={closeMobile}>
-              <img src={logoImg} alt="مطبعتي" className="h-10 w-auto object-contain" />
+              <img src={logoImg} alt="مطبعتي" className="h-14 w-auto object-contain drop-shadow-md" />
             </Link>
 
             {/* Desktop nav */}
@@ -267,7 +267,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8 text-center sm:text-right">
             {/* Brand */}
             <div className="flex flex-col items-center sm:items-start gap-3">
-              <img src={logoImg} alt="مطبعتي" className="h-10 w-auto object-contain" />
+              <img src={logoImg} alt="مطبعتي" className="h-16 w-auto object-contain drop-shadow-md" />
               <p className="text-muted-foreground text-xs leading-relaxed max-w-[220px]">
                 حلول طباعة متكاملة للأفراد والشركات، بجودة احترافية وتوصيل سريع.
               </p>
