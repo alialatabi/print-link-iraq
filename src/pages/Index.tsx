@@ -170,7 +170,7 @@ const Index = () => {
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '32px 32px' }} />
         {/* decorative blobs */}
         <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 right-0 w-72 h-72 rounded-full bg-cmyk-cyan/8 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 right-0 w-72 h-72 rounded-full bg-cmyk-cyan/15 blur-3xl pointer-events-none" />
 
         <div className="container max-w-6xl relative">
           <div className="flex flex-col sm:flex-row items-center gap-12 sm:gap-16">
@@ -220,7 +220,7 @@ const Index = () => {
               ].map((s, i) => (
                 <motion.div
                   key={i}
-                  className="flex flex-col items-center sm:items-start gap-2 bg-card/80 border border-border/60 dark:bg-secondary-foreground/6 dark:border-secondary-foreground/10 rounded-2xl px-3 py-4 sm:px-6 sm:py-5 sm:min-w-[160px] sm:flex-row hover:bg-muted/80 dark:hover:bg-secondary-foreground/10 transition-colors duration-200 shadow-card"
+                  className="flex flex-col items-center sm:items-start gap-2 bg-card/80 border border-border/60 dark:bg-secondary-foreground/10 dark:border-secondary-foreground/15 rounded-2xl px-3 py-4 sm:px-6 sm:py-5 sm:min-w-[160px] sm:flex-row hover:bg-muted/80 dark:hover:bg-secondary-foreground/15 transition-colors duration-200 shadow-card"
                   initial="hidden" animate="visible" variants={fadeUp} custom={i + 3}
                 >
                   <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${s.bg} flex items-center justify-center flex-shrink-0`}>
@@ -306,7 +306,7 @@ const Index = () => {
         <div className="container max-w-5xl">
           <motion.div className="flex items-end justify-between mb-8" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/8 text-primary text-xs font-bold mb-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 text-primary text-xs font-bold mb-3">
                 <Star className="w-3.5 h-3.5 fill-current" />
                 الأكثر طلباً
               </div>
@@ -397,10 +397,10 @@ const Index = () => {
       </section>
 
       {/* ─── Printed Works (نماذج مطبوعة) ─── */}
-      <section className="py-16 sm:py-24 bg-muted/20 border-y border-border/30">
+      <section className="py-16 sm:py-24 bg-muted/40 border-y border-border/40">
         <div className="container max-w-5xl">
           <motion.div className="text-center mb-10" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fadeUp} custom={0}>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/8 text-primary text-xs font-bold mb-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 text-primary text-xs font-bold mb-3">
               <Printer className="w-3.5 h-3.5" />
               جودة الطباعة
             </div>
@@ -506,7 +506,7 @@ const Index = () => {
             <h2 className="text-3xl sm:text-4xl font-extrabold text-secondary-foreground mb-4 tracking-tight">
               ابدأ تصميمك الآن خلال أقل من دقيقة عبر مطبعتي
             </h2>
-            <p className="text-secondary-foreground/50 text-sm sm:text-base mb-10 max-w-md mx-auto leading-relaxed">
+            <p className="text-secondary-foreground/70 text-sm sm:text-base mb-10 max-w-md mx-auto leading-relaxed">
               اطلب تصميمك الآن واحصل عليه بأسرع وقت وبأعلى جودة
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
