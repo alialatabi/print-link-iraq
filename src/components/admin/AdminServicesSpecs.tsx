@@ -20,6 +20,7 @@ interface Service {
   price: number;
   cost: number;
   parent_id: string | null;
+  completion_days: number;
 }
 
 interface Specialization {
@@ -48,7 +49,7 @@ const AdminServicesSpecs = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'service' | 'specialization'>('service');
   const [editing, setEditing] = useState<Service | Specialization | null>(null);
-  const [form, setForm] = useState({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '' });
+  const [form, setForm] = useState({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '', completion_days: 0 });
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [existingIconUrl, setExistingIconUrl] = useState<string | null>(null);
@@ -70,7 +71,7 @@ const AdminServicesSpecs = () => {
   const openAdd = (type: 'service' | 'specialization') => {
     setDialogType(type);
     setEditing(null);
-    setForm({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '' });
+    setForm({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '', completion_days: 0 });
     setIconFile(null);
     setIconPreview(null);
     setExistingIconUrl(null);
@@ -88,6 +89,7 @@ const AdminServicesSpecs = () => {
       price: 'price' in item ? (item as Service).price : 0,
       cost: 'cost' in item ? (item as Service).cost : 0,
       parent_id: 'parent_id' in item ? ((item as Service).parent_id || '') : '',
+      completion_days: 'completion_days' in item ? (item as Service).completion_days : 0,
     });
     setIconFile(null);
     setIconPreview(null);
@@ -134,7 +136,7 @@ const AdminServicesSpecs = () => {
           const iconUrl = await uploadIcon(editing.id);
           const { error } = await supabase
             .from('services')
-            .update({ label: form.label, icon: form.icon || '📄', description: form.description, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null } as any)
+            .update({ label: form.label, icon: form.icon || '📄', description: form.description, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null, completion_days: form.completion_days } as any)
             .eq('id', editing.id);
           if (error) throw error;
           toast.success('تم تحديث الخدمة');
@@ -144,7 +146,7 @@ const AdminServicesSpecs = () => {
           const iconUrl = await uploadIcon(id);
           const { error } = await supabase
             .from('services')
-            .insert({ id, label: form.label, icon: form.icon || '📄', description: form.description, sort_order: maxOrder + 1, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null } as any);
+            .insert({ id, label: form.label, icon: form.icon || '📄', description: form.description, sort_order: maxOrder + 1, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null, completion_days: form.completion_days } as any);
           if (error) throw error;
           toast.success('تمت إضافة الخدمة');
         }
@@ -266,6 +268,9 @@ const AdminServicesSpecs = () => {
                               )}
                               {child.cost > 0 && (
                                 <span className="text-[10px] font-bold text-destructive">تكلفة: {child.cost.toLocaleString('en-US')} د.ع</span>
+                              )}
+                              {child.completion_days > 0 && (
+                                <span className="text-[10px] font-bold text-blue-500">⏱ {child.completion_days} {child.completion_days === 1 ? 'يوم' : 'أيام'}</span>
                               )}
                             </div>
                           </div>
@@ -466,6 +471,21 @@ const AdminServicesSpecs = () => {
                         </p>
                       )
                     )}
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">فترة الإنجاز (بالأيام)</label>
+                      <Input
+                        type="number"
+                        value={form.completion_days || ''}
+                        onChange={e => setForm(f => ({ ...f, completion_days: parseInt(e.target.value) || 0 }))}
+                        placeholder="3"
+                        className="rounded-xl"
+                        dir="ltr"
+                        min="0"
+                      />
+                      {form.completion_days > 0 && (
+                        <p className="text-[11px] text-muted-foreground mt-1">⏱ يتم إنجاز الطلب خلال {form.completion_days} {form.completion_days === 1 ? 'يوم' : 'أيام'}</p>
+                      )}
+                    </div>
                   </>
                 )}
               </>

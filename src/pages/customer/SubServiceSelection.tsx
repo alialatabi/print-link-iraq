@@ -75,6 +75,11 @@ const SubServiceSelection = () => {
                       {formatPrice(service.price)}
                     </p>
                   )}
+                  {service.completion_days > 0 && (
+                    <p className="text-muted-foreground text-xs mt-2">
+                      ⏱ فترة الإنجاز: {service.completion_days} {service.completion_days === 1 ? 'يوم' : 'أيام'}
+                    </p>
+                  )}
                 </Link>
               </motion.div>
             ))}
