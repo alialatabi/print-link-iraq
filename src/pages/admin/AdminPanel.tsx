@@ -87,10 +87,24 @@ const AdminPanel = () => {
       .in('user_id', customerIds);
     
     const profileMap = new Map((profilesData || []).map(p => [p.user_id, p]));
+
+    // Fetch order_items
+    const orderIds = ordersData.map(o => o.id);
+    const { data: itemsData } = await supabase
+      .from('order_items')
+      .select('*, templates(name, service_type)')
+      .in('order_id', orderIds);
+    const itemsByOrder = new Map<string, any[]>();
+    (itemsData || []).forEach((item: any) => {
+      const list = itemsByOrder.get(item.order_id) || [];
+      list.push(item);
+      itemsByOrder.set(item.order_id, list);
+    });
     
     const enrichedOrders = ordersData.map(o => ({
       ...o,
       profiles: profileMap.get(o.customer_id) || null,
+      _items: itemsByOrder.get(o.id) || [],
     }));
     
     setOrders(enrichedOrders);
@@ -659,17 +673,42 @@ const AdminPanel = () => {
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              <FileText className="w-5 h-5 text-primary" />
+                              {order._items?.length > 1 ? <Package className="w-5 h-5 text-primary" /> : <FileText className="w-5 h-5 text-primary" />}
                             </div>
                             <div>
-                              <h3 className="font-bold text-foreground text-sm leading-tight">{order.templates?.name || '-'}</h3>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {SERVICE_LABELS[order.templates?.service_type] || ''} · <span className="font-mono">#{order.id.slice(0, 8)}</span>
-                              </p>
+                              {order._items?.length > 0 ? (
+                                <>
+                                  <h3 className="font-bold text-foreground text-sm leading-tight">
+                                    {order._items.length > 1 ? `${order._items.length} عناصر` : (order._items[0]?.templates?.name || '-')}
+                                  </h3>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    <span className="font-mono">#{order.id.slice(0, 8)}</span>
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <h3 className="font-bold text-foreground text-sm leading-tight">{order.templates?.name || '-'}</h3>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {SERVICE_LABELS[order.templates?.service_type] || ''} · <span className="font-mono">#{order.id.slice(0, 8)}</span>
+                                  </p>
+                                </>
+                              )}
                             </div>
                           </div>
                           <StatusBadge status={order.status as OrderStatus} />
                         </div>
+
+                        {/* Order items summary */}
+                        {order._items?.length > 1 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {order._items.map((item: any, idx: number) => (
+                              <span key={idx} className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground flex items-center gap-1">
+                                <StatusBadge status={item.status as OrderStatus} />
+                                {item.templates?.name || SERVICE_LABELS[item.templates?.service_type] || '-'}
+                              </span>
+                            ))}
+                          </div>
+                        )}
 
                         {/* Customer info row */}
                         <div className="flex items-center gap-4 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
@@ -688,8 +727,27 @@ const AdminPanel = () => {
                         </div>
                       </div>
 
-                      {/* Content Details */}
-                      {contentFields.length > 0 && (
+                      {/* Content Details - show per item if items exist */}
+                      {order._items?.length > 0 ? (
+                        <div className="px-4 pb-3 space-y-2">
+                          {order._items.map((item: any, idx: number) => {
+                            const itemD = (item.details || {}) as Record<string, any>;
+                            return (
+                              <div key={item.id} className="bg-muted/20 rounded-lg p-3 border border-border/50">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-xs font-bold text-foreground flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded bg-primary/10 text-primary text-[11px] flex items-center justify-center font-bold">{idx + 1}</span>
+                                    {item.templates?.name || '-'}
+                                  </span>
+                                  <StatusBadge status={item.status as OrderStatus} />
+                                </div>
+                                {itemD.details && <p className="text-xs text-muted-foreground truncate">{itemD.details}</p>}
+                                {itemD.quantity && <p className="text-[11px] text-muted-foreground">الكمية: {Number(itemD.quantity).toLocaleString()}</p>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : contentFields.length > 0 ? (
                         <div className="px-4 pb-3">
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-xs">
                             {contentFields.map(f => (
@@ -700,7 +758,7 @@ const AdminPanel = () => {
                             ))}
                           </div>
                         </div>
-                      )}
+                      ) : null}
 
                       {/* Delivery Info */}
                       {hasDelivery && (

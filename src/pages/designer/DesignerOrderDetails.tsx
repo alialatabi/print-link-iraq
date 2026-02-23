@@ -4,13 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink, Printer, XCircle } from 'lucide-react';
-
+import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink, Printer, XCircle, ChevronDown, ChevronUp, Package } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { OrderStatus } from '@/data/mockData';
+import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
 import { getDesignSignedUrl } from '@/lib/storage';
 import { getUserFriendlyError } from '@/lib/errors';
+import { cn } from '@/lib/utils';
 
 interface DesignVersion {
   id: string;
@@ -18,22 +19,32 @@ interface DesignVersion {
   file_url: string | null;
   approved: boolean | null;
   uploaded_at: string;
+  order_item_id: string | null;
+}
+
+interface OrderItem {
+  id: string;
+  order_id: string;
+  template_id: string | null;
+  status: OrderStatus;
+  details: Record<string, any>;
+  templates?: { name: string; service_type: string; preview_url?: string } | null;
 }
 
 const DesignerOrderDetails = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const [order, setOrder] = useState<any>(null);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [designs, setDesigns] = useState<DesignVersion[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [sendingApproval, setSendingApproval] = useState(false);
-  const [sendingPrint, setSendingPrint] = useState(false);
-  const [showRejectForm, setShowRejectForm] = useState(false);
-  const [rejectNote, setRejectNote] = useState('');
-  const [designerMessage, setDesignerMessage] = useState('');
-  const [showApprovalForm, setShowApprovalForm] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const printFileInputRef = useRef<HTMLInputElement>(null);
+  const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [uploadingItem, setUploadingItem] = useState<string | null>(null);
+  const [sendingItem, setSendingItem] = useState<string | null>(null);
+  const [approvalFormItem, setApprovalFormItem] = useState<string | null>(null);
+  const [designerMessages, setDesignerMessages] = useState<Record<string, string>>({});
+  const [printingItem, setPrintingItem] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const printFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const loadOrder = useCallback(async () => {
     const { data } = await supabase
@@ -41,7 +52,7 @@ const DesignerOrderDetails = () => {
       .select('id, customer_id, designer_id, template_id, status, details, created_at, updated_at, templates(name, service_type, preview_url)')
       .eq('id', orderId || '')
       .maybeSingle();
-    
+
     if (data) {
       const { data: profileData } = await supabase
         .rpc('get_customer_names_for_designer', { customer_ids: [data.customer_id] });
@@ -51,6 +62,20 @@ const DesignerOrderDetails = () => {
       setOrder(null);
     }
     setLoading(false);
+  }, [orderId]);
+
+  const loadItems = useCallback(async () => {
+    if (!orderId) return;
+    const { data } = await supabase
+      .from('order_items')
+      .select('*, templates(name, service_type, preview_url)')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: true });
+    setOrderItems((data as unknown as OrderItem[]) || []);
+    // Auto-expand first item
+    if (data && data.length > 0 && !expandedItem) {
+      setExpandedItem((data[0] as any).id);
+    }
   }, [orderId]);
 
   const loadDesigns = useCallback(async () => {
@@ -64,181 +89,142 @@ const DesignerOrderDetails = () => {
 
   useEffect(() => {
     loadOrder();
+    loadItems();
     loadDesigns();
-  }, [loadOrder, loadDesigns]);
+  }, [loadOrder, loadItems, loadDesigns]);
 
-  // Realtime: listen for order changes (e.g. customer requests revision)
+  // Realtime
   useEffect(() => {
     if (!orderId) return;
     const channel = supabase
       .channel(`order-${orderId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'orders',
-        filter: `id=eq.${orderId}`,
-      }, (payload) => {
-        const newStatus = payload.new?.status;
-        const oldStatus = payload.old?.status;
-        if (newStatus === 'assigned' && oldStatus !== 'assigned') {
-          toast({ title: '📝 العميل طلب تعديل على التصميم' });
-        }
-        loadOrder();
-      })
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'designs',
-        filter: `order_id=eq.${orderId}`,
-      }, () => {
-        loadDesigns();
-      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, () => loadOrder())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items', filter: `order_id=eq.${orderId}` }, () => loadItems())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'designs', filter: `order_id=eq.${orderId}` }, () => loadDesigns())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [orderId, loadOrder, loadDesigns]);
+  }, [orderId, loadOrder, loadItems, loadDesigns]);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const getItemDesigns = (itemId: string) => designs.filter(d => d.order_item_id === itemId);
+
+  // For legacy orders without items, get designs without order_item_id
+  const getLegacyDesigns = () => designs.filter(d => !d.order_item_id);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, itemId: string) => {
     const file = e.target.files?.[0];
     if (!file || !orderId) return;
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
+    if (file.size > 10 * 1024 * 1024) {
       toast({ title: 'الملف كبير جداً', description: 'الحد الأقصى 10MB', variant: 'destructive' });
       return;
     }
 
-    setUploading(true);
+    setUploadingItem(itemId);
     try {
-      const nextVersion = designs.length > 0 ? designs[0].version + 1 : 1;
+      const itemDesigns = getItemDesigns(itemId);
+      const nextVersion = itemDesigns.length > 0 ? itemDesigns[0].version + 1 : 1;
       const ext = file.name.split('.').pop();
-      const filePath = `${orderId}/v${nextVersion}.${ext}`;
+      const filePath = `${orderId}/${itemId}/v${nextVersion}.${ext}`;
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('designs')
         .upload(filePath, file, { upsert: false });
-
       if (uploadError) throw uploadError;
 
-      // Store the storage path (not a URL) since bucket is private
       const { error: insertError } = await supabase
         .from('designs')
-        .insert({
-          order_id: orderId,
-          version: nextVersion,
-          file_url: filePath,
-        });
-
+        .insert({ order_id: orderId, order_item_id: itemId, version: nextVersion, file_url: filePath });
       if (insertError) throw insertError;
 
-      toast({ title: 'تم رفع التصميم بنجاح', description: `الإصدار ${nextVersion} — اضغط "إرسال للموافقة" لإرساله للعميل` });
-      loadOrder();
+      // Update item status
+      await supabase.from('order_items').update({ status: 'design_uploaded' as any }).eq('id', itemId);
+
+      toast({ title: 'تم رفع التصميم بنجاح', description: `الإصدار ${nextVersion}` });
       loadDesigns();
+      loadItems();
     } catch (err: any) {
       toast({ title: 'فشل رفع الملف', description: getUserFriendlyError(err), variant: 'destructive' });
     } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setUploadingItem(null);
+      const ref = fileInputRefs.current[itemId];
+      if (ref) ref.value = '';
     }
   };
 
-  const handleSendForApproval = async () => {
+  const handleSendForApproval = async (itemId: string) => {
     if (!orderId) return;
-    setSendingApproval(true);
-    const currentDetails = ((order?.details || {}) as Record<string, any>);
+    setSendingItem(itemId);
+    const item = orderItems.find(i => i.id === itemId);
+    const currentDetails = item?.details || {};
     const messages = currentDetails.designer_messages || [];
-    if (designerMessage.trim()) {
-      messages.push({ text: designerMessage.trim(), date: new Date().toISOString(), version: designs[0]?.version || 0 });
+    const msg = designerMessages[itemId]?.trim();
+    if (msg) {
+      const itemDesigns = getItemDesigns(itemId);
+      messages.push({ text: msg, date: new Date().toISOString(), version: itemDesigns[0]?.version || 0 });
     }
-    await supabase.from('orders').update({
+
+    await supabase.from('order_items').update({
       status: 'waiting_approval' as any,
       details: { ...currentDetails, designer_messages: messages } as any,
-    }).eq('id', orderId);
-    toast({ title: 'تم إرسال التصميم للعميل للموافقة' });
-    setDesignerMessage('');
-    setShowApprovalForm(false);
+    }).eq('id', itemId);
+
+    // Check if all items are now waiting_approval or beyond
+    const updatedItems = orderItems.map(i => i.id === itemId ? { ...i, status: 'waiting_approval' as OrderStatus } : i);
+    const allWaiting = updatedItems.every(i => ['waiting_approval', 'approved', 'print_ready', 'printed', 'delivered'].includes(i.status));
+    if (allWaiting) {
+      await supabase.from('orders').update({ status: 'waiting_approval' as any }).eq('id', orderId);
+    }
+
+    toast({ title: 'تم إرسال التصميم للموافقة' });
+    setDesignerMessages(prev => ({ ...prev, [itemId]: '' }));
+    setApprovalFormItem(null);
+    loadItems();
     loadOrder();
-    setSendingApproval(false);
+    setSendingItem(null);
   };
 
-  // For ready_design orders: send directly to print
-  const handleSendToPrint = async () => {
+  const handleSendToPrint = async (itemId: string) => {
     if (!orderId) return;
-    setSendingPrint(true);
-    await supabase.from('orders').update({ status: 'print_ready' as any }).eq('id', orderId);
-    toast({ title: '✅ تم تحويل الطلب للطبع' });
-    loadOrder();
-    setSendingPrint(false);
+    setPrintingItem(itemId);
+    await supabase.from('order_items').update({ status: 'print_ready' as any }).eq('id', itemId);
+    toast({ title: '✅ تم تحويل العنصر للطبع' });
+    loadItems();
+    setPrintingItem(null);
   };
 
-  // Upload final print-ready file and send to Telegram
-  const handleUploadAndSendToTelegram = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadAndSendToTelegram = async (e: React.ChangeEvent<HTMLInputElement>, itemId: string) => {
     const file = e.target.files?.[0];
     if (!file || !orderId) return;
-
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast({ title: 'الملف كبير جداً', description: 'الحد الأقصى 10MB', variant: 'destructive' });
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'الملف كبير جداً', variant: 'destructive' });
       return;
     }
 
-    setSendingPrint(true);
+    setPrintingItem(itemId);
     try {
       const ext = file.name.split('.').pop();
-      const filePath = `${orderId}/print-ready.${ext}`;
-
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from('designs')
-        .upload(filePath, file, { upsert: true });
-
+      const filePath = `${orderId}/${itemId}/print-ready.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('designs').upload(filePath, file, { upsert: true });
       if (uploadError) throw uploadError;
 
-      // Also save as a design version
-      const nextVersion = designs.length > 0 ? designs[0].version + 1 : 1;
-      await supabase.from('designs').insert({
-        order_id: orderId,
-        version: nextVersion,
-        file_url: filePath,
-        approved: true,
-      });
+      const itemDesigns = getItemDesigns(itemId);
+      const nextVersion = itemDesigns.length > 0 ? itemDesigns[0].version + 1 : 1;
+      await supabase.from('designs').insert({ order_id: orderId, order_item_id: itemId, version: nextVersion, file_url: filePath, approved: true });
 
-      // Call edge function to send to Telegram and update status
-      const { error: fnError } = await supabase.functions.invoke('send-to-telegram', {
-        body: { orderId, designFilePath: filePath },
-      });
+      await supabase.functions.invoke('send-to-telegram', { body: { orderId, designFilePath: filePath } });
 
-      if (fnError) throw fnError;
+      await supabase.from('order_items').update({ status: 'print_ready' as any }).eq('id', itemId);
 
-      toast({ title: '✅ تم إرسال التصميم للطبع وإلى التيليغرام' });
-      loadOrder();
+      toast({ title: '✅ تم إرسال التصميم للطبع' });
       loadDesigns();
+      loadItems();
     } catch (err: any) {
       toast({ title: 'فشل الإرسال', description: getUserFriendlyError(err), variant: 'destructive' });
     } finally {
-      setSendingPrint(false);
-      if (printFileInputRef.current) printFileInputRef.current.value = '';
+      setPrintingItem(null);
+      const ref = printFileInputRefs.current[itemId];
+      if (ref) ref.value = '';
     }
-  };
-
-  // For ready_design orders: reject with revision note
-  const handleRejectDesign = async () => {
-    if (!orderId || !rejectNote.trim()) return;
-    setSendingApproval(true);
-    const currentRevisions = ((order?.details as any)?.revisions || []) as any[];
-    const newRevision = { note: rejectNote.trim(), date: new Date().toISOString(), version: designs.length };
-    await supabase.from('orders').update({
-      status: 'assigned' as any,
-      details: {
-        ...(order?.details as any || {}),
-        revisions: [...currentRevisions, newRevision],
-      } as any,
-    }).eq('id', orderId);
-    toast({ title: 'تم إرسال ملاحظات التعديل للزبون' });
-    setRejectNote('');
-    setShowRejectForm(false);
-    loadOrder();
-    setSendingApproval(false);
   };
 
   const handleViewDesign = async (filePath: string) => {
@@ -250,18 +236,10 @@ const DesignerOrderDetails = () => {
   const handleDeleteDesign = async (design: DesignVersion) => {
     if (!orderId || !design.file_url) return;
     try {
-      // file_url now stores the path directly
       await supabase.storage.from('designs').remove([design.file_url]);
       await supabase.from('designs').delete().eq('id', design.id);
       toast({ title: 'تم حذف الإصدار' });
       loadDesigns();
-
-      // If no designs left, revert status
-      const remaining = designs.filter(d => d.id !== design.id);
-      if (remaining.length === 0) {
-        await supabase.from('orders').update({ status: 'assigned' as any }).eq('id', orderId);
-        loadOrder();
-      }
     } catch (err: any) {
       toast({ title: 'فشل الحذف', description: getUserFriendlyError(err), variant: 'destructive' });
     }
@@ -270,38 +248,7 @@ const DesignerOrderDetails = () => {
   if (loading) return <div className="py-20 text-center"><p className="text-muted-foreground">جاري التحميل...</p></div>;
   if (!order) return <div className="py-20 text-center"><p className="text-muted-foreground text-lg">لم يتم العثور على الطلب</p></div>;
 
-  const details = (order.details || {}) as Record<string, any>;
-  const revisions: { note: string; date: string; version: number }[] = details.revisions || [];
-  const canUpload = ['assigned', 'design_uploaded'].includes(order.status);
-  const canSendApproval = ['assigned', 'design_uploaded'].includes(order.status) && designs.length > 0;
-  const latestDesign = designs[0];
-
-  // Build timeline dynamically — revision step appears only when there are revisions
-  const hasRevision = revisions.length > 0;
-
-  // Map current order status to a timeline step index
-  const getTimelineStep = () => {
-    if (['print_ready', 'printed', 'delivered'].includes(order.status)) return hasRevision ? 3 : 2;
-    if (order.status === 'approved') return hasRevision ? 3 : 2;
-    if (order.status === 'waiting_approval') return hasRevision ? 2 : 1;
-    // assigned after revision = currently at revision step
-    if (order.status === 'assigned' && hasRevision) return 2;
-    if (['design_uploaded', 'assigned'].includes(order.status)) return 1;
-    return 0;
-  };
-
-  type StepDef = { key: string; label: string; icon: typeof Clock; isRevision?: boolean };
-
-  const baseSteps: StepDef[] = [
-    { key: 'assigned',         label: 'تم تعيين مصمم',      icon: Clock },
-    { key: 'design_sent',      label: 'تم إرسال التصميم',   icon: Send },
-  ];
-  if (hasRevision) {
-    baseSteps.push({ key: 'revision', label: 'طلب تعديل', icon: MessageSquare, isRevision: true });
-  }
-  baseSteps.push({ key: 'approved', label: 'تمت الموافقة', icon: CheckCircle2 });
-
-  const currentStepIndex = getTimelineStep();
+  const hasItems = orderItems.length > 0;
 
   return (
     <div className="py-8">
@@ -316,437 +263,229 @@ const DesignerOrderDetails = () => {
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold text-foreground">تفاصيل الطلب</h1>
-              <p className="text-muted-foreground text-sm mt-1">{order.templates?.name} • {order.profiles?.display_name || '-'}</p>
+              <p className="text-muted-foreground text-sm mt-1">
+                {order.profiles?.display_name || '-'}
+                {hasItems && <span className="mr-2">• {orderItems.length} عناصر</span>}
+              </p>
             </div>
             <StatusBadge status={order.status as OrderStatus} />
           </div>
 
-          {/* Progress Steps */}
-          <div className="bg-card rounded-xl p-5 border border-border mb-6">
-            <div className="flex items-center justify-between relative">
-              {/* Progress line */}
-              <div className="absolute top-5 right-5 left-5 h-0.5 bg-border z-0" />
-              <div
-                className="absolute top-5 right-5 h-0.5 bg-primary z-0 transition-all"
-                style={{ width: `${Math.max(0, currentStepIndex) / (baseSteps.length - 1) * 100}%` }}
-              />
-              {baseSteps.map((step, i) => {
-                const isActive = i <= currentStepIndex;
-                const isCurrent = i === currentStepIndex;
+          {/* Items List */}
+          {hasItems ? (
+            <div className="space-y-4">
+              {orderItems.map((item, idx) => {
+                const isExpanded = expandedItem === item.id;
+                const itemDesigns = getItemDesigns(item.id);
+                const canUpload = ['assigned', 'design_uploaded'].includes(item.status);
+                const canSendApproval = ['assigned', 'design_uploaded'].includes(item.status) && itemDesigns.length > 0;
+                const itemDetails = item.details || {};
+                const revisions: any[] = itemDetails.revisions || [];
+
                 return (
-                  <div key={step.key} className="flex flex-col items-center relative z-10">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
-                      isCurrent ? 'bg-primary border-primary text-primary-foreground scale-110' :
-                      isActive ? 'bg-primary/20 border-primary text-primary' :
-                      'bg-card border-border text-muted-foreground'
-                    }`}>
-                      <step.icon className="w-4 h-4" />
-                    </div>
-                    <span className={`text-xs mt-2 text-center ${isCurrent ? 'font-bold text-primary' : 'text-muted-foreground'}`}>
-                      {step.label}
-                    </span>
+                  <div key={item.id} className="bg-card rounded-xl border border-border overflow-hidden">
+                    {/* Item Header - clickable */}
+                    <button
+                      onClick={() => setExpandedItem(isExpanded ? null : item.id)}
+                      className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-primary font-bold text-sm">{idx + 1}</span>
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-foreground text-sm">
+                            {item.templates?.name || 'عنصر'}
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            {SERVICE_LABELS[item.templates?.service_type as ServiceType] || ''}
+                            {itemDetails.quantity && ` • ${Number(itemDetails.quantity).toLocaleString()} نسخة`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <StatusBadge status={item.status} />
+                        {itemDesigns.length > 0 && (
+                          <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">{itemDesigns.length} تصميم</span>
+                        )}
+                        {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                      </div>
+                    </button>
+
+                    {/* Expanded Content */}
+                    {isExpanded && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="border-t border-border">
+                        {/* Template Preview */}
+                        {item.templates?.preview_url && (
+                          <img src={item.templates.preview_url} alt="" className="w-full max-h-48 object-contain bg-muted/20" />
+                        )}
+
+                        {/* Customer Details for this item */}
+                        <div className="p-4 border-b border-border">
+                          <h4 className="font-bold text-foreground text-sm mb-3 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-primary" />
+                            تفاصيل الزبون
+                          </h4>
+                          {itemDetails.details ? (
+                            <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap bg-muted/30 rounded-xl p-4 border border-border/50">
+                              {itemDetails.details}
+                            </p>
+                          ) : (
+                            <p className="text-muted-foreground text-sm">لا توجد تفاصيل</p>
+                          )}
+                          {Array.isArray(itemDetails.attachment_urls) && itemDetails.attachment_urls.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-2">
+                                <Image className="w-4 h-4 text-primary" />
+                                مرفقات ({itemDetails.attachment_urls.length})
+                              </p>
+                              <div className="grid grid-cols-3 gap-2">
+                                {(itemDetails.attachment_urls as string[]).map((url: string, i: number) => (
+                                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="relative rounded-xl overflow-hidden border border-border/60 aspect-square bg-muted/20 group hover:border-primary/40 transition-colors">
+                                    <img src={url} alt="" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <ExternalLink className="w-5 h-5 text-white" />
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Upload Section */}
+                        <div className="p-4">
+                          {canUpload && (
+                            <div className="mb-4">
+                              <input
+                                ref={el => { fileInputRefs.current[item.id] = el; }}
+                                type="file"
+                                accept=".pdf,.png,.jpg,.jpeg,.webp"
+                                onChange={e => handleFileSelect(e, item.id)}
+                                className="hidden"
+                              />
+                              <div
+                                onClick={() => uploadingItem !== item.id && fileInputRefs.current[item.id]?.click()}
+                                className={cn(
+                                  'border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all',
+                                  uploadingItem === item.id ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-primary/40 hover:bg-primary/5'
+                                )}
+                              >
+                                {uploadingItem === item.id ? (
+                                  <><RefreshCw className="w-8 h-8 text-primary mx-auto mb-2 animate-spin" /><p className="text-foreground font-medium text-sm">جاري الرفع...</p></>
+                                ) : (
+                                  <><Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" /><p className="text-foreground font-medium text-sm">{itemDesigns.length > 0 ? 'رفع إصدار جديد' : 'رفع التصميم'}</p><p className="text-muted-foreground text-xs mt-1">PDF, PNG, JPG — حتى 10MB</p></>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Design Versions */}
+                          {itemDesigns.length > 0 && (
+                            <div className="space-y-2 mb-4">
+                              {itemDesigns.map((design, i) => (
+                                <div key={design.id} className={cn('rounded-lg p-3 flex items-center justify-between gap-3', i === 0 ? 'bg-primary/5 border border-primary/20' : 'bg-muted/50 border border-border')}>
+                                  <div className="flex items-center gap-3">
+                                    <FileText className={cn('w-4 h-4', i === 0 ? 'text-primary' : 'text-muted-foreground')} />
+                                    <div>
+                                      <p className="font-medium text-foreground text-sm">الإصدار {design.version} {i === 0 && <span className="text-primary text-xs mr-1">(الأحدث)</span>}</p>
+                                      <p className="text-muted-foreground text-[11px]">{new Date(design.uploaded_at).toLocaleDateString('ar')}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    {design.approved && <span className="text-[11px] bg-success/10 text-success px-2 py-0.5 rounded-full flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />معتمد</span>}
+                                    {design.file_url && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => handleViewDesign(design.file_url!)}><Eye className="w-3 h-3 ml-1" />عرض</Button>}
+                                    {canUpload && !design.approved && <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => handleDeleteDesign(design)}><Trash2 className="w-3 h-3" /></Button>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Send for Approval */}
+                          {canSendApproval && (
+                            <div className="space-y-3">
+                              {approvalFormItem !== item.id ? (
+                                <Button onClick={() => setApprovalFormItem(item.id)} size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl">
+                                  <Send className="w-4 h-4 ml-2" />إرسال للموافقة
+                                </Button>
+                              ) : (
+                                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-3">
+                                  <p className="text-sm font-bold text-foreground flex items-center gap-2"><MessageSquare className="w-4 h-4 text-accent-foreground" />رسالة للزبون (اختياري)</p>
+                                  <Textarea value={designerMessages[item.id] || ''} onChange={e => setDesignerMessages(prev => ({ ...prev, [item.id]: e.target.value }))} placeholder="مثال: تم التصميم حسب الطلب..." className="min-h-[60px] text-sm resize-none" dir="rtl" maxLength={500} />
+                                  <div className="flex gap-2">
+                                    <Button onClick={() => handleSendForApproval(item.id)} disabled={sendingItem === item.id} className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground">
+                                      <Send className="w-4 h-4 ml-1" />{sendingItem === item.id ? 'جاري الإرسال...' : 'إرسال'}
+                                    </Button>
+                                    <Button onClick={() => setApprovalFormItem(null)} variant="outline">إلغاء</Button>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Waiting approval state */}
+                          {item.status === 'waiting_approval' && (
+                            <div className="bg-accent/10 rounded-lg p-4 text-center">
+                              <RefreshCw className="w-5 h-5 text-accent-foreground mx-auto mb-2" />
+                              <p className="font-medium text-foreground text-sm">بانتظار موافقة الزبون</p>
+                            </div>
+                          )}
+
+                          {/* Approved - upload print file */}
+                          {item.status === 'approved' && (
+                            <div className="space-y-3">
+                              <div className="bg-success/10 rounded-lg p-4 text-center">
+                                <CheckCircle2 className="w-5 h-5 text-success mx-auto mb-2" />
+                                <p className="font-medium text-foreground text-sm">تمت الموافقة!</p>
+                                <p className="text-muted-foreground text-xs mt-1">ارفع الملف الجاهز للطبع</p>
+                              </div>
+                              <input ref={el => { printFileInputRefs.current[item.id] = el; }} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.psd" onChange={e => handleUploadAndSendToTelegram(e, item.id)} className="hidden" />
+                              <Button onClick={() => printFileInputRefs.current[item.id]?.click()} disabled={printingItem === item.id} size="lg" className="w-full bg-success hover:bg-success/90 text-success-foreground rounded-xl">
+                                <Printer className="w-4 h-4 ml-2" />{printingItem === item.id ? 'جاري الإرسال...' : 'رفع للمطبعة 🖨'}
+                              </Button>
+                            </div>
+                          )}
+
+                          {item.status === 'print_ready' && (
+                            <div className="bg-success/10 rounded-lg p-4 text-center">
+                              <Printer className="w-5 h-5 text-success mx-auto mb-2" />
+                              <p className="font-medium text-foreground text-sm">تم تحويل العنصر للطبع!</p>
+                            </div>
+                          )}
+
+                          {/* Revision Notes */}
+                          {revisions.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-border">
+                              <div className="flex items-center gap-2 mb-3">
+                                <MessageSquare className="w-4 h-4 text-destructive" />
+                                <h4 className="font-bold text-foreground text-sm">ملاحظات الزبون</h4>
+                              </div>
+                              <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3 mb-2">
+                                <p className="text-sm font-bold text-destructive mb-1 flex items-center gap-1">
+                                  <AlertTriangle className="w-3.5 h-3.5" />آخر تعديل
+                                </p>
+                                <p className="text-foreground text-sm">{revisions[revisions.length - 1].note}</p>
+                              </div>
+                              {revisions.length > 1 && revisions.slice(0, -1).reverse().map((rev: any, i: number) => (
+                                <div key={i} className="bg-muted/50 rounded-lg p-3 border border-border mb-1.5">
+                                  <p className="text-foreground text-sm">{rev.note}</p>
+                                  <p className="text-[11px] text-muted-foreground mt-1">{new Date(rev.date).toLocaleDateString('ar')}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </div>
-
-          {/* Template Info — hidden for ready_design orders */}
-          {details.order_type !== 'ready_design' && (
-            <div className="bg-card rounded-xl border border-border mb-6 overflow-hidden">
-              {order.templates?.preview_url ? (
-                <img src={order.templates.preview_url} alt="القالب" className="w-full max-h-64 object-contain bg-muted/20" />
-              ) : (
-                <div className="h-32 bg-muted/20 flex items-center justify-center">
-                  <Image className="w-10 h-10 text-muted-foreground/30" />
-                </div>
-              )}
-              <div className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-0.5">رقم القالب</p>
-                  <p className="font-mono font-bold text-primary text-xl tracking-widest">
-                    {order.template_id ? order.template_id.slice(0, 8).toUpperCase() : '—'}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => {
-                    if (order.template_id) {
-                      navigator.clipboard.writeText(order.template_id.slice(0, 8).toUpperCase());
-                      toast({ title: 'تم نسخ رقم القالب' });
-                    }
-                  }}
-                >
-                  <Copy className="w-4 h-4" />
-                  نسخ الرقم
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Customer Details */}
-          <div className="bg-card rounded-xl p-6 border border-border mb-6">
-            {/* Ready Design Badge */}
-            {details.order_type === 'ready_design' && (
-              <div className="flex items-center gap-2 bg-cmyk-cyan/10 text-cmyk-cyan border border-cmyk-cyan/20 rounded-xl px-4 py-2.5 mb-4 text-sm font-semibold">
-                <Upload className="w-4 h-4" />
-                تصميم جاهز للمراجعة — نوع الطباعة: {details.service_type || '—'}
-              </div>
-            )}
-
-            <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-primary" />
-              {details.order_type === 'ready_design' ? 'ملف التصميم الجاهز' : 'تفاصيل التصميم من الزبون'}
-            </h3>
-
-            {/* Ready design: show the file prominently */}
-            {details.order_type === 'ready_design' && Array.isArray(details.attachment_urls) && details.attachment_urls.length > 0 ? (
-              <div className="space-y-3">
-                {(details.attachment_urls as string[]).map((url: string, i: number) => {
-                  const ext = url.split('.').pop()?.toLowerCase() || '';
-                  const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(ext);
-                  return (
-                    <a
-                      key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block rounded-xl overflow-hidden border border-border/60 bg-muted/20 group hover:border-primary/40 transition-colors"
-                    >
-                      {isImage ? (
-                        <div className="relative">
-                          <img src={url} alt="" className="w-full max-h-80 object-contain" />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <ExternalLink className="w-8 h-8 text-white" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3 p-4">
-                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <FileText className="w-6 h-6 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-foreground text-sm">{ext.toUpperCase()} — ملف التصميم</p>
-                            <p className="text-muted-foreground text-xs">اضغط لفتح الملف</p>
-                          </div>
-                          <ExternalLink className="w-4 h-4 text-muted-foreground mr-auto group-hover:text-primary transition-colors" />
-                        </div>
-                      )}
-                    </a>
-                  );
-                })}
-              </div>
-            ) : details.details ? (
-              <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap bg-muted/30 rounded-xl p-4 border border-border/50">
-                {details.details}
-              </p>
-            ) : (
-              <p className="text-muted-foreground text-sm">لا توجد تفاصيل</p>
-            )}
-
-            {/* Non-ready-design attachments */}
-            {details.order_type !== 'ready_design' && Array.isArray(details.attachment_urls) && details.attachment_urls.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-border">
-                <p className="text-xs font-bold text-foreground mb-3 flex items-center gap-2">
-                  <Image className="w-4 h-4 text-primary" />
-                  صور / لوغوهات الزبون ({details.attachment_urls.length})
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {(details.attachment_urls as string[]).map((url: string, i: number) => (
-                    <a
-                      key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="relative rounded-xl overflow-hidden border border-border/60 aspect-square bg-muted/20 group hover:border-primary/40 transition-colors"
-                    >
-                      <img src={url} alt="" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <ExternalLink className="w-5 h-5 text-white" />
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Upload Section */}
-          <div className="bg-card rounded-xl p-6 border border-border mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-foreground">التصميمات</h3>
-              {designs.length > 0 && (
-                <span className="text-xs text-muted-foreground">{designs.length} إصدار</span>
-              )}
-            </div>
-
-            {/* Upload Area */}
-            {canUpload && (
-              <div className="mb-4">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg,.webp"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <div
-                  onClick={() => !uploading && fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-                    uploading
-                      ? 'border-primary/50 bg-primary/5'
-                      : 'border-border hover:border-primary/40 hover:bg-primary/5'
-                  }`}
-                >
-                  {uploading ? (
-                    <>
-                      <RefreshCw className="w-10 h-10 text-primary mx-auto mb-3 animate-spin" />
-                      <p className="text-foreground font-medium">جاري الرفع...</p>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-foreground font-medium">
-                        {designs.length > 0 ? 'رفع إصدار جديد' : 'اضغط لرفع ملف التصميم'}
-                      </p>
-                      <p className="text-muted-foreground text-sm mt-1">PDF, PNG, JPG, WEBP — حتى 10MB</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Design Versions List */}
-            {designs.length > 0 && (
-              <div className="space-y-3">
-                {designs.map((design, i) => (
-                  <div
-                    key={design.id}
-                    className={`rounded-lg p-4 flex items-center justify-between gap-3 ${
-                      i === 0 ? 'bg-primary/5 border border-primary/20' : 'bg-muted/50 border border-border'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className={`w-5 h-5 ${i === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <div>
-                        <p className="font-medium text-foreground text-sm">
-                          الإصدار {design.version}
-                          {i === 0 && <span className="text-primary text-xs mr-2">(الأحدث)</span>}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {new Date(design.uploaded_at).toLocaleDateString('ar')} — {new Date(design.uploaded_at).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {design.approved && (
-                        <span className="text-xs bg-success/10 text-success px-2 py-1 rounded-full flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> معتمد
-                        </span>
-                      )}
-                      {design.file_url && (
-                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => handleViewDesign(design.file_url!)}>
-                          <Eye className="w-3 h-3 ml-1" /> عرض
-                        </Button>
-                      )}
-                      {canUpload && !design.approved && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 text-xs text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteDesign(design)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Actions for ready_design: send to print OR reject with note */}
-            {details.order_type === 'ready_design' && ['assigned', 'design_uploaded', 'submitted'].includes(order.status) && (
-              <div className="mt-4 space-y-3">
-                {/* Send to print */}
-                <Button
-                  onClick={handleSendToPrint}
-                  disabled={sendingPrint || sendingApproval}
-                  size="lg"
-                  className="w-full bg-success hover:bg-success/90 text-success-foreground text-base py-5 rounded-xl"
-                >
-                  <Printer className="w-5 h-5 ml-2" />
-                  {sendingPrint ? 'جاري التحويل...' : 'تحويل للطبع ✅'}
-                </Button>
-
-                {/* Reject / request revision */}
-                {!showRejectForm ? (
-                  <Button
-                    onClick={() => setShowRejectForm(true)}
-                    variant="outline"
-                    size="lg"
-                    className="w-full border-destructive/40 text-destructive hover:bg-destructive/5 text-base py-5 rounded-xl"
-                    disabled={sendingPrint || sendingApproval}
-                  >
-                    <XCircle className="w-5 h-5 ml-2" />
-                    رفض التصميم وطلب تعديل
-                  </Button>
-                ) : (
-                  <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 space-y-3">
-                    <p className="text-sm font-bold text-destructive flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4" />
-                      اكتب التعديلات المطلوبة
-                    </p>
-                    <Textarea
-                      value={rejectNote}
-                      onChange={e => setRejectNote(e.target.value)}
-                      placeholder="اذكر التعديلات المطلوبة على التصميم..."
-                      className="min-h-[100px] text-sm resize-none"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleRejectDesign}
-                        disabled={!rejectNote.trim() || sendingApproval}
-                        size="sm"
-                        className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                      >
-                        {sendingApproval ? <><RefreshCw className="w-4 h-4 ml-1 animate-spin" />جاري الإرسال...</> : 'إرسال التعديلات'}
-                      </Button>
-                      <Button onClick={() => { setShowRejectForm(false); setRejectNote(''); }} variant="outline" size="sm">
-                        إلغاء
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Send for Approval — for non-ready_design orders */}
-            {details.order_type !== 'ready_design' && canSendApproval && (
-              <div className="mt-4 space-y-3">
-                {!showApprovalForm ? (
-                  <Button
-                    onClick={() => setShowApprovalForm(true)}
-                    size="lg"
-                    className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-6 rounded-xl"
-                  >
-                    <Send className="w-5 h-5 ml-2" />
-                    إرسال للعميل للموافقة
-                  </Button>
-                ) : (
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-3">
-                    <p className="text-sm font-bold text-foreground flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-accent-foreground" />
-                      أضف رسالة للزبون (اختياري)
-                    </p>
-                    <Textarea
-                      value={designerMessage}
-                      onChange={e => setDesignerMessage(e.target.value)}
-                      placeholder="مثال: تم التصميم حسب الطلب، الرجاء مراجعة الألوان..."
-                      className="min-h-[80px] text-sm resize-none"
-                      dir="rtl"
-                      maxLength={500}
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleSendForApproval}
-                        disabled={sendingApproval}
-                        size="lg"
-                        className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
-                      >
-                        <Send className="w-4 h-4 ml-1" />
-                        {sendingApproval ? 'جاري الإرسال...' : 'إرسال للموافقة'}
-                      </Button>
-                      <Button onClick={() => { setShowApprovalForm(false); setDesignerMessage(''); }} variant="outline" size="lg">
-                        إلغاء
-                      </Button>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-            )}
-
-            {order.status === 'waiting_approval' && (
-              <div className="mt-4 bg-accent/10 rounded-lg p-4 text-center">
-                <RefreshCw className="w-6 h-6 text-accent-foreground mx-auto mb-2" />
-                <p className="font-medium text-foreground">بانتظار موافقة العميل</p>
-                <p className="text-muted-foreground text-sm mt-1">سيتم إخطارك عند ردّ العميل</p>
-              </div>
-            )}
-
-            {order.status === 'print_ready' && (
-              <div className="mt-4 bg-success/10 rounded-lg p-4 text-center">
-                <Printer className="w-6 h-6 text-success mx-auto mb-2" />
-                <p className="font-medium text-foreground">تم تحويل الطلب للطبع!</p>
-              </div>
-            )}
-
-            {order.status === 'approved' && (
-              <div className="mt-4 space-y-3">
-                <div className="bg-success/10 rounded-lg p-4 text-center">
-                  <CheckCircle2 className="w-6 h-6 text-success mx-auto mb-2" />
-                  <p className="font-medium text-foreground">تمت موافقة العميل على التصميم!</p>
-                  <p className="text-muted-foreground text-sm mt-1">ارفع التصميم الجاهز للطبع لإرساله للمطبعة</p>
-                </div>
-                <input
-                  ref={printFileInputRef}
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg,.webp,.psd"
-                  onChange={handleUploadAndSendToTelegram}
-                  className="hidden"
-                />
-                <Button
-                  onClick={() => printFileInputRef.current?.click()}
-                  disabled={sendingPrint}
-                  size="lg"
-                  className="w-full bg-success hover:bg-success/90 text-success-foreground text-base py-5 rounded-xl"
-                >
-                  <Printer className="w-5 h-5 ml-2" />
-                  {sendingPrint ? 'جاري الإرسال...' : 'رفع التصميم الجاهز وإرسال للمطبعة 🖨'}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Revision Notes from Customer */}
-          {revisions.length > 0 && (
-            <div className="bg-card rounded-xl p-6 border border-border mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <MessageSquare className="w-5 h-5 text-destructive" />
-                <h3 className="font-bold text-foreground">ملاحظات العميل</h3>
-              </div>
-
-              {/* Latest revision highlighted */}
-              <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 mb-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="w-4 h-4 text-destructive" />
-                  <span className="text-sm font-bold text-destructive">آخر طلب تعديل</span>
-                  <span className="text-xs text-muted-foreground mr-auto">
-                    الإصدار {revisions[revisions.length - 1].version} — {new Date(revisions[revisions.length - 1].date).toLocaleDateString('ar')}
-                  </span>
-                </div>
-                <p className="text-foreground">{revisions[revisions.length - 1].note}</p>
-              </div>
-
-              {/* Older revisions */}
-              {revisions.length > 1 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">تعديلات سابقة:</p>
-                  {revisions.slice(0, -1).reverse().map((rev, i) => (
-                    <div key={i} className="bg-muted/50 rounded-lg p-3 border border-border">
-                      <div className="flex items-center gap-2 mb-1">
-                        <MessageSquare className="w-3 h-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          الإصدار {rev.version} — {new Date(rev.date).toLocaleDateString('ar')}
-                        </span>
-                      </div>
-                      <p className="text-foreground text-sm">{rev.note}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+          ) : (
+            /* Legacy: single order without items - show old behavior */
+            <div className="bg-card rounded-xl p-6 border border-border">
+              <p className="text-muted-foreground text-center">هذا الطلب لا يحتوي على عناصر فرعية</p>
             </div>
           )}
         </motion.div>
