@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
-import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox, Printer } from 'lucide-react';
+import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox, Printer, Package } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -31,15 +31,30 @@ const DesignerOrders = () => {
       return;
     }
 
+    // Fetch customer profiles
     const customerIds = [...new Set(ordersData.map(o => o.customer_id))];
     const { data: profilesData } = await supabase
       .rpc('get_customer_names_for_designer', { customer_ids: customerIds });
-    
     const profileMap = new Map((profilesData || []).map((p: any) => [p.user_id, p]));
-    
+
+    // Fetch order_items for all orders
+    const orderIds = ordersData.map(o => o.id);
+    const { data: itemsData } = await supabase
+      .from('order_items' as any)
+      .select('*, templates(name, service_type)')
+      .in('order_id', orderIds);
+
+    const itemsByOrder = new Map<string, any[]>();
+    (itemsData || []).forEach((item: any) => {
+      const list = itemsByOrder.get(item.order_id) || [];
+      list.push(item);
+      itemsByOrder.set(item.order_id, list);
+    });
+
     setOrders(ordersData.map(o => ({
       ...o,
       profiles: profileMap.get(o.customer_id) || null,
+      _items: itemsByOrder.get(o.id) || [],
     })));
     setLoading(false);
   }, [user]);
@@ -50,11 +65,7 @@ const DesignerOrders = () => {
     if (!user) return;
     const channel = supabase
       .channel('designer-orders')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'orders',
-      }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
         const newRow = payload.new as any;
         const oldRow = payload.old as any;
         if (newRow?.designer_id === user.id || oldRow?.designer_id === user.id) {
@@ -64,6 +75,7 @@ const DesignerOrders = () => {
           loadOrders();
         }
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => { loadOrders(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, loadOrders]);
@@ -91,6 +103,9 @@ const DesignerOrders = () => {
 
   const OrderCard = ({ order, i }: { order: any; i: number }) => {
     const isApproved = order.status === 'approved';
+    const hasItems = order._items && order._items.length > 0;
+    const itemCount = hasItems ? order._items.length : 1;
+
     return (
       <motion.div
         key={order.id}
@@ -117,13 +132,33 @@ const DesignerOrders = () => {
               'w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0',
               isApproved ? 'bg-success/15' : 'bg-primary/10'
             )}>
-              <FileText className={cn('w-6 h-6', isApproved ? 'text-success' : 'text-primary')} />
+              {itemCount > 1 ? (
+                <Package className={cn('w-6 h-6', isApproved ? 'text-success' : 'text-primary')} />
+              ) : (
+                <FileText className={cn('w-6 h-6', isApproved ? 'text-success' : 'text-primary')} />
+              )}
             </div>
             <div>
-              <h3 className="font-bold text-foreground">{order.templates?.name || '-'}</h3>
-              <p className="text-muted-foreground text-sm">
-                {order.profiles?.display_name || '-'} • {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
-              </p>
+              <h3 className="font-bold text-foreground">
+                {order.profiles?.display_name || '-'}
+                {itemCount > 1 && (
+                  <span className="text-xs font-normal text-muted-foreground mr-2">({itemCount} عناصر)</span>
+                )}
+              </h3>
+              {hasItems ? (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {order._items.slice(0, 3).map((item: any, idx: number) => (
+                    <span key={idx} className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+                      {item.templates?.name || SERVICE_LABELS[item.templates?.service_type as ServiceType] || '-'}
+                    </span>
+                  ))}
+                  {itemCount > 3 && <span className="text-[11px] text-muted-foreground">+{itemCount - 3}</span>}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  {order.templates?.name || '-'} • {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
+                </p>
+              )}
               <p className="text-muted-foreground text-xs mt-1">{new Date(order.created_at).toLocaleDateString('ar')}</p>
             </div>
           </div>
