@@ -22,6 +22,7 @@ export default {
       fontFamily: {
         cairo: ["Cairo", "sans-serif"],
         omnes: ["'Omnes Arabic'", "Cairo", "sans-serif"],
+        noor: ["'Noor'", "Cairo", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
