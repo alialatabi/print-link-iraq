@@ -19,21 +19,21 @@ interface PopularTemplate {
   order_count: number;
 }
 
-interface ServiceCategory {
+interface DBService {
   id: string;
   label: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  link: string;
+  icon: string;
+  icon_url: string | null;
+  sort_order: number;
 }
 
-const SERVICE_CATEGORIES: ServiceCategory[] = [
-  { id: 'business_card', label: 'كروت شخصية', icon: <CreditCard className="w-7 h-7" />, iconBg: 'bg-primary/12 text-primary', link: '/services' },
-  { id: 'flyer', label: 'فلايرات', icon: <FileText className="w-7 h-7" />, iconBg: 'bg-cmyk-magenta/12 text-cmyk-magenta', link: '/services' },
-  { id: 'receipt', label: 'وصولات', icon: <Receipt className="w-7 h-7" />, iconBg: 'bg-accent/20 text-accent-foreground', link: '/services' },
-  { id: 'letterhead', label: 'ترويسة', icon: <FileText className="w-7 h-7" />, iconBg: 'bg-cmyk-cyan/12 text-cmyk-cyan', link: '/services' },
-  { id: 'menu', label: 'قوائم طعام', icon: <ShoppingBag className="w-7 h-7" />, iconBg: 'bg-success/12 text-success', link: '/services' },
-  { id: 'invitation', label: 'بطاقات دعوة', icon: <Palette className="w-7 h-7" />, iconBg: 'bg-cmyk-magenta/10 text-cmyk-magenta', link: '/services' },
+const ICON_BG_COLORS = [
+  'bg-primary/12 text-primary',
+  'bg-cmyk-magenta/12 text-cmyk-magenta',
+  'bg-accent/20 text-accent-foreground',
+  'bg-cmyk-cyan/12 text-cmyk-cyan',
+  'bg-success/12 text-success',
+  'bg-cmyk-magenta/10 text-cmyk-magenta',
 ];
 
 const SERVICE_LABELS: Record<string, string> = {
@@ -93,10 +93,21 @@ const Index = () => {
   const { role } = useAuth();
   const [popularTemplates, setPopularTemplates] = useState<PopularTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [parentServices, setParentServices] = useState<DBService[]>([]);
   const [realDesigners, setRealDesigners] = useState<{ name: string; initials: string; color: string; completedOrders: number }[]>([]);
 
 
   useEffect(() => {
+    // Load parent services from DB
+    const loadServices = async () => {
+      const { data } = await supabase
+        .from('services')
+        .select('id, label, icon, icon_url, sort_order')
+        .is('parent_id', null)
+        .order('sort_order');
+      if (data) setParentServices(data);
+    };
+    loadServices();
     const loadPopular = async () => {
       setLoading(true);
       const { data: templates } = await supabase
@@ -241,13 +252,17 @@ const Index = () => {
       <section className="py-8 bg-muted/30 border-b border-border/50">
         <div className="container max-w-5xl">
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-            {SERVICE_CATEGORIES.map((cat, i) => (
-              <motion.div key={cat.id} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={scaleIn} custom={i}>
-                <Link to={cat.link} className="group flex flex-col items-center gap-2 p-3 sm:p-4 rounded-2xl bg-card border border-border/60 hover:border-primary/30 hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 text-center">
-                  <div className={`w-11 h-11 sm:w-13 sm:h-13 rounded-xl flex items-center justify-center ${cat.iconBg} group-hover:scale-110 transition-transform duration-300`}>
-                    {cat.icon}
+            {parentServices.map((svc, i) => (
+              <motion.div key={svc.id} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={scaleIn} custom={i}>
+                <Link to="/services" className="group flex flex-col items-center gap-2 p-3 sm:p-4 rounded-2xl bg-card border border-border/60 hover:border-primary/30 hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 text-center">
+                  <div className={`w-11 h-11 sm:w-13 sm:h-13 rounded-xl flex items-center justify-center ${ICON_BG_COLORS[i % ICON_BG_COLORS.length]} group-hover:scale-110 transition-transform duration-300`}>
+                    {svc.icon_url ? (
+                      <img src={svc.icon_url} alt={svc.label} className="w-7 h-7 object-contain" />
+                    ) : (
+                      <span className="text-2xl">{svc.icon}</span>
+                    )}
                   </div>
-                  <span className="text-[11px] sm:text-xs font-bold text-foreground leading-tight">{cat.label}</span>
+                  <span className="text-[11px] sm:text-xs font-bold text-foreground leading-tight">{svc.label}</span>
                 </Link>
               </motion.div>
             ))}
