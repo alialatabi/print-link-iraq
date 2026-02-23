@@ -285,7 +285,7 @@ const TemplateDetails = () => {
 
             {/* Description */}
             {template.description && (
-              <p className="text-sm text-muted-foreground leading-relaxed bg-muted/30 rounded-xl p-4 border border-border/40">
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line bg-muted/30 rounded-xl p-4 border border-border/40">
                 {template.description}
               </p>
             )}
