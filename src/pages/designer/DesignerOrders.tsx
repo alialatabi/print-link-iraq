@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
-import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox, Printer, Package } from 'lucide-react';
+import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox, Printer, Package, Edit2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -83,26 +83,46 @@ const DesignerOrders = () => {
   const hiddenStatuses: OrderStatus[] = ['printed', 'delivered'];
   const visibleOrders = orders.filter(o => !hiddenStatuses.includes(o.status));
 
-  const tabs: { key: string; label: string; status?: OrderStatus; icon: typeof Inbox; color: string }[] = [
+  // Helper: does an order have items needing revision (assigned items with revisions)?
+  const hasRevisionItems = (order: any) => {
+    return (order._items || []).some((item: any) => {
+      const revisions = item.details?.revisions;
+      return item.status === 'assigned' && Array.isArray(revisions) && revisions.length > 0;
+    });
+  };
+
+  // Helper: is a "new" assigned order (no revision items)
+  const isNewAssigned = (order: any) => order.status === 'assigned' && !hasRevisionItems(order);
+
+  const tabs: { key: string; label: string; icon: typeof Inbox; color: string }[] = [
     { key: 'all', label: 'الكل', icon: Inbox, color: 'text-primary' },
-    { key: 'assigned', label: 'بانتظار الرفع', status: 'assigned', icon: Upload, color: 'text-cmyk-magenta' },
-    { key: 'design_uploaded', label: 'تم الرفع', status: 'design_uploaded', icon: FileText, color: 'text-primary' },
-    { key: 'waiting_approval', label: 'بانتظار الموافقة', status: 'waiting_approval', icon: Clock, color: 'text-cmyk-yellow' },
-    { key: 'approved', label: 'تمت الموافقة', status: 'approved', icon: CheckCircle2, color: 'text-success' },
-    { key: 'print_ready', label: 'جاهز للطباعة', status: 'print_ready', icon: Printer, color: 'text-success' },
+    { key: 'assigned', label: 'بانتظار الرفع', icon: Upload, color: 'text-cmyk-magenta' },
+    { key: 'revisions', label: 'تعديلات', icon: Edit2, color: 'text-destructive' },
+    { key: 'design_uploaded', label: 'تم الرفع', icon: FileText, color: 'text-primary' },
+    { key: 'waiting_approval', label: 'بانتظار الموافقة', icon: Clock, color: 'text-cmyk-yellow' },
+    { key: 'approved', label: 'تمت الموافقة', icon: CheckCircle2, color: 'text-success' },
+    { key: 'print_ready', label: 'جاهز للطباعة', icon: Printer, color: 'text-success' },
   ];
 
-  const getCount = (status?: OrderStatus) =>
-    status ? visibleOrders.filter(o => o.status === status).length : visibleOrders.length;
+  const getCount = (key: string) => {
+    if (key === 'all') return visibleOrders.length;
+    if (key === 'assigned') return visibleOrders.filter(o => isNewAssigned(o)).length;
+    if (key === 'revisions') return visibleOrders.filter(o => hasRevisionItems(o)).length;
+    return visibleOrders.filter(o => o.status === key).length;
+  };
 
-  const filteredOrders = activeTab === 'all'
-    ? visibleOrders
-    : visibleOrders.filter(o => o.status === activeTab);
+  const filteredOrders = (() => {
+    if (activeTab === 'all') return visibleOrders;
+    if (activeTab === 'assigned') return visibleOrders.filter(o => isNewAssigned(o));
+    if (activeTab === 'revisions') return visibleOrders.filter(o => hasRevisionItems(o));
+    return visibleOrders.filter(o => o.status === activeTab);
+  })();
 
   if (loading) return <div className="py-20 text-center"><p className="text-muted-foreground">جاري التحميل...</p></div>;
 
   const OrderCard = ({ order, i }: { order: any; i: number }) => {
     const isApproved = order.status === 'approved';
+    const isRevision = hasRevisionItems(order);
     const hasItems = order._items && order._items.length > 0;
     const itemCount = hasItems ? order._items.length : 1;
 
@@ -117,6 +137,8 @@ const DesignerOrders = () => {
           'rounded-xl p-5 border shadow-sm hover:shadow-md transition-all cursor-pointer',
           isApproved
             ? 'bg-success/5 border-success/30 ring-1 ring-success/20'
+            : isRevision
+            ? 'bg-destructive/5 border-destructive/30 ring-1 ring-destructive/20'
             : 'bg-card border-border'
         )}
       >
@@ -126,11 +148,17 @@ const DesignerOrders = () => {
             بانتظار رفع ملف الطبع
           </div>
         )}
+        {isRevision && (
+          <div className="flex items-center gap-2 text-destructive text-xs font-bold mb-3 bg-destructive/10 rounded-lg px-3 py-1.5 w-fit">
+            <Edit2 className="w-3.5 h-3.5 animate-pulse" />
+            مطلوب تعديل
+          </div>
+        )}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-4">
             <div className={cn(
               'w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0',
-              isApproved ? 'bg-success/15' : 'bg-primary/10'
+              isApproved ? 'bg-success/15' : isRevision ? 'bg-destructive/15' : 'bg-primary/10'
             )}>
               {itemCount > 1 ? (
                 <Package className={cn('w-6 h-6', isApproved ? 'text-success' : 'text-primary')} />
@@ -186,7 +214,7 @@ const DesignerOrders = () => {
         {/* Section Navbar */}
         <div className="flex gap-2 overflow-x-auto pb-1 mb-6 scrollbar-hide" dir="rtl">
           {tabs.map((tab) => {
-            const count = getCount(tab.status);
+            const count = getCount(tab.key);
             const isActive = activeTab === tab.key;
             return (
               <button
