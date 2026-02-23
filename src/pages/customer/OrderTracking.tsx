@@ -4,10 +4,11 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, FileText, Palette, Printer, Truck, Package, Eye, MessageSquare, RefreshCw, MapPin, ImagePlus, X, Edit2, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, Clock, FileText, Palette, Printer, Truck, Package, Eye, MessageSquare, RefreshCw, MapPin, ImagePlus, X, Edit2, XCircle, ChevronDown, ChevronUp, Timer } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import type { OrderStatus } from '@/data/mockData';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
+import { useServices } from '@/hooks/useServices';
 import { toast } from '@/hooks/use-toast';
 import { getDesignSignedUrl } from '@/lib/storage';
 import { playNotificationSound } from '@/lib/notificationSound';
@@ -72,6 +73,7 @@ const ITEM_STEPS = [
 const OrderTracking = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const { services: allServices } = useServices();
   const [order, setOrder] = useState<any>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -274,7 +276,18 @@ const OrderTracking = () => {
                         </div>
                         <div>
                           <h3 className="font-bold text-foreground text-sm">{item.templates?.name || 'عنصر'}</h3>
-                          <p className="text-xs text-muted-foreground">{SERVICE_LABELS[item.templates?.service_type as ServiceType] || ''}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-xs text-muted-foreground">{SERVICE_LABELS[item.templates?.service_type as ServiceType] || ''}</p>
+                            {(() => {
+                              const svc = allServices.find(s => s.id === item.templates?.service_type);
+                              return svc && svc.completion_days > 0 ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                                  <Timer className="w-3 h-3" />
+                                  {svc.completion_days} {svc.completion_days === 1 ? 'يوم' : 'أيام'}
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
