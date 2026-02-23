@@ -43,7 +43,7 @@ const ServiceSelection = () => {
                   )}
                 </div>
                 <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{service.label}</h3>
-                <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">{service.description}</p>
+                <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed whitespace-pre-line">{service.description}</p>
               </Link>
             </motion.div>
           ))}
