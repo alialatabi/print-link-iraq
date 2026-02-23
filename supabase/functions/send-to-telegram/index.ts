@@ -1,8 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import UTIF from 'https://esm.sh/utif2@4.1.0'
+import UPNG from 'https://esm.sh/upng-js@2.1.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+}
+
+function tifToPng(tifBuffer: ArrayBuffer): Uint8Array {
+  const ifds = UTIF.decode(tifBuffer)
+  UTIF.decodeImage(tifBuffer, ifds[0])
+  const rgba = UTIF.toRGBA8(ifds[0])
+  const width = ifds[0].width
+  const height = ifds[0].height
+  const png = UPNG.encode([rgba.buffer], width, height, 0)
+  return new Uint8Array(png)
 }
 
 Deno.serve(async (req) => {
@@ -78,21 +90,52 @@ ${address}
 
     const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`
     const ext = designFilePath.split('.').pop()?.toLowerCase() || ''
-    const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(ext)
+    const isTif = ['tif', 'tiff'].includes(ext)
 
     if (fileData && !dlError) {
-      // Send as photo (for images) or document (for PDFs etc.) with caption containing all info
-      const formData = new FormData()
-      formData.append('chat_id', TELEGRAM_CHAT_ID)
-      formData.append('caption', message)
-      formData.append('parse_mode', 'Markdown')
+      const fileArrayBuffer = await fileData.arrayBuffer()
 
+      // Step 1: Send the original TIF file as document
+      const formData1 = new FormData()
+      formData1.append('chat_id', TELEGRAM_CHAT_ID)
+      formData1.append('caption', message)
+      formData1.append('parse_mode', 'Markdown')
       const fileName = `design-${orderId.slice(0, 8)}.${ext}`
+      formData1.append('document', new Blob([fileArrayBuffer], { type: 'image/tiff' }), fileName)
 
-      formData.append('document', new Blob([await fileData.arrayBuffer()], { type: fileData.type }), fileName)
-      const res = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData })
-      const data = await res.json()
-      if (!res.ok) console.error('Telegram sendDocument failed:', data)
+      const res1 = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData1 })
+      const data1 = await res1.json()
+      if (!res1.ok) console.error('Telegram sendDocument (TIF) failed:', data1)
+
+      // Step 2: If TIF, convert to PNG and send as a second message
+      if (isTif) {
+        try {
+          const pngData = tifToPng(fileArrayBuffer)
+          const pngFileName = `design-${orderId.slice(0, 8)}.png`
+
+          const formData2 = new FormData()
+          formData2.append('chat_id', TELEGRAM_CHAT_ID)
+          formData2.append('caption', `📎 نسخة PNG — طلب \`${orderId.slice(0, 8)}\``)
+          formData2.append('parse_mode', 'Markdown')
+          formData2.append('document', new Blob([pngData], { type: 'image/png' }), pngFileName)
+
+          const res2 = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData2 })
+          const data2 = await res2.json()
+          if (!res2.ok) console.error('Telegram sendDocument (PNG) failed:', data2)
+        } catch (convErr) {
+          console.error('TIF to PNG conversion failed:', convErr)
+          // Send a text message noting the conversion failure
+          await fetch(`${telegramUrl}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: TELEGRAM_CHAT_ID,
+              text: `⚠️ تعذر تحويل ملف TIF إلى PNG للطلب \`${orderId.slice(0, 8)}\``,
+              parse_mode: 'Markdown',
+            }),
+          })
+        }
+      }
     } else {
       // Fallback: send text message only
       const msgRes = await fetch(`${telegramUrl}/sendMessage`, {
