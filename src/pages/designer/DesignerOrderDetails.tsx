@@ -360,7 +360,7 @@ const DesignerOrderDetails = () => {
                               <input
                                 ref={el => { fileInputRefs.current[item.id] = el; }}
                                 type="file"
-                                accept=".pdf,.png,.jpg,.jpeg,.webp"
+                                accept=".pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff"
                                 onChange={e => handleFileSelect(e, item.id)}
                                 className="hidden"
                               />
@@ -374,7 +374,7 @@ const DesignerOrderDetails = () => {
                                 {uploadingItem === item.id ? (
                                   <><RefreshCw className="w-8 h-8 text-primary mx-auto mb-2 animate-spin" /><p className="text-foreground font-medium text-sm">جاري الرفع...</p></>
                                 ) : (
-                                  <><Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" /><p className="text-foreground font-medium text-sm">{itemDesigns.length > 0 ? 'رفع إصدار جديد' : 'رفع التصميم'}</p><p className="text-muted-foreground text-xs mt-1">PDF, PNG, JPG — حتى 10MB</p></>
+                                  <><Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" /><p className="text-foreground font-medium text-sm">{itemDesigns.length > 0 ? 'رفع إصدار جديد' : 'رفع التصميم'}</p><p className="text-muted-foreground text-xs mt-1">PDF, PNG, JPG, TIF — حتى 10MB</p></>
                                 )}
                               </div>
                             </div>
@@ -438,9 +438,9 @@ const DesignerOrderDetails = () => {
                               <div className="bg-success/10 rounded-lg p-4 text-center">
                                 <CheckCircle2 className="w-5 h-5 text-success mx-auto mb-2" />
                                 <p className="font-medium text-foreground text-sm">تمت الموافقة!</p>
-                                <p className="text-muted-foreground text-xs mt-1">ارفع الملف الجاهز للطبع</p>
+                                <p className="text-muted-foreground text-xs mt-1">ارفع الملف الجاهز للطبع بصيغة TIF</p>
                               </div>
-                              <input ref={el => { printFileInputRefs.current[item.id] = el; }} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.psd" onChange={e => handleUploadAndSendToTelegram(e, item.id)} className="hidden" />
+                              <input ref={el => { printFileInputRefs.current[item.id] = el; }} type="file" accept=".tif,.tiff" onChange={e => handleUploadAndSendToTelegram(e, item.id)} className="hidden" />
                               <Button onClick={() => printFileInputRefs.current[item.id]?.click()} disabled={printingItem === item.id} size="lg" className="w-full bg-success hover:bg-success/90 text-success-foreground rounded-xl">
                                 <Printer className="w-4 h-4 ml-2" />{printingItem === item.id ? 'جاري الإرسال...' : 'رفع للمطبعة 🖨'}
                               </Button>
