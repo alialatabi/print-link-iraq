@@ -103,13 +103,13 @@ const OrderTracking = () => {
     const { data } = await supabase.from('designs').select('*').eq('order_id', orderId || '').order('version', { ascending: false });
     const d = (data as DesignVersion[]) || [];
     setDesigns(d);
-    // Load preview for latest design of each item
+    // Auto-expand latest design inline for each item
     const itemIds = [...new Set(d.map(x => x.order_item_id).filter(Boolean))];
     for (const itemId of itemIds) {
       const latest = d.find(x => x.order_item_id === itemId && x.file_url);
       if (latest?.file_url) {
         const url = await getDesignSignedUrl(latest.file_url);
-        if (url) setPreviewUrls(prev => ({ ...prev, [itemId!]: url }));
+        if (url) setPreviewUrls(prev => ({ ...prev, [itemId!]: url, [`${itemId}_selected`]: latest.id, [`${itemId}_inline`]: url }));
       }
     }
   }, [orderId]);
