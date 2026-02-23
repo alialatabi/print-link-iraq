@@ -402,9 +402,15 @@ const AdminServicesSpecs = () => {
                   </div>
                 </div>
                 {form.price > 0 && form.cost > 0 && (
-                  <p className="text-[11px] text-success">
-                    ✓ هامش الربح: {((form.price - form.cost) / form.price * 100).toFixed(0)}% — صافي {(form.price - form.cost).toLocaleString('en-US')} د.ع لكل ألف
-                  </p>
+                  form.cost > form.price ? (
+                    <p className="text-[11px] text-destructive">
+                      ⚠ التكلفة أعلى من السعر! الخسارة: {(form.cost - form.price).toLocaleString('en-US')} د.ع لكل ألف
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-success">
+                      ✓ هامش الربح: {((form.price - form.cost) / form.price * 100).toFixed(0)}% — صافي {(form.price - form.cost).toLocaleString('en-US')} د.ع لكل ألف
+                    </p>
+                  )
                 )}
               </>
             )}
