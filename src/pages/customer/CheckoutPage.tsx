@@ -101,12 +101,12 @@ const CheckoutPage = () => {
 
   const goPrev = () => { if (currentStep > 0) setCurrentStep(s => s - 1); };
 
-  const uploadAttachments = async (orderId: string, files: File[]): Promise<string[]> => {
+  const uploadAttachments = async (orderId: string, itemId: string, files: File[]): Promise<string[]> => {
     const urls: string[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const ext = file.name.split('.').pop();
-      const path = `${orderId}/${Date.now()}_${i}.${ext}`;
+      const path = `${orderId}/${itemId}/${Date.now()}_${i}.${ext}`;
       const { error } = await supabase.storage.from('order-attachments').upload(path, file);
       if (!error) {
         const { data: { publicUrl } } = supabase.storage.from('order-attachments').getPublicUrl(path);
@@ -129,34 +129,57 @@ const CheckoutPage = () => {
 
     setSubmitting(true);
 
-    for (const item of items) {
-      const itemDetails = details[item.templateId] || '';
-      const itemFiles = attachments[item.templateId] || [];
-
-      const { data: orderData, error } = await supabase
+    try {
+      // 1. Create ONE order for the entire cart
+      const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
           customer_id: user.id,
-          template_id: item.templateId,
           status: 'submitted' as any,
-          details: { details: itemDetails, attachment_urls: [], quantity: item.quantity * 1000 } as any,
+          details: { item_count: items.length } as any,
         })
         .select('id')
         .single();
 
-      if (error || !orderData) continue;
+      if (orderError || !orderData) throw orderError;
 
-      if (itemFiles.length > 0) {
-        const urls = await uploadAttachments(orderData.id, itemFiles);
-        await supabase.from('orders').update({
-          details: { details: itemDetails, attachment_urls: urls, quantity: item.quantity * 1000 } as any,
-        }).eq('id', orderData.id);
+      // 2. Create order_items for each cart item
+      for (const item of items) {
+        const itemDetails = details[item.templateId] || '';
+        const itemFiles = attachments[item.templateId] || [];
+
+        const { data: itemData, error: itemError } = await supabase
+          .from('order_items' as any)
+          .insert({
+            order_id: orderData.id,
+            template_id: item.templateId,
+            details: { details: itemDetails, attachment_urls: [], quantity: item.quantity * 1000 },
+            status: 'submitted',
+          })
+          .select('id')
+          .single();
+
+        if (itemError || !itemData) continue;
+
+        // Upload attachments per item
+        if (itemFiles.length > 0) {
+          const urls = await uploadAttachments(orderData.id, (itemData as any).id, itemFiles);
+          await supabase
+            .from('order_items' as any)
+            .update({
+              details: { details: itemDetails, attachment_urls: urls, quantity: item.quantity * 1000 },
+            })
+            .eq('id', (itemData as any).id);
+        }
       }
-    }
 
-    setSubmitting(false);
-    clearCart();
-    navigate('/order-success');
+      clearCart();
+      navigate(`/order-success?order=${orderData.id}`);
+    } catch (err: any) {
+      toast({ title: 'حدث خطأ', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {

@@ -20,6 +20,7 @@ export type Database = {
           file_url: string | null
           id: string
           order_id: string
+          order_item_id: string | null
           uploaded_at: string
           version: number
         }
@@ -28,6 +29,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           order_id: string
+          order_item_id?: string | null
           uploaded_at?: string
           version?: number
         }
@@ -36,6 +38,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           order_id?: string
+          order_item_id?: string | null
           uploaded_at?: string
           version?: number
         }
@@ -45,6 +48,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "designs_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
             referencedColumns: ["id"]
           },
         ]
@@ -116,6 +126,48 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          created_at: string | null
+          details: Json | null
+          id: string
+          order_id: string
+          status: Database["public"]["Enums"]["order_status"] | null
+          template_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          order_id: string
+          status?: Database["public"]["Enums"]["order_status"] | null
+          template_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          order_id?: string
+          status?: Database["public"]["Enums"]["order_status"] | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
             referencedColumns: ["id"]
           },
         ]
