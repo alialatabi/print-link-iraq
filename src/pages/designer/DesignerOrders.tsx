@@ -80,7 +80,7 @@ const DesignerOrders = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user, loadOrders]);
 
-  const hiddenStatuses: OrderStatus[] = ['printed', 'delivered'];
+  const hiddenStatuses: OrderStatus[] = ['print_ready', 'printed', 'delivered'];
   const visibleOrders = orders.filter(o => !hiddenStatuses.includes(o.status));
 
   // Helper: does an order have items needing revision (assigned items with revisions)?
@@ -100,7 +100,7 @@ const DesignerOrders = () => {
     { key: 'revisions', label: 'تعديلات', icon: Edit2, color: 'text-destructive' },
     { key: 'waiting_approval', label: 'بانتظار الموافقة', icon: Clock, color: 'text-cmyk-yellow' },
     { key: 'approved', label: 'تمت الموافقة', icon: CheckCircle2, color: 'text-success' },
-    { key: 'print_ready', label: 'جاهز للطباعة', icon: Printer, color: 'text-success' },
+    
   ];
 
   const getCount = (key: string) => {
