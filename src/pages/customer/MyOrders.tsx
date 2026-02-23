@@ -23,7 +23,7 @@ const MyOrders = () => {
     let query = supabase
       .from('orders')
       .select('*, templates(name, service_type)')
-      .order('created_at', { ascending: false });
+      .order('updated_at', { ascending: false });
     
     if (role !== 'admin') {
       query = query.eq('customer_id', user.id);
