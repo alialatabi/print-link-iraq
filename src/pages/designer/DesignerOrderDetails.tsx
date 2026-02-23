@@ -30,6 +30,8 @@ const DesignerOrderDetails = () => {
   const [sendingPrint, setSendingPrint] = useState(false);
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
+  const [designerMessage, setDesignerMessage] = useState('');
+  const [showApprovalForm, setShowApprovalForm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const printFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -143,8 +145,18 @@ const DesignerOrderDetails = () => {
   const handleSendForApproval = async () => {
     if (!orderId) return;
     setSendingApproval(true);
-    await supabase.from('orders').update({ status: 'waiting_approval' as any }).eq('id', orderId);
+    const currentDetails = ((order?.details || {}) as Record<string, any>);
+    const messages = currentDetails.designer_messages || [];
+    if (designerMessage.trim()) {
+      messages.push({ text: designerMessage.trim(), date: new Date().toISOString(), version: designs[0]?.version || 0 });
+    }
+    await supabase.from('orders').update({
+      status: 'waiting_approval' as any,
+      details: { ...currentDetails, designer_messages: messages } as any,
+    }).eq('id', orderId);
     toast({ title: 'تم إرسال التصميم للعميل للموافقة' });
+    setDesignerMessage('');
+    setShowApprovalForm(false);
     loadOrder();
     setSendingApproval(false);
   };
@@ -613,15 +625,47 @@ const DesignerOrderDetails = () => {
 
             {/* Send for Approval — for non-ready_design orders */}
             {details.order_type !== 'ready_design' && canSendApproval && (
-              <Button
-                onClick={handleSendForApproval}
-                disabled={sendingApproval}
-                size="lg"
-                className="w-full mt-4 bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-6 rounded-xl"
-              >
-                <Send className="w-5 h-5 ml-2" />
-                {sendingApproval ? 'جاري الإرسال...' : 'إرسال للعميل للموافقة'}
-              </Button>
+              <div className="mt-4 space-y-3">
+                {!showApprovalForm ? (
+                  <Button
+                    onClick={() => setShowApprovalForm(true)}
+                    size="lg"
+                    className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-6 rounded-xl"
+                  >
+                    <Send className="w-5 h-5 ml-2" />
+                    إرسال للعميل للموافقة
+                  </Button>
+                ) : (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-3">
+                    <p className="text-sm font-bold text-foreground flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-accent-foreground" />
+                      أضف رسالة للزبون (اختياري)
+                    </p>
+                    <Textarea
+                      value={designerMessage}
+                      onChange={e => setDesignerMessage(e.target.value)}
+                      placeholder="مثال: تم التصميم حسب الطلب، الرجاء مراجعة الألوان..."
+                      className="min-h-[80px] text-sm resize-none"
+                      dir="rtl"
+                      maxLength={500}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleSendForApproval}
+                        disabled={sendingApproval}
+                        size="lg"
+                        className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
+                      >
+                        <Send className="w-4 h-4 ml-1" />
+                        {sendingApproval ? 'جاري الإرسال...' : 'إرسال للموافقة'}
+                      </Button>
+                      <Button onClick={() => { setShowApprovalForm(false); setDesignerMessage(''); }} variant="outline" size="lg">
+                        إلغاء
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
             )}
 
             {order.status === 'waiting_approval' && (

@@ -410,6 +410,23 @@ const OrderTracking = () => {
                 </div>
               )}
 
+              {/* Designer messages */}
+              {Array.isArray(details.designer_messages) && details.designer_messages.length > 0 && (
+                <div className="mb-5 space-y-2">
+                  {(details.designer_messages as { text: string; date: string; version: number }[]).slice().reverse().map((msg, i) => (
+                    <div key={i} className={`rounded-xl p-4 ${i === 0 ? 'bg-primary/5 border border-primary/20' : 'bg-muted/40 border border-border/50'}`}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <MessageSquare className={`w-3.5 h-3.5 ${i === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <span className="text-[11px] text-muted-foreground font-medium">
+                          رسالة من المصمم — {new Date(msg.date).toLocaleDateString('ar')}
+                        </span>
+                      </div>
+                      <p className="text-foreground text-sm">{msg.text}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {order.status === 'waiting_approval' && (
                 <div className="space-y-3 mt-5">
                   <Button
