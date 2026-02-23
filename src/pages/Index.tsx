@@ -194,7 +194,7 @@ const Index = () => {
                 طباعة وتسليم خلال ٧٢ ساعة لجميع أنحاء العراق
               </motion.div>
 
-              <motion.h1 className="font-omnes text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.15] mb-5 tracking-tight" initial="hidden" animate="visible" variants={fadeUp} custom={1}>
+              <motion.h1 className="font-noor text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.15] mb-5 tracking-tight" initial="hidden" animate="visible" variants={fadeUp} custom={1}>
                 اطبع تصاميمك
                 <br />
                 <span className="text-primary">بجودة احترافية وتوصيل سريع</span>
