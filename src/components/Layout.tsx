@@ -74,7 +74,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                   className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-150 ${
                     pathname === item.path
                       ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                      : 'text-muted-foreground dark:text-gray-600 hover:text-foreground dark:hover:text-gray-900 hover:bg-muted/60 dark:hover:bg-gray-100'
                   }`}
                 >
                   {item.label}
@@ -83,7 +83,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
             {/* Cart icon */}
             {!isDesignerOnly && (
-            <Link to="/cart" aria-label="سلة التسوق" className="relative p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150">
+            <Link to="/cart" aria-label="سلة التسوق" className="relative p-2.5 rounded-xl text-muted-foreground dark:text-gray-600 hover:text-foreground dark:hover:text-gray-900 hover:bg-muted/60 dark:hover:bg-gray-100 transition-all duration-150">
               <ShoppingCart className="w-[18px] h-[18px]" />
               {itemCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
@@ -99,7 +99,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             {/* Dark mode toggle */}
             <button
               onClick={() => setDark(d => !d)}
-              className="p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150"
+              className="p-2.5 rounded-xl text-muted-foreground dark:text-gray-600 hover:text-foreground dark:hover:text-gray-900 hover:bg-muted/60 dark:hover:bg-gray-100 transition-all duration-150"
               aria-label="تبديل الوضع"
             >
               {dark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
@@ -109,7 +109,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
               user ? (
                 <button
                   onClick={handleSignOut}
-                  className="px-4 py-2 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150"
+                  className="px-4 py-2 rounded-xl text-sm text-muted-foreground dark:text-gray-600 hover:text-foreground dark:hover:text-gray-900 hover:bg-muted/60 dark:hover:bg-gray-100 transition-all duration-150"
                 >
                   خروج
                 </button>
@@ -127,7 +127,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
           {/* Mobile menu button */}
           <div className="flex items-center gap-1 sm:hidden">
             {!isDesignerOnly && (
-            <Link to="/cart" aria-label="سلة التسوق" className="relative p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150">
+            <Link to="/cart" aria-label="سلة التسوق" className="relative p-2.5 rounded-xl text-muted-foreground dark:text-gray-600 hover:text-foreground dark:hover:text-gray-900 hover:bg-muted/60 dark:hover:bg-gray-100 transition-all duration-150">
               <ShoppingCart className="w-5 h-5" />
               {itemCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
@@ -138,7 +138,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             )}
             {user && <NotificationBell />}
             <button
-              className="p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150"
+              className="p-2.5 rounded-xl text-muted-foreground dark:text-gray-600 hover:text-foreground dark:hover:text-gray-900 hover:bg-muted/60 dark:hover:bg-gray-100 transition-all duration-150"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="القائمة"
             >
@@ -262,7 +262,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-border/30 mt-auto bg-card">
+      <footer className="border-t border-border/30 mt-auto bg-card dark:bg-white dark:text-[hsl(222,47%,11%)]">
         <div className="container max-w-5xl py-14">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8 text-center sm:text-right">
             {/* Brand */}
