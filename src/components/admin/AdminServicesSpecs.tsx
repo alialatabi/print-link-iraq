@@ -117,9 +117,9 @@ const AdminServicesSpecs = () => {
   const uploadIcon = async (itemId: string): Promise<string | null> => {
     if (!iconFile) return existingIconUrl;
     const ext = iconFile.name.split('.').pop();
-    const path = `${dialogType}/${itemId}.${ext}`;
-    // Remove old file first (ignore errors if not found)
-    await supabase.storage.from('service-icons').remove([path]).catch(() => {});
+    // Use a safe filename: replace non-ASCII chars and add timestamp
+    const safeName = itemId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const path = `${dialogType}/${safeName}_${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from('service-icons').upload(path, iconFile, { upsert: true });
     if (error) { 
       console.error('Upload error:', error); 
@@ -127,13 +127,12 @@ const AdminServicesSpecs = () => {
       return existingIconUrl; 
     }
     const { data } = supabase.storage.from('service-icons').getPublicUrl(path);
-    // Add cache buster to avoid stale cached images
-    return `${data.publicUrl}?t=${Date.now()}`;
+    return data.publicUrl;
   };
 
   const handleSave = async () => {
     if (!form.label.trim()) { toast.error('الاسم مطلوب'); return; }
-    if (dialogType === 'service' && !iconFile && !existingIconUrl) { toast.error('صورة الأيقونة مطلوبة'); return; }
+    if (dialogType === 'service' && !editing && !iconFile) { toast.error('صورة الأيقونة مطلوبة'); return; }
     if (dialogType === 'specialization' && !form.icon.trim() && !iconFile && !existingIconUrl) { toast.error('الأيقونة أو الصورة مطلوبة'); return; }
     setSaving(true);
 
