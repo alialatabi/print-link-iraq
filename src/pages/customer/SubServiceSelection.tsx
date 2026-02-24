@@ -2,6 +2,8 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useServices } from '@/hooks/useServices';
 import { ArrowRight } from 'lucide-react';
+import SEOHead from '@/components/SEOHead';
+import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 
 const SubServiceSelection = () => {
   const { parentId } = useParams<{ parentId: string }>();
@@ -27,6 +29,16 @@ const SubServiceSelection = () => {
 
   return (
     <div className="section-spacing-sm">
+      <SEOHead
+        title={parent?.label || 'الخدمات الفرعية'}
+        description={`اختر نوع المنتج المطلوب من ${parent?.label || 'الخدمات'} - مطبعتي، طباعة احترافية في العراق`}
+        canonical={`/sub-services/${parentId}`}
+      />
+      <JsonLd data={breadcrumbSchema([
+        { name: 'الرئيسية', url: '/' },
+        { name: 'الخدمات', url: '/services' },
+        { name: parent?.label || 'فرعية', url: `/sub-services/${parentId}` },
+      ])} />
       <div className="container max-w-4xl">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
           <ArrowRight className="w-4 h-4" />

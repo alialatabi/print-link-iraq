@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useServices } from '@/hooks/useServices';
+import SEOHead from '@/components/SEOHead';
+import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 
 const ServiceSelection = () => {
   const { parentServices, loading: servicesLoading } = useServices();
@@ -17,6 +19,15 @@ const ServiceSelection = () => {
 
   return (
     <div className="section-spacing-sm">
+      <SEOHead
+        title="اختر نوع الخدمة"
+        description="اختر نوع المطبوعة: كروت شخصية، فلايرات، وصولات، ترويسة، قوائم طعام، ودعوات. تصميم وطباعة احترافية في العراق."
+        canonical="/services"
+      />
+      <JsonLd data={breadcrumbSchema([
+        { name: 'الرئيسية', url: '/' },
+        { name: 'الخدمات', url: '/services' },
+      ])} />
       <div className="container max-w-4xl">
         <div className="text-center mb-12">
           <h1 className="text-3xl font-extrabold text-foreground mb-3 tracking-tight">اختر نوع الخدمة</h1>

@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_COLORS, TEMPLATE_ASPECT_RATIOS, SPECIALIZATION_LABELS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Palette } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
+import SEOHead from '@/components/SEOHead';
+import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 
 interface DbTemplate {
   id: string;
@@ -40,6 +42,19 @@ const TemplateSelection = () => {
 
   return (
     <div className="section-spacing-sm">
+      <SEOHead
+        title={specialization
+          ? `قوالب ${SPECIALIZATION_LABELS[specialization] || ''} — ${SERVICE_LABELS[serviceType as ServiceType] || ''}`
+          : `قوالب ${SERVICE_LABELS[serviceType as ServiceType] || 'التصميم'}`}
+        description={`تصفح قوالب ${SERVICE_LABELS[serviceType as ServiceType] || 'التصميم'} الاحترافية الجاهزة للتخصيص - مطبعتي`}
+        canonical={specialization ? `/templates/${serviceType}/${specialization}` : `/templates/${serviceType}`}
+      />
+      <JsonLd data={breadcrumbSchema([
+        { name: 'الرئيسية', url: '/' },
+        { name: 'الخدمات', url: '/services' },
+        ...(specialization ? [{ name: SPECIALIZATION_LABELS[specialization] || '', url: `/specializations/${serviceType}` }] : []),
+        { name: SERVICE_LABELS[serviceType as ServiceType] || 'قوالب', url: `/templates/${serviceType}` },
+      ])} />
       <div className="container max-w-5xl">
         <Link to={specialization ? `/specializations/${serviceType}` : '/'} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
           <ArrowRight className="w-4 h-4" />

@@ -4,6 +4,7 @@ import { useCart } from '@/contexts/CartContext';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Minus, Plus, Trash2, ShoppingCart, Palette, ShieldCheck, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import SEOHead from '@/components/SEOHead';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -42,6 +43,7 @@ const CartPage = () => {
 
   return (
     <div className="py-10 sm:py-16">
+      <SEOHead title="سلة المشتريات" description="راجع طلباتك وأكمل عملية الشراء - مطبعتي" canonical="/cart" noindex />
       <div className="container max-w-3xl">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-200">
           <ArrowRight className="w-4 h-4" />

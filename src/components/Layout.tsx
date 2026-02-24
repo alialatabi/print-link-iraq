@@ -268,7 +268,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         </div>
       </header>
 
-      <main className="flex-1">{children}</main>
+      <main className="flex-1" role="main">{children}</main>
 
       <footer className="border-t border-border/30 mt-auto bg-card dark:bg-white dark:text-[hsl(222,47%,11%)]">
         <div className="container max-w-5xl py-14">
