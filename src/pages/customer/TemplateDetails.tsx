@@ -12,6 +12,7 @@ import { useServices } from '@/hooks/useServices';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 import { trackView, getPreferredServiceTypes, getRecentlyViewed } from '@/lib/browsingTracker';
+import { useActiveDiscount } from '@/hooks/useDiscounts';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -277,7 +278,13 @@ const TemplateDetails = () => {
   const unitPrice = serviceData?.price || 0;
   const minQty = serviceData?.min_quantity || 1000;
   const cellophaneType: string = serviceData?.cellophane_type || 'none';
-  const totalPrice = Math.ceil(unitPrice * (quantity / 1000));
+  const parentServiceId = serviceData?.parent_id || null;
+
+  // Discount
+  const { discountPercent, discountLabel } = useActiveDiscount(template?.service_type, parentServiceId);
+  const discountedUnitPrice = discountPercent > 0 ? Math.ceil(unitPrice * (1 - discountPercent / 100)) : unitPrice;
+  const totalPrice = Math.ceil(discountedUnitPrice * (quantity / 1000));
+  const originalTotalPrice = discountPercent > 0 ? Math.ceil(unitPrice * (quantity / 1000)) : 0;
   const isInCart = items.some(i => i.templateId === templateId);
 
   // Set initial quantity to min_quantity when service data loads
@@ -300,7 +307,7 @@ const TemplateDetails = () => {
       serviceType: template.service_type,
       previewUrl: template.preview_url,
       quantity,
-      unitPrice,
+      unitPrice: discountedUnitPrice,
       cellophane: cellophaneType !== 'none' ? selectedCellophane : undefined,
     });
     toast({ title: 'تمت الإضافة للسلة ✓', description: template.id.slice(0, 8).toUpperCase() });
@@ -414,10 +421,22 @@ const TemplateDetails = () => {
             {/* Price */}
             <div>
               <p className="text-xs text-muted-foreground mb-1.5">السعر لكل ألف نسخة</p>
-              <p className="text-4xl font-extrabold text-foreground">
-                {unitPrice.toLocaleString('en-US')}
-                <span className="text-base font-semibold text-muted-foreground mr-1.5"> د.ع</span>
-              </p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <p className="text-4xl font-extrabold text-foreground">
+                  {discountedUnitPrice.toLocaleString('en-US')}
+                  <span className="text-base font-semibold text-muted-foreground mr-1.5"> د.ع</span>
+                </p>
+                {discountPercent > 0 && (
+                  <>
+                    <span className="text-lg text-muted-foreground/60 line-through font-bold">
+                      {unitPrice.toLocaleString('en-US')}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-destructive/15 text-destructive text-xs font-black animate-pulse">
+                      {discountLabel}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Description */}
@@ -496,12 +515,24 @@ const TemplateDetails = () => {
             </div>
 
             {/* Total */}
-            <div className="flex items-center justify-between py-5 px-6 rounded-2xl bg-success/5 border border-success/15">
-              <span className="text-sm text-muted-foreground font-medium">المجموع</span>
-              <span className="text-2xl font-black text-success">
-                {totalPrice.toLocaleString('en-US')}
-                <span className="text-sm font-semibold text-muted-foreground mr-1"> د.ع</span>
-              </span>
+            <div className="py-5 px-6 rounded-2xl bg-success/5 border border-success/15">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground font-medium">المجموع</span>
+                <div className="flex items-center gap-2">
+                  {originalTotalPrice > 0 && (
+                    <span className="text-sm text-muted-foreground/60 line-through">{originalTotalPrice.toLocaleString('en-US')}</span>
+                  )}
+                  <span className="text-2xl font-black text-success">
+                    {totalPrice.toLocaleString('en-US')}
+                    <span className="text-sm font-semibold text-muted-foreground mr-1"> د.ع</span>
+                  </span>
+                </div>
+              </div>
+              {originalTotalPrice > 0 && (
+                <p className="text-xs text-success font-bold mt-1 text-left">
+                  وفّرت {(originalTotalPrice - totalPrice).toLocaleString('en-US')} د.ع 🎉
+                </p>
+              )}
             </div>
 
             {/* CTA Buttons */}

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { ArrowRight, FileText, Upload, X, Image, Loader2, ChevronLeft, ChevronRight, Check, Copy, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
-
+import { incrementCouponUsage, Coupon } from '@/hooks/useDiscounts';
 interface TemplateData {
   id: string;
   name: string;
@@ -130,13 +130,23 @@ const CheckoutPage = () => {
     setSubmitting(true);
 
     try {
+      // Check for applied coupon
+      let appliedCoupon: Coupon | null = null;
+      try {
+        const stored = sessionStorage.getItem('matbaty_coupon');
+        if (stored) appliedCoupon = JSON.parse(stored);
+      } catch {}
+
       // 1. Create ONE order for the entire cart
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
           customer_id: user.id,
           status: 'submitted' as any,
-          details: { item_count: items.length } as any,
+          details: {
+            item_count: items.length,
+            ...(appliedCoupon ? { coupon_code: appliedCoupon.code, coupon_percentage: appliedCoupon.percentage } : {}),
+          } as any,
         })
         .select('id')
         .single();
@@ -171,6 +181,12 @@ const CheckoutPage = () => {
             })
             .eq('id', (itemData as any).id);
         }
+      }
+
+      // Increment coupon usage
+      if (appliedCoupon) {
+        await incrementCouponUsage(appliedCoupon.id);
+        sessionStorage.removeItem('matbaty_coupon');
       }
 
       clearCart();
