@@ -127,7 +127,7 @@ const AdminServicesSpecs = () => {
 
   const handleSave = async () => {
     if (!form.label.trim()) { toast.error('الاسم مطلوب'); return; }
-    if (!form.icon.trim() && !iconFile && !existingIconUrl) { toast.error('الأيقونة أو الصورة مطلوبة'); return; }
+    if (!iconFile && !existingIconUrl) { toast.error('صورة الأيقونة مطلوبة'); return; }
     setSaving(true);
 
     try {
@@ -360,49 +360,28 @@ const AdminServicesSpecs = () => {
               />
             </div>
 
-            {/* Icon Section: Emoji OR Image */}
+            {/* Icon Section: Image only */}
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">الأيقونة *</label>
-              <div className="grid grid-cols-2 gap-3">
-                {/* Emoji input */}
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">إيموجي</p>
-                  <Input
-                    value={form.icon}
-                    onChange={e => setForm(f => ({ ...f, icon: e.target.value }))}
-                    placeholder="💳"
-                    className="rounded-xl text-2xl text-center h-14"
-                    dir="ltr"
-                  />
+              <label className="text-sm font-medium text-foreground mb-2 block">صورة الأيقونة *</label>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+              {iconPreview || existingIconUrl ? (
+                <div className="relative h-20 w-20 rounded-xl border border-border overflow-hidden bg-muted/30 flex items-center justify-center">
+                  <img src={iconPreview || existingIconUrl!} alt="" className="h-full w-full object-contain p-1" />
+                  <button
+                    onClick={removeIcon}
+                    className="absolute top-1 left-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
-
-                {/* Image upload */}
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">أو صورة</p>
-                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-                  {iconPreview || existingIconUrl ? (
-                    <div className="relative h-14 rounded-xl border border-border overflow-hidden bg-muted/30 flex items-center justify-center">
-                      <img src={iconPreview || existingIconUrl!} alt="" className="h-full w-full object-contain p-1" />
-                      <button
-                        onClick={removeIcon}
-                        className="absolute top-1 left-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="h-14 rounded-xl border-2 border-dashed border-border flex items-center justify-center gap-2 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
-                    >
-                      <Upload className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">رفع صورة</span>
-                    </div>
-                  )}
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-20 w-full rounded-xl border-2 border-dashed border-border flex items-center justify-center gap-2 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+                >
+                  <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">اضغط لرفع صورة</span>
                 </div>
-              </div>
-              {(iconPreview || existingIconUrl) && (
-                <p className="text-[11px] text-primary mt-1.5">✓ سيتم استخدام الصورة بدلاً من الإيموجي</p>
               )}
             </div>
 
