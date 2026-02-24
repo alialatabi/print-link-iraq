@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useServices } from '@/hooks/useServices';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
+import { trackView, getPreferredServiceTypes, getRecentlyViewed } from '@/lib/browsingTracker';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -122,26 +123,73 @@ const Gallery = ({ images, name }: { images: string[]; name: string }) => {
   );
 };
 
-// ─── Related Templates ────────────────────────────────────────────────────────
-const RelatedTemplates = ({ serviceType, currentId }: { serviceType: string; currentId: string }) => {
-  const [related, setRelated] = useState<DbTemplate[]>([]);
+// ─── Personalized Recommendations ────────────────────────────────────────────
+const PersonalizedRecommendations = ({ serviceType, currentId }: { serviceType: string; currentId: string }) => {
+  const [items, setItems] = useState<DbTemplate[]>([]);
+  const { services } = useServices();
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
-        .from('templates')
-        .select('*')
-        .eq('service_type', serviceType)
-        .neq('id', currentId)
-        .limit(4) as unknown as { data: DbTemplate[] };
-      setRelated(data || []);
+      const recentIds = getRecentlyViewed(20);
+      const excludeIds = [currentId, ...recentIds.slice(0, 5)];
+      const preferredTypes = getPreferredServiceTypes(undefined, 6);
+
+      // Build a mix: preferred services first, then same service, then random
+      const allResults: DbTemplate[] = [];
+      const seenIds = new Set(excludeIds);
+
+      // 1. From preferred service types (cross-service personalization)
+      if (preferredTypes.length > 0) {
+        const { data } = await supabase
+          .from('templates')
+          .select('*')
+          .in('service_type', preferredTypes)
+          .not('id', 'in', `(${excludeIds.join(',')})`)
+          .limit(6) as unknown as { data: DbTemplate[] | null };
+        (data || []).forEach(t => {
+          if (!seenIds.has(t.id)) { seenIds.add(t.id); allResults.push(t); }
+        });
+      }
+
+      // 2. From same service type
+      if (allResults.length < 8) {
+        const { data } = await supabase
+          .from('templates')
+          .select('*')
+          .eq('service_type', serviceType)
+          .not('id', 'in', `(${[...seenIds].join(',')})`)
+          .limit(4) as unknown as { data: DbTemplate[] | null };
+        (data || []).forEach(t => {
+          if (!seenIds.has(t.id)) { seenIds.add(t.id); allResults.push(t); }
+        });
+      }
+
+      // 3. Fill remaining slots with random templates from any service
+      if (allResults.length < 6) {
+        const { data } = await supabase
+          .from('templates')
+          .select('*')
+          .not('id', 'in', `(${[...seenIds].join(',')})`)
+          .limit(6 - allResults.length) as unknown as { data: DbTemplate[] | null };
+        (data || []).forEach(t => {
+          if (!seenIds.has(t.id)) { seenIds.add(t.id); allResults.push(t); }
+        });
+      }
+
+      // Shuffle for variety, keep max 8
+      const shuffled = allResults.sort(() => Math.random() - 0.5).slice(0, 8);
+      setItems(shuffled);
     };
     load();
   }, [serviceType, currentId]);
 
-  if (!related.length) return null;
+  if (!items.length) return null;
 
-  const aspectRatio = TEMPLATE_ASPECT_RATIOS[serviceType as ServiceType] || '3/4';
+  // Helper to get service label
+  const getServiceLabel = (sType: string) => {
+    const svc = services.find(s => s.id === sType);
+    return svc?.label || SERVICE_LABELS[sType as ServiceType] || '';
+  };
 
   return (
     <section className="mt-20 pt-12 border-t border-border/30">
@@ -150,38 +198,45 @@ const RelatedTemplates = ({ serviceType, currentId }: { serviceType: string; cur
         قد يعجبك أيضاً
       </motion.h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {related.map((t, i) => (
-          <motion.div
-            key={t.id}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-20px' }}
-            variants={fadeUp}
-            custom={i + 1}
-          >
-            <Link
-              to={`/template/${t.id}`}
-              className="group block rounded-2xl overflow-hidden border border-border/40 bg-card/80 backdrop-blur-sm shadow-card hover:shadow-card-hover hover:-translate-y-1.5 transition-all duration-400"
+        {items.map((t, i) => {
+          const aspectRatio = TEMPLATE_ASPECT_RATIOS[t.service_type as ServiceType] || '3/4';
+          const svcLabel = getServiceLabel(t.service_type);
+          return (
+            <motion.div
+              key={t.id}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-20px' }}
+              variants={fadeUp}
+              custom={i + 1}
             >
-              <div className="overflow-hidden bg-muted/30" style={{ aspectRatio }}>
-                {t.preview_url ? (
-                  <img
-                    src={t.preview_url}
-                    alt=""
-                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Palette className="w-8 h-8 text-muted-foreground/40" />
-                  </div>
-                )}
-              </div>
-              <div className="p-3">
-                <p className="font-mono text-xs text-muted-foreground">{t.id.slice(0, 8).toUpperCase()}</p>
-              </div>
-            </Link>
-          </motion.div>
-        ))}
+              <Link
+                to={`/template/${t.id}`}
+                className="group block rounded-2xl overflow-hidden border border-border/40 bg-card/80 backdrop-blur-sm shadow-card hover:shadow-card-hover hover:-translate-y-1.5 transition-all duration-400"
+              >
+                <div className="overflow-hidden bg-muted/30" style={{ aspectRatio }}>
+                  {t.preview_url ? (
+                    <img
+                      src={t.preview_url}
+                      alt=""
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Palette className="w-8 h-8 text-muted-foreground/40" />
+                    </div>
+                  )}
+                </div>
+                <div className="p-3 flex items-center justify-between">
+                  <p className="font-mono text-xs text-muted-foreground">{t.id.slice(0, 8).toUpperCase()}</p>
+                  {svcLabel && t.service_type !== serviceType && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-primary/10 text-primary font-bold">{svcLabel}</span>
+                  )}
+                </div>
+              </Link>
+            </motion.div>
+          );
+        })}
       </div>
     </section>
   );
@@ -209,6 +264,10 @@ const TemplateDetails = () => {
         .single() as unknown as { data: DbTemplate | null };
       setTemplate(data);
       setLoading(false);
+      // Track this view for personalized recommendations
+      if (data) {
+        trackView(data.id, data.service_type, data.specializations || []);
+      }
     };
     load();
   }, [templateId]);
@@ -476,8 +535,8 @@ const TemplateDetails = () => {
           </motion.div>
         </div>
 
-        {/* Related Templates */}
-        <RelatedTemplates serviceType={template.service_type} currentId={template.id} />
+        {/* Personalized Recommendations */}
+        <PersonalizedRecommendations serviceType={template.service_type} currentId={template.id} />
       </div>
     </div>
   );
