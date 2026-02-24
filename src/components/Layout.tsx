@@ -151,7 +151,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         {!isDesignerOnly && !pathname.startsWith('/auth') && !pathname.startsWith('/staff-login') && !pathname.startsWith('/designer/login') && (
         <div className="bg-card/50 dark:bg-white/50 dark:text-[hsl(222,47%,11%)] backdrop-blur-sm border-b border-border/30">
           <div className="container">
-            <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide py-3 px-1">
+            <div className="flex items-end justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide pt-5 pb-3 px-1">
               {services.filter(s => !s.parent_id).map((service) => {
                 const isActive = pathname.includes(`/sub-services/${service.id}`) || pathname.includes(`/specializations/${service.id}`) || pathname.includes(`/templates/${service.id}`);
                 return (
@@ -160,18 +160,30 @@ const Layout = ({ children }: { children: ReactNode }) => {
                     to={`/sub-services/${service.id}`}
                     className="flex flex-col items-center gap-1.5 min-w-[60px] group"
                   >
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 overflow-hidden ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30'
-                        : 'bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary group-hover:shadow-sm'
-                    }`}>
-                      {service.icon_url ? (
-                        <img src={service.icon_url} alt={service.label} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-2xl">{service.icon}</span>
-                      )}
+                    {/* Container with floating image effect */}
+                    <div className="relative">
+                      {/* Background circle */}
+                      <div className={`w-14 h-14 rounded-full transition-all duration-300 ${
+                        isActive
+                          ? 'bg-primary/20 shadow-md ring-2 ring-primary/30 scale-105'
+                          : 'bg-muted/60 group-hover:bg-primary/10 group-hover:shadow-sm group-hover:scale-105'
+                      }`} />
+                      {/* Floating image - larger than the circle, positioned above */}
+                      <div className={`absolute -top-3 left-1/2 -translate-x-1/2 w-[4.5rem] h-[4.5rem] rounded-2xl overflow-hidden transition-all duration-300 drop-shadow-lg group-hover:drop-shadow-xl group-hover:-translate-y-1 group-hover:scale-110 ${
+                        isActive ? '-translate-y-1 scale-110' : ''
+                      }`}>
+                        {service.icon_url ? (
+                          <img src={service.icon_url} alt={service.label} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className={`w-full h-full flex items-center justify-center ${
+                            isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'
+                          }`}>
+                            <span className="text-2xl">{service.icon}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <span className={`text-[11px] font-semibold whitespace-nowrap transition-colors duration-150 ${
+                    <span className={`text-[11px] font-semibold whitespace-nowrap transition-colors duration-150 mt-1 ${
                       isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
                     }`}>
                       {service.label}
