@@ -67,9 +67,6 @@ const SubServiceSelection = () => {
                     )}
                   </div>
                   <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{service.label}</h3>
-                  {service.description && (
-                    <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed whitespace-pre-line">{service.description}</p>
-                  )}
                   {service.price > 0 && (
                     <p className="text-primary font-bold text-sm mt-4">
                       {formatPrice(service.price)}
