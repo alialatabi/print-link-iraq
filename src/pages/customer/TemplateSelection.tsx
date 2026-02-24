@@ -3,7 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { TEMPLATE_COLORS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Palette } from 'lucide-react';
+import { ArrowRight, Palette, ChevronDown } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import logoImg from '@/assets/logo.png';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
@@ -93,37 +100,33 @@ const TemplateSelection = () => {
           <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">اختر القالب المناسب وسنقوم بتعديله حسب بياناتك</p>
         </div>
 
-        {/* Specialization filter chips */}
+        {/* Specialization dropdown filter */}
         {!specsLoading && availableSpecs.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 mb-8 justify-center">
-            <button
-              onClick={() => setSelectedSpec(null)}
-              className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all duration-200 ${
-                !selectedSpec
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground'
-              }`}
+          <div className="flex justify-center mb-8">
+            <Select
+              value={selectedSpec || 'all'}
+              onValueChange={(val) => setSelectedSpec(val === 'all' ? null : val)}
+              dir="rtl"
             >
-              الكل
-            </button>
-            {availableSpecs.map(spec => (
-              <button
-                key={spec.id}
-                onClick={() => setSelectedSpec(selectedSpec === spec.id ? null : spec.id)}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all duration-200 ${
-                  selectedSpec === spec.id
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground'
-                }`}
-              >
-                {spec.icon_url ? (
-                  <img src={spec.icon_url} alt="" className="w-5 h-5 rounded object-cover" />
-                ) : (
-                  <span className="text-base">{spec.icon}</span>
-                )}
-                {spec.label}
-              </button>
-            ))}
+              <SelectTrigger className="w-64 rounded-xl border-2 border-border bg-card text-foreground font-bold text-sm">
+                <SelectValue placeholder="اختر التخصص" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border z-50">
+                <SelectItem value="all" className="font-bold">الكل</SelectItem>
+                {availableSpecs.map(spec => (
+                  <SelectItem key={spec.id} value={spec.id}>
+                    <span className="inline-flex items-center gap-2">
+                      {spec.icon_url ? (
+                        <img src={spec.icon_url} alt="" className="w-5 h-5 rounded object-cover" />
+                      ) : (
+                        <span className="text-base">{spec.icon}</span>
+                      )}
+                      {spec.label}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
