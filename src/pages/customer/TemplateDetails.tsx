@@ -195,7 +195,7 @@ const TemplateDetails = () => {
 
   const [template, setTemplate] = useState<DbTemplate | null>(null);
   const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(1000);
   const [selectedCellophane, setSelectedCellophane] = useState<string>('');
 
   useEffect(() => {
@@ -214,9 +214,9 @@ const TemplateDetails = () => {
   // Get price from service, not template
   const serviceData = services.find(s => s.id === template?.service_type) as any;
   const unitPrice = serviceData?.price || 0;
-  const minQty = serviceData?.min_quantity || 1;
+  const minQty = serviceData?.min_quantity || 1000;
   const cellophaneType: string = serviceData?.cellophane_type || 'none';
-  const totalPrice = unitPrice * quantity;
+  const totalPrice = Math.ceil(unitPrice * (quantity / 1000));
   const isInCart = items.some(i => i.templateId === templateId);
 
   // Set initial quantity to min_quantity when service data loads
@@ -381,18 +381,27 @@ const TemplateDetails = () => {
             {/* Quantity */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground mb-3 block uppercase tracking-wide">
-                الكمية (بالآلاف)
+                الكمية
               </label>
               <div className="flex items-center gap-4 bg-muted/20 rounded-xl p-3 border border-border/30">
-                <Button variant="outline" size="icon" onClick={() => quantity > minQty && setQuantity(q => q - 1)} disabled={quantity <= minQty} className="h-11 w-11 rounded-xl">
+                <Button variant="outline" size="icon" onClick={() => quantity > minQty && setQuantity(q => q - 1000)} disabled={quantity <= minQty} className="h-11 w-11 rounded-xl">
                   <Minus className="w-4 h-4" />
                 </Button>
                 <div className="flex-1 text-center">
-                  <span className="text-3xl font-black text-foreground">{quantity}</span>
-                  <span className="text-muted-foreground text-sm mr-1">ألف</span>
-                  <p className="text-xs text-muted-foreground/70 mt-0.5">= {(quantity * 1000).toLocaleString('en-US')} نسخة</p>
+                  <input
+                    type="number"
+                    value={quantity}
+                    onChange={e => {
+                      const val = parseInt(e.target.value) || minQty;
+                      setQuantity(Math.max(minQty, val));
+                    }}
+                    min={minQty}
+                    className="w-full text-center text-3xl font-black text-foreground bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    dir="ltr"
+                  />
+                  <p className="text-xs text-muted-foreground/70 mt-0.5">الحد الأدنى: {minQty.toLocaleString('en-US')} نسخة</p>
                 </div>
-                <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1)} className="h-11 w-11 rounded-xl">
+                <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1000)} className="h-11 w-11 rounded-xl">
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>

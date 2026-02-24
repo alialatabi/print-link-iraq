@@ -153,7 +153,7 @@ const CheckoutPage = () => {
           .insert({
             order_id: orderData.id,
             template_id: item.templateId,
-            details: { details: itemDetails, attachment_urls: [], quantity: item.quantity * 1000, cellophane: item.cellophane || null },
+            details: { details: itemDetails, attachment_urls: [], quantity: item.quantity, cellophane: item.cellophane || null },
             status: 'submitted',
           })
           .select('id')
@@ -167,7 +167,7 @@ const CheckoutPage = () => {
           await supabase
             .from('order_items' as any)
             .update({
-              details: { details: itemDetails, attachment_urls: urls, quantity: item.quantity * 1000, cellophane: item.cellophane || null },
+              details: { details: itemDetails, attachment_urls: urls, quantity: item.quantity, cellophane: item.cellophane || null },
             })
             .eq('id', (itemData as any).id);
         }
@@ -239,7 +239,7 @@ const CheckoutPage = () => {
               </div>
               <div className="text-left">
                 <p className="text-xs text-muted-foreground">{SERVICE_LABELS[currentItem.serviceType as ServiceType]}</p>
-                <p className="text-sm font-medium text-foreground">{currentItem.quantity} ألف نسخة</p>
+                <p className="text-sm font-medium text-foreground">{currentItem.quantity.toLocaleString('en-US')} نسخة</p>
                 {currentItem.cellophane && (
                   <p className="text-xs text-primary font-medium mt-0.5">
                     سيلفان: {currentItem.cellophane === 'matte' ? 'طافي' : 'لمّاع'}
