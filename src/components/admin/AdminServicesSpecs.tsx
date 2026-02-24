@@ -147,7 +147,7 @@ const AdminServicesSpecs = () => {
           if (error) throw error;
           toast.success('تم تحديث الخدمة');
         } else {
-          const id = form.id.trim() || form.label.trim().toLowerCase().replace(/\s+/g, '_');
+          const id = crypto.randomUUID();
           const maxOrder = services.length > 0 ? Math.max(...services.map(s => s.sort_order)) : 0;
           const iconUrl = await uploadIcon(id);
           const { error } = await supabase
@@ -166,7 +166,7 @@ const AdminServicesSpecs = () => {
           if (error) throw error;
           toast.success('تم تحديث التخصص');
         } else {
-          const id = form.id.trim() || form.label.trim().toLowerCase().replace(/\s+/g, '_');
+          const id = crypto.randomUUID();
           const maxOrder = specializations.length > 0 ? Math.max(...specializations.map(s => s.sort_order)) : 0;
           const iconUrl = await uploadIcon(id);
           const { error } = await supabase
@@ -344,18 +344,7 @@ const AdminServicesSpecs = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            {!editing && (
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">المعرّف (ID) — اختياري</label>
-                <Input
-                  value={form.id}
-                  onChange={e => setForm(f => ({ ...f, id: e.target.value }))}
-                  placeholder="مثال: beauty_salon (يُولّد تلقائياً)"
-                  className="rounded-xl font-mono text-sm"
-                  dir="ltr"
-                />
-              </div>
-            )}
+
             <div>
               <label className="text-sm font-medium text-foreground mb-1 block">الاسم *</label>
               <Input
