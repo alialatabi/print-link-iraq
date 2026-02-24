@@ -488,17 +488,17 @@ const AdminServicesSpecs = () => {
                       )}
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-foreground mb-1 block">أقل كمية للطلب (بالآلاف)</label>
+                      <label className="text-sm font-medium text-foreground mb-1 block">أقل كمية للطلب</label>
                       <Input
                         type="number"
                         value={form.min_quantity || ''}
                         onChange={e => setForm(f => ({ ...f, min_quantity: parseInt(e.target.value) || 1 }))}
-                        placeholder="1"
+                        placeholder="1000"
                         className="rounded-xl"
                         dir="ltr"
                         min="1"
                       />
-                      <p className="text-[11px] text-muted-foreground mt-1">الحد الأدنى: {(form.min_quantity * 1000).toLocaleString('en-US')} نسخة</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">الحد الأدنى: {form.min_quantity.toLocaleString('en-US')} نسخة</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-foreground mb-1 block">السيلفان</label>
