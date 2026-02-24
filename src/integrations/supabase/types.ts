@@ -462,6 +462,7 @@ export type Database = {
           id: string
           name: string
           preview_url: string | null
+          preview_urls: string[] | null
           price: number | null
           service_type: string
           specializations: string[] | null
@@ -473,6 +474,7 @@ export type Database = {
           id?: string
           name: string
           preview_url?: string | null
+          preview_urls?: string[] | null
           price?: number | null
           service_type: string
           specializations?: string[] | null
@@ -484,6 +486,7 @@ export type Database = {
           id?: string
           name?: string
           preview_url?: string | null
+          preview_urls?: string[] | null
           price?: number | null
           service_type?: string
           specializations?: string[] | null
