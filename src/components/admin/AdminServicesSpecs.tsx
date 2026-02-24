@@ -232,7 +232,7 @@ const AdminServicesSpecs = () => {
                     <IconDisplay icon={parent.icon} iconUrl={parent.icon_url} />
                     <div className="flex-1 min-w-0">
                       <h4 className="font-bold text-foreground text-sm">{parent.label}</h4>
-                      <p className="text-xs text-muted-foreground truncate">{parent.description}</p>
+                      
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-[10px] text-muted-foreground/60 font-mono">ID: {parent.id}</span>
                         <span className="text-[10px] font-bold text-primary">خدمة عامة • {children.length} فرعية</span>
@@ -421,15 +421,6 @@ const AdminServicesSpecs = () => {
                       <option key={s.id} value={s.id}>{s.label}</option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1 block">الوصف</label>
-                  <Textarea
-                    value={form.description}
-                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    placeholder="وصف مختصر للخدمة..."
-                    className="rounded-xl min-h-[80px]"
-                  />
                 </div>
                 {/* Only show price/cost for sub-services */}
                 {form.parent_id && (
