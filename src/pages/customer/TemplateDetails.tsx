@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Check, Shield, Truck, Printer, Clock } from 'lucide-react';
+import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Check, Shield, Truck, Printer, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -24,21 +24,19 @@ interface DbTemplate {
   description: string | null;
   service_type: string;
   preview_url: string | null;
+  preview_urls: string[];
   specializations: string[];
 }
 
-// ─── Thumbnail Gallery ────────────────────────────────────────────────────────
-const Gallery = ({ previewUrl, name, aspectRatio }: { previewUrl: string | null; name: string; aspectRatio: string }) => {
+// ─── Image Slider Gallery ─────────────────────────────────────────────────────
+const Gallery = ({ images, name }: { images: string[]; name: string }) => {
   const [active, setActive] = useState(0);
 
-  // We only have one image per template; we still show the "spot" thumbnails pattern
-  const images = previewUrl ? [previewUrl] : [];
-
-  if (!previewUrl) {
+  if (!images.length) {
     return (
       <div
-        className="rounded-2xl bg-muted/40 flex items-center justify-center border border-border/50"
-        style={{ aspectRatio }}
+        className="rounded-2xl bg-muted/40 flex items-center justify-center border border-border/50 w-full max-w-[2048px] mx-auto"
+        style={{ aspectRatio: '1/1' }}
       >
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Palette className="w-12 h-12 opacity-40" />
@@ -48,41 +46,76 @@ const Gallery = ({ previewUrl, name, aspectRatio }: { previewUrl: string | null;
     );
   }
 
+  const goNext = () => setActive(i => (i + 1) % images.length);
+  const goPrev = () => setActive(i => (i - 1 + images.length) % images.length);
+
   return (
-    <div className="flex gap-3 h-full">
-      {/* Thumbnail strip – visible only when there are multiple images */}
+    <div className="w-full max-w-[2048px] mx-auto">
+      {/* Main image container - square */}
+      <div className="relative rounded-2xl overflow-hidden border border-border/40 bg-card shadow-card w-full" style={{ aspectRatio: '1/1' }}>
+        <AnimatePresence mode="wait">
+          <motion.img
+            key={active}
+            src={images[active]}
+            alt={name}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="w-full h-full object-contain"
+          />
+        </AnimatePresence>
+
+        {/* Navigation arrows */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={goPrev}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 flex items-center justify-center text-foreground hover:bg-background transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <button
+              onClick={goNext}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 flex items-center justify-center text-foreground hover:bg-background transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          </>
+        )}
+
+        {/* Dots indicator */}
+        {images.length > 1 && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setActive(i)}
+                className={`w-2 h-2 rounded-full transition-all ${
+                  active === i ? 'bg-primary w-5' : 'bg-foreground/30'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Thumbnail strip */}
       {images.length > 1 && (
-        <div className="flex flex-col gap-2 w-16 shrink-0">
+        <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
           {images.map((img, i) => (
             <button
               key={i}
               onClick={() => setActive(i)}
-              className={`rounded-lg overflow-hidden border-2 transition-all ${
+              className={`rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 w-16 h-16 ${
                 active === i ? 'border-primary shadow-md' : 'border-border/40 opacity-60 hover:opacity-100'
               }`}
             >
-              <img src={img} alt="" className="w-full object-cover aspect-square" />
+              <img src={img} alt="" className="w-full h-full object-cover" />
             </button>
           ))}
         </div>
       )}
-
-      {/* Main image */}
-      <motion.div
-        key={active}
-        initial={{ opacity: 0, scale: 0.97 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3 }}
-        className="flex-1 rounded-2xl overflow-hidden border border-border/40 bg-card shadow-card hover:shadow-card-hover transition-shadow duration-300 cursor-zoom-in"
-        onClick={() => window.open(images[active], '_blank')}
-      >
-        <img
-          src={images[active]}
-          alt={name}
-          className="w-full h-full object-contain"
-          style={{ aspectRatio }}
-        />
-      </motion.div>
     </div>
   );
 };
@@ -256,7 +289,7 @@ const TemplateDetails = () => {
 
           {/* ── LEFT: Gallery ── */}
           <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={1}>
-            <Gallery previewUrl={template.preview_url} name={template.name} aspectRatio={aspectRatio} />
+            <Gallery images={template.preview_urls?.length ? template.preview_urls : (template.preview_url ? [template.preview_url] : [])} name={template.name} />
           </motion.div>
 
           {/* ── RIGHT: Info panel ── */}

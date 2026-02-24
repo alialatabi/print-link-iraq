@@ -19,7 +19,7 @@ interface Template {
   description: string | null;
   service_type: string;
   preview_url: string | null;
-  
+  preview_urls: string[];
   text_fields: TextField[];
   specializations: string[];
 }
@@ -46,9 +46,9 @@ const AdminTemplates = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStage, setUploadStage] = useState('');
-  const [previewFile, setPreviewFile] = useState<File | null>(null);
-  const [previewLocalUrl, setPreviewLocalUrl] = useState<string | null>(null);
-  const [showFieldEditor, setShowFieldEditor] = useState(false);
+  const [previewFiles, setPreviewFiles] = useState<File[]>([]);
+  const [previewLocalUrls, setPreviewLocalUrls] = useState<string[]>([]);
+  const [existingUrls, setExistingUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadTemplates = useCallback(async () => {
@@ -66,9 +66,9 @@ const AdminTemplates = () => {
     setEditingTemplate(null);
     setForm({ description: '', service_type: 'business_card', specializations: [] });
     setTextFields([]);
-    setPreviewFile(null);
-    setPreviewLocalUrl(null);
-    setShowFieldEditor(false);
+    setPreviewFiles([]);
+    setPreviewLocalUrls([]);
+    setExistingUrls([]);
     setDialogOpen(true);
   };
 
@@ -76,9 +76,10 @@ const AdminTemplates = () => {
     setEditingTemplate(t);
     setForm({ description: t.description || '', service_type: t.service_type, specializations: t.specializations || [] });
     setTextFields(t.text_fields || []);
-    setPreviewFile(null);
-    setPreviewLocalUrl(t.preview_url);
-    setShowFieldEditor(false);
+    setPreviewFiles([]);
+    const urls = t.preview_urls?.length ? t.preview_urls : (t.preview_url ? [t.preview_url] : []);
+    setPreviewLocalUrls(urls);
+    setExistingUrls(urls);
     setDialogOpen(true);
   };
 
@@ -120,21 +121,26 @@ const AdminTemplates = () => {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      if (file.size > 20 * 1024 * 1024) {
-        toast.error('حجم الصورة يجب أن لا يتجاوز 20MB');
-        return;
-      }
-      if (!file.type.startsWith('image/')) {
-        toast.error('يرجى اختيار ملف صورة فقط');
-        return;
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      for (const file of files) {
+        if (file.size > 20 * 1024 * 1024) {
+          toast.error('حجم الصورة يجب أن لا يتجاوز 20MB');
+          return;
+        }
+        if (!file.type.startsWith('image/')) {
+          toast.error('يرجى اختيار ملف صورة فقط');
+          return;
+        }
       }
       setUploading(true);
-      setPreviewFile(file);
-      await new Promise(resolve => setTimeout(resolve, 50));
-      const compressedUrl = await compressImageForPreview(file);
-      setPreviewLocalUrl(compressedUrl);
+      const newLocalUrls: string[] = [];
+      for (const file of files) {
+        const compressedUrl = await compressImageForPreview(file);
+        newLocalUrls.push(compressedUrl);
+      }
+      setPreviewFiles(prev => [...prev, ...files]);
+      setPreviewLocalUrls(prev => [...prev, ...newLocalUrls]);
     } catch (error) {
       console.error('File selection error:', error);
       toast.error('حدث خطأ أثناء اختيار الصورة');
@@ -144,43 +150,43 @@ const AdminTemplates = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const uploadPreviewImage = async (templateId: string): Promise<string | null> => {
-    if (!previewFile) return editingTemplate?.preview_url || null;
+  const uploadPreviewImages = async (templateId: string): Promise<string[]> => {
+    // Start with existing URLs that weren't removed
+    const uploadedUrls: string[] = [...existingUrls.filter(u => previewLocalUrls.includes(u))];
+    
+    if (!previewFiles.length) return uploadedUrls;
 
     try {
-      setUploadStage('جاري تجهيز الصورة...');
-      setUploadProgress(10);
-      const ext = previewFile.name.split('.').pop();
-      const filePath = `${templateId}.${ext}`;
-
-      setUploadStage('جاري حذف الصورة القديمة...');
-      setUploadProgress(20);
-      await supabase.storage.from('template-previews').remove([filePath]);
-
-      setUploadStage('جاري رفع الصورة...');
-      setUploadProgress(40);
-
-      const { error } = await supabase.storage
-        .from('template-previews')
-        .upload(filePath, previewFile, { upsert: true });
-
-      setUploadProgress(80);
-
-      if (error) {
-        console.error('Upload error:', error);
-        toast.error(getUserFriendlyError(error));
-        return editingTemplate?.preview_url || null;
+      setUploadStage('جاري رفع الصور...');
+      const totalFiles = previewFiles.length;
+      
+      for (let i = 0; i < totalFiles; i++) {
+        const file = previewFiles[i];
+        const ext = file.name.split('.').pop();
+        const filePath = `${templateId}_${Date.now()}_${i}.${ext}`;
+        
+        setUploadProgress(Math.round(((i + 0.5) / totalFiles) * 90));
+        
+        const { error } = await supabase.storage
+          .from('template-previews')
+          .upload(filePath, file, { upsert: true });
+        
+        if (error) {
+          console.error('Upload error:', error);
+          toast.error(getUserFriendlyError(error));
+          continue;
+        }
+        
+        const { data } = supabase.storage.from('template-previews').getPublicUrl(filePath);
+        uploadedUrls.push(data.publicUrl);
       }
-
-      setUploadStage('جاري الحصول على الرابط...');
-      setUploadProgress(90);
-      const { data } = supabase.storage.from('template-previews').getPublicUrl(filePath);
+      
       setUploadProgress(100);
-      return data.publicUrl;
+      return uploadedUrls;
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('حدث خطأ أثناء رفع الصورة');
-      return editingTemplate?.preview_url || null;
+      toast.error('حدث خطأ أثناء رفع الصور');
+      return uploadedUrls;
     }
   };
 
@@ -188,18 +194,19 @@ const AdminTemplates = () => {
     if (!form.service_type) { toast.error('القسم مطلوب'); return; }
     setSaving(true);
     setUploadProgress(0);
-    setUploadStage(previewFile ? 'بدء الرفع...' : 'جاري الحفظ...');
+    setUploadStage(previewFiles.length ? 'بدء الرفع...' : 'جاري الحفظ...');
 
     try {
       if (editingTemplate) {
-        const previewUrl = await uploadPreviewImage(editingTemplate.id);
+        const urls = await uploadPreviewImages(editingTemplate.id);
         const { error } = await supabase
           .from('templates')
           .update({
             name: editingTemplate.id.slice(0, 8).toUpperCase(),
             description: form.description || null,
             service_type: form.service_type as any,
-            preview_url: previewUrl,
+            preview_url: urls[0] || null,
+            preview_urls: urls,
             text_fields: textFields as any,
             specializations: form.specializations,
           } as any)
@@ -221,10 +228,13 @@ const AdminTemplates = () => {
         if (error) throw error;
 
         if (newTemplate) {
-          // Update name to be the short ID after creation
           const shortId = newTemplate.id.slice(0, 8).toUpperCase();
-          const previewUrl = previewFile ? await uploadPreviewImage(newTemplate.id) : null;
-          await supabase.from('templates').update({ name: shortId, ...(previewUrl ? { preview_url: previewUrl } : {}) }).eq('id', newTemplate.id);
+          const urls = previewFiles.length ? await uploadPreviewImages(newTemplate.id) : [];
+          await supabase.from('templates').update({ 
+            name: shortId, 
+            preview_url: urls[0] || null,
+            preview_urls: urls,
+          } as any).eq('id', newTemplate.id);
         }
         toast.success('تم إضافة القالب');
       }
@@ -343,45 +353,60 @@ const AdminTemplates = () => {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className={`${showFieldEditor && previewLocalUrl ? 'max-w-3xl' : 'max-w-md'} max-h-[90vh] overflow-y-auto`} dir="rtl">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle>{editingTemplate ? 'تعديل القالب' : 'إضافة قالب جديد'}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 mt-2">
-            {/* Preview Image Upload */}
+            {/* Preview Images Upload */}
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">صورة القالب</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">صور القالب</label>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handleFileChange}
                 className="hidden"
               />
-              {previewLocalUrl ? (
-                <div className="relative rounded-xl overflow-hidden border border-border">
-                  <img src={previewLocalUrl} alt="preview" className="w-full aspect-[4/3] object-cover" />
-                  <button
-                    onClick={() => { setPreviewFile(null); setPreviewLocalUrl(null); setShowFieldEditor(false); }}
-                    className="absolute top-2 left-2 w-7 h-7 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+              {previewLocalUrls.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  {previewLocalUrls.map((url, idx) => (
+                    <div key={idx} className="relative rounded-xl overflow-hidden border border-border aspect-square">
+                      <img src={url} alt="preview" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => {
+                          setPreviewLocalUrls(prev => prev.filter((_, i) => i !== idx));
+                          // If it's a new file (not existing), remove from previewFiles too
+                          const existingCount = existingUrls.filter(u => previewLocalUrls.includes(u)).length;
+                          if (idx >= existingCount) {
+                            setPreviewFiles(prev => prev.filter((_, i) => i !== (idx - existingCount)));
+                          } else {
+                            setExistingUrls(prev => prev.filter((_, i) => i !== idx));
+                          }
+                        }}
+                        className="absolute top-1 left-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ) : uploading ? (
-                <div className="border-2 border-dashed border-primary/40 rounded-xl p-8 text-center bg-primary/5">
+              )}
+              {uploading ? (
+                <div className="border-2 border-dashed border-primary/40 rounded-xl p-6 text-center bg-primary/5">
                   <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">جاري تجهيز الصورة...</p>
+                  <p className="text-sm text-muted-foreground">جاري تجهيز الصور...</p>
                 </div>
               ) : (
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+                  className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
                 >
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">اضغط لرفع صورة</p>
-                  <p className="text-xs text-muted-foreground mt-1">PNG, JPG — حتى 20MB</p>
+                  <p className="text-sm text-muted-foreground">اضغط لرفع صور (يمكنك اختيار أكثر من صورة)</p>
+                  <p className="text-xs text-muted-foreground mt-1">PNG, JPG — حتى 20MB لكل صورة</p>
                 </div>
               )}
             </div>
@@ -465,7 +490,7 @@ const AdminTemplates = () => {
             </div>
 
             {/* Upload Progress */}
-            {saving && previewFile && (
+            {saving && previewFiles.length > 0 && (
               <div className="space-y-2 pt-1">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{uploadStage}</span>
@@ -478,7 +503,7 @@ const AdminTemplates = () => {
             {/* Actions */}
             <div className="flex gap-2 pt-2">
               <Button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl">
-                {saving ? (previewFile ? `جاري الرفع... ${uploadProgress}%` : 'جاري الحفظ...') : editingTemplate ? 'حفظ التغييرات' : 'إضافة القالب'}
+                {saving ? (previewFiles.length ? `جاري الرفع... ${uploadProgress}%` : 'جاري الحفظ...') : editingTemplate ? 'حفظ التغييرات' : 'إضافة القالب'}
               </Button>
               <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} className="rounded-xl">
                 إلغاء
