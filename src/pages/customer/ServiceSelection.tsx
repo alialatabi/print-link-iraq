@@ -35,11 +35,11 @@ const ServiceSelection = () => {
                 to={`/sub-services/${service.id}`}
                 className="group block bg-card rounded-2xl p-6 sm:p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60"
               >
-                <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-5 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
+                <div className="w-20 h-20 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-5 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
                   {service.icon_url ? (
                     <img src={service.icon_url} alt={service.label} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-3xl">{service.icon}</span>
+                    <span className="text-4xl">{service.icon}</span>
                   )}
                 </div>
                 <h3 className="font-bold text-base sm:text-lg text-foreground">{service.label}</h3>

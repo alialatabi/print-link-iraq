@@ -160,12 +160,16 @@ const Layout = ({ children }: { children: ReactNode }) => {
                     to={`/sub-services/${service.id}`}
                     className="flex flex-col items-center gap-1.5 min-w-[60px] group"
                   >
-                    <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 overflow-hidden ${
                       isActive
                         ? 'bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30'
                         : 'bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary group-hover:shadow-sm'
                     }`}>
-                      <span className="text-xl">{service.icon}</span>
+                      {service.icon_url ? (
+                        <img src={service.icon_url} alt={service.label} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl">{service.icon}</span>
+                      )}
                     </div>
                     <span className={`text-[11px] font-semibold whitespace-nowrap transition-colors duration-150 ${
                       isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
@@ -217,7 +221,11 @@ const Layout = ({ children }: { children: ReactNode }) => {
                       onClick={closeMobile}
                       className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150"
                     >
-                      <span className="text-primary text-lg">{service.icon}</span>
+                      {service.icon_url ? (
+                        <img src={service.icon_url} alt={service.label} className="w-7 h-7 rounded-md object-cover" />
+                      ) : (
+                        <span className="text-primary text-lg">{service.icon}</span>
+                      )}
                       {service.label}
                     </Link>
                   ))}
