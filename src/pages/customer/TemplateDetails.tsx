@@ -196,6 +196,7 @@ const TemplateDetails = () => {
   const [template, setTemplate] = useState<DbTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [selectedCellophane, setSelectedCellophane] = useState<string>('');
 
   useEffect(() => {
     const load = async () => {
@@ -211,10 +212,24 @@ const TemplateDetails = () => {
   }, [templateId]);
 
   // Get price from service, not template
-  const serviceData = services.find(s => s.id === template?.service_type);
+  const serviceData = services.find(s => s.id === template?.service_type) as any;
   const unitPrice = serviceData?.price || 0;
+  const minQty = serviceData?.min_quantity || 1;
+  const cellophaneType: string = serviceData?.cellophane_type || 'none';
   const totalPrice = unitPrice * quantity;
   const isInCart = items.some(i => i.templateId === templateId);
+
+  // Set initial quantity to min_quantity when service data loads
+  useEffect(() => {
+    if (minQty > 1 && quantity < minQty) setQuantity(minQty);
+  }, [minQty]);
+
+  // Set default cellophane when it's single type
+  useEffect(() => {
+    if (cellophaneType === 'matte') setSelectedCellophane('matte');
+    else if (cellophaneType === 'glossy') setSelectedCellophane('glossy');
+    else if (cellophaneType === 'both' && !selectedCellophane) setSelectedCellophane('matte');
+  }, [cellophaneType]);
 
   const handleAddToCart = () => {
     if (!template) return;
@@ -323,6 +338,33 @@ const TemplateDetails = () => {
               </p>
             )}
 
+            {/* Cellophane option */}
+            {cellophaneType !== 'none' && (
+              <div className="rounded-xl bg-muted/30 border border-border/40 p-4">
+                <label className="text-xs font-semibold text-muted-foreground mb-2 block">السيلفان</label>
+                {cellophaneType === 'both' ? (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setSelectedCellophane('matte')}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${selectedCellophane === 'matte' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}
+                    >
+                      طافي
+                    </button>
+                    <button
+                      onClick={() => setSelectedCellophane('glossy')}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${selectedCellophane === 'glossy' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}
+                    >
+                      لمّاع
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-foreground">
+                    {cellophaneType === 'matte' ? '🟤 طافي' : '✨ لمّاع'}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Completion days */}
             {serviceData && serviceData.completion_days > 0 && (
               <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-primary/5 border border-primary/15">
@@ -341,7 +383,7 @@ const TemplateDetails = () => {
                 الكمية (بالآلاف)
               </label>
               <div className="flex items-center gap-4 bg-muted/20 rounded-xl p-3 border border-border/30">
-                <Button variant="outline" size="icon" onClick={() => quantity > 1 && setQuantity(q => q - 1)} disabled={quantity <= 1} className="h-11 w-11 rounded-xl">
+                <Button variant="outline" size="icon" onClick={() => quantity > minQty && setQuantity(q => q - 1)} disabled={quantity <= minQty} className="h-11 w-11 rounded-xl">
                   <Minus className="w-4 h-4" />
                 </Button>
                 <div className="flex-1 text-center">

@@ -49,7 +49,7 @@ const AdminServicesSpecs = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'service' | 'specialization'>('service');
   const [editing, setEditing] = useState<Service | Specialization | null>(null);
-  const [form, setForm] = useState({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '', completion_days: 0 });
+  const [form, setForm] = useState({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '', completion_days: 0, min_quantity: 1, cellophane_type: 'none' });
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [existingIconUrl, setExistingIconUrl] = useState<string | null>(null);
@@ -71,7 +71,7 @@ const AdminServicesSpecs = () => {
   const openAdd = (type: 'service' | 'specialization') => {
     setDialogType(type);
     setEditing(null);
-    setForm({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '', completion_days: 0 });
+    setForm({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '', completion_days: 0, min_quantity: 1, cellophane_type: 'none' });
     setIconFile(null);
     setIconPreview(null);
     setExistingIconUrl(null);
@@ -90,6 +90,8 @@ const AdminServicesSpecs = () => {
       cost: 'cost' in item ? (item as Service).cost : 0,
       parent_id: 'parent_id' in item ? ((item as Service).parent_id || '') : '',
       completion_days: 'completion_days' in item ? (item as Service).completion_days : 0,
+      min_quantity: 'min_quantity' in item ? ((item as any).min_quantity || 1) : 1,
+      cellophane_type: 'cellophane_type' in item ? ((item as any).cellophane_type || 'none') : 'none',
     });
     setIconFile(null);
     setIconPreview(null);
@@ -142,7 +144,7 @@ const AdminServicesSpecs = () => {
           const iconUrl = await uploadIcon(editing.id);
           const { error } = await supabase
             .from('services')
-            .update({ label: form.label, icon: form.icon || '📄', description: form.description, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null, completion_days: form.completion_days } as any)
+            .update({ label: form.label, icon: form.icon || '📄', description: form.description, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null, completion_days: form.completion_days, min_quantity: form.min_quantity, cellophane_type: form.cellophane_type } as any)
             .eq('id', editing.id);
           if (error) throw error;
           toast.success('تم تحديث الخدمة');
@@ -152,7 +154,7 @@ const AdminServicesSpecs = () => {
           const iconUrl = await uploadIcon(id);
           const { error } = await supabase
             .from('services')
-            .insert({ id, label: form.label, icon: form.icon || '📄', description: form.description, sort_order: maxOrder + 1, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null, completion_days: form.completion_days } as any);
+            .insert({ id, label: form.label, icon: form.icon || '📄', description: form.description, sort_order: maxOrder + 1, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null, completion_days: form.completion_days, min_quantity: form.min_quantity, cellophane_type: form.cellophane_type } as any);
           if (error) throw error;
           toast.success('تمت إضافة الخدمة');
         }
@@ -484,6 +486,32 @@ const AdminServicesSpecs = () => {
                       {form.completion_days > 0 && (
                         <p className="text-[11px] text-muted-foreground mt-1">⏱ يتم إنجاز الطلب خلال {form.completion_days} {form.completion_days === 1 ? 'يوم' : 'أيام'}</p>
                       )}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">أقل كمية للطلب (بالآلاف)</label>
+                      <Input
+                        type="number"
+                        value={form.min_quantity || ''}
+                        onChange={e => setForm(f => ({ ...f, min_quantity: parseInt(e.target.value) || 1 }))}
+                        placeholder="1"
+                        className="rounded-xl"
+                        dir="ltr"
+                        min="1"
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1">الحد الأدنى: {(form.min_quantity * 1000).toLocaleString('en-US')} نسخة</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-1 block">السيلفان</label>
+                      <select
+                        value={form.cellophane_type}
+                        onChange={e => setForm(f => ({ ...f, cellophane_type: e.target.value }))}
+                        className="w-full h-10 rounded-xl border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="none">بدون سيلفان</option>
+                        <option value="matte">طافي فقط</option>
+                        <option value="glossy">لمّاع فقط</option>
+                        <option value="both">طافي ولمّاع (يختار الزبون)</option>
+                      </select>
                     </div>
                   </>
                 )}
