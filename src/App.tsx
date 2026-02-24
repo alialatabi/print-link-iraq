@@ -57,7 +57,6 @@ const App = () => (
                 <Route path="/services" element={<ServiceSelection />} />
                 <Route path="/sub-services/:parentId" element={<SubServiceSelection />} />
                 <Route path="/specializations/:serviceType" element={<SpecializationSelection />} />
-                <Route path="/templates/:serviceType/:specialization" element={<TemplateSelection />} />
                 <Route path="/templates/:serviceType" element={<TemplateSelection />} />
                 <Route path="/template/:templateId" element={<TemplateDetails />} />
                 <Route path="/cart" element={<CartPage />} />
