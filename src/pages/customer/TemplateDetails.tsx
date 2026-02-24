@@ -240,6 +240,7 @@ const TemplateDetails = () => {
       previewUrl: template.preview_url,
       quantity,
       unitPrice,
+      cellophane: cellophaneType !== 'none' ? selectedCellophane : undefined,
     });
     toast({ title: 'تمت الإضافة للسلة ✓', description: template.id.slice(0, 8).toUpperCase() });
   };

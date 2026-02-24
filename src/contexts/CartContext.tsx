@@ -7,6 +7,7 @@ export interface CartItem {
   previewUrl: string | null;
   quantity: number; // in thousands
   unitPrice: number; // price per 1000
+  cellophane?: string; // 'matte' | 'glossy' | '' (none)
 }
 
 interface CartContextType {
