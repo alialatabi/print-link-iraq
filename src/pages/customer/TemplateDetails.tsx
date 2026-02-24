@@ -283,8 +283,8 @@ const TemplateDetails = () => {
   // Discount
   const { discountPercent, discountLabel } = useActiveDiscount(template?.service_type, parentServiceId);
   const discountedUnitPrice = discountPercent > 0 ? Math.ceil(unitPrice * (1 - discountPercent / 100)) : unitPrice;
-  const totalPrice = Math.ceil(discountedUnitPrice * (quantity / 1000));
-  const originalTotalPrice = discountPercent > 0 ? Math.ceil(unitPrice * (quantity / 1000)) : 0;
+  const totalPrice = Math.ceil(discountedUnitPrice * (quantity / minQty));
+  const originalTotalPrice = discountPercent > 0 ? Math.ceil(unitPrice * (quantity / minQty)) : 0;
   const isInCart = items.some(i => i.templateId === templateId);
 
   // Set initial quantity to min_quantity when service data loads
@@ -308,6 +308,7 @@ const TemplateDetails = () => {
       previewUrl: template.preview_url,
       quantity,
       unitPrice: discountedUnitPrice,
+      minQuantity: minQty,
       cellophane: cellophaneType !== 'none' ? selectedCellophane : undefined,
     });
     toast({ title: 'تمت الإضافة للسلة ✓', description: template.id.slice(0, 8).toUpperCase() });
@@ -420,7 +421,7 @@ const TemplateDetails = () => {
 
             {/* Price */}
             <div>
-              <p className="text-xs text-muted-foreground mb-1.5">السعر لكل ألف نسخة</p>
+              <p className="text-xs text-muted-foreground mb-1.5">السعر لكل {minQty.toLocaleString('en-US')} نسخة</p>
               <div className="flex items-center gap-3 flex-wrap">
                 <p className="text-4xl font-extrabold text-foreground">
                   {discountedUnitPrice.toLocaleString('en-US')}
@@ -491,7 +492,7 @@ const TemplateDetails = () => {
                 الكمية
               </label>
               <div className="flex items-center gap-4 bg-muted/20 rounded-xl p-3 border border-border/30">
-                <Button variant="outline" size="icon" onClick={() => quantity > minQty && setQuantity(q => q - 1000)} disabled={quantity <= minQty} className="h-11 w-11 rounded-xl">
+                <Button variant="outline" size="icon" onClick={() => quantity > minQty && setQuantity(q => q - minQty)} disabled={quantity <= minQty} className="h-11 w-11 rounded-xl">
                   <Minus className="w-4 h-4" />
                 </Button>
                 <div className="flex-1 text-center">
@@ -508,7 +509,7 @@ const TemplateDetails = () => {
                   />
                   <p className="text-xs text-muted-foreground/70 mt-0.5">الحد الأدنى: {minQty.toLocaleString('en-US')} نسخة</p>
                 </div>
-                <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1000)} className="h-11 w-11 rounded-xl">
+                <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + minQty)} className="h-11 w-11 rounded-xl">
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>

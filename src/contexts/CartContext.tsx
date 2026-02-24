@@ -5,8 +5,9 @@ export interface CartItem {
   templateName: string;
   serviceType: string;
   previewUrl: string | null;
-  quantity: number; // in thousands
-  unitPrice: number; // price per 1000
+  quantity: number;
+  unitPrice: number; // price per minQuantity
+  minQuantity: number; // minimum order quantity for this service
   cellophane?: string; // 'matte' | 'glossy' | '' (none)
 }
 
@@ -65,7 +66,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const clearCart = () => setItems([]);
 
-  const totalPrice = items.reduce((sum, i) => sum + Math.ceil(i.unitPrice * (i.quantity / 1000)), 0);
+  const totalPrice = items.reduce((sum, i) => sum + Math.ceil(i.unitPrice * (i.quantity / (i.minQuantity || 1000))), 0);
   const itemCount = items.length;
 
   return (

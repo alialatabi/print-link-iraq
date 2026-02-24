@@ -134,9 +134,10 @@ const UploadDesignPage = () => {
 
   const selectedServiceData = services.find(s => s.id === selectedService);
 
-  const formatPrice = (price: number) => {
+  const formatPrice = (price: number, minQ?: number) => {
     if (!price) return null;
-    return `${price.toLocaleString('en-US')} د.ع / ألف`;
+    const q = minQ || 1000;
+    return `${price.toLocaleString('en-US')} د.ع / ${q.toLocaleString('en-US')}`;
   };
 
   const handleFileSelect = async (f: File, slot: 1 | 2) => {
@@ -277,7 +278,7 @@ const UploadDesignPage = () => {
                       </div>
                       <p className="text-xs font-semibold">{service.label}</p>
                       {service.price > 0 && (
-                        <p className="text-primary/80 font-bold text-xs mt-1">{formatPrice(service.price)}</p>
+                        <p className="text-primary/80 font-bold text-xs mt-1">{formatPrice(service.price, (service as any).min_quantity)}</p>
                       )}
                     </button>
                   ))}
@@ -303,7 +304,7 @@ const UploadDesignPage = () => {
                     <div>
                       <p className="text-sm font-bold text-foreground">{selectedServiceData.label}</p>
                       {selectedServiceData.price > 0 && (
-                        <p className="text-primary font-bold text-xs">{formatPrice(selectedServiceData.price)}</p>
+                        <p className="text-primary font-bold text-xs">{formatPrice(selectedServiceData.price, (selectedServiceData as any).min_quantity)}</p>
                       )}
                     </div>
                   </div>

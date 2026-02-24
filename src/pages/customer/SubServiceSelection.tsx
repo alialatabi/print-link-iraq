@@ -12,9 +12,10 @@ const SubServiceSelection = () => {
   const parent = parentServices.find(s => s.id === parentId);
   const subServices = parentId ? getSubServices(parentId) : [];
 
-  const formatPrice = (price: number) => {
-    if (!price) return null;
-    return `${price.toLocaleString('en-US')} د.ع / ألف`;
+  const formatPrice = (service: any) => {
+    if (!service.price) return null;
+    const minQ = service.min_quantity || 1000;
+    return `${service.price.toLocaleString('en-US')} د.ع / ${minQ.toLocaleString('en-US')}`;
   };
 
   if (loading) {
@@ -81,7 +82,7 @@ const SubServiceSelection = () => {
                   <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{service.label}</h3>
                   {service.price > 0 && (
                     <p className="text-primary font-bold text-sm mt-4">
-                      {formatPrice(service.price)}
+                      {formatPrice(service)}
                     </p>
                   )}
                   {service.completion_days > 0 && (

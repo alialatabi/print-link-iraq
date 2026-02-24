@@ -108,6 +108,7 @@ const AdminAccounts = () => {
   // Build price & cost maps from services
   const servicePriceMap = useMemo(() => Object.fromEntries(services.map(s => [s.id, s.price])), [services]);
   const serviceCostMap = useMemo(() => Object.fromEntries(services.map(s => [s.id, s.cost])), [services]);
+  const serviceMinQtyMap = useMemo(() => Object.fromEntries(services.map(s => [s.id, s.min_quantity || 1000])), [services]);
 
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -131,17 +132,19 @@ const AdminAccounts = () => {
   const calcOrderTotal = useCallback((order: OrderRow): number => {
     const serviceType = order.templates?.service_type || '';
     const price = servicePriceMap[serviceType] || 0;
-    const qty = (order.details as any)?.quantity || 1000;
-    return (price / 1000) * qty;
-  }, [servicePriceMap]);
+    const minQ = serviceMinQtyMap[serviceType] || 1000;
+    const qty = (order.details as any)?.quantity || minQ;
+    return (price / minQ) * qty;
+  }, [servicePriceMap, serviceMinQtyMap]);
 
   // Calc order cost using service cost
   const calcOrderCost = useCallback((order: OrderRow): number => {
     const serviceType = order.templates?.service_type || '';
     const cost = serviceCostMap[serviceType] || 0;
-    const qty = (order.details as any)?.quantity || 1000;
-    return (cost / 1000) * qty;
-  }, [serviceCostMap]);
+    const minQ = serviceMinQtyMap[serviceType] || 1000;
+    const qty = (order.details as any)?.quantity || minQ;
+    return (cost / minQ) * qty;
+  }, [serviceCostMap, serviceMinQtyMap]);
 
   const loadOrders = useCallback(async () => {
     const { data: ordersData } = await supabase
