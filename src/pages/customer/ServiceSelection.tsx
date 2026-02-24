@@ -42,8 +42,7 @@ const ServiceSelection = () => {
                     <span className="text-3xl">{service.icon}</span>
                   )}
                 </div>
-                <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{service.label}</h3>
-                <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed whitespace-pre-line">{service.description}</p>
+                <h3 className="font-bold text-base sm:text-lg text-foreground">{service.label}</h3>
               </Link>
             </motion.div>
           ))}
