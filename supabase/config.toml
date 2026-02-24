@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.create-designer]
 verify_jwt = false
+
+[functions.generate-sitemap]
+verify_jwt = false
