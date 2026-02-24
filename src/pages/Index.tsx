@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import SEOHead from '@/components/SEOHead';
+import JsonLd, { localBusinessSchema, websiteSchema, organizationSchema } from '@/components/JsonLd';
 
 interface PopularTemplate {
   id: string;
@@ -168,7 +170,14 @@ const Index = () => {
 
   return (
     <div className="overflow-hidden">
-
+      <SEOHead
+        title="خدمات طباعة احترافية في العراق"
+        description="مطبعتي - خدمات طباعة أونلاين في العراق. كروت شخصية، فلايرات، وصولات، ترويسة، قوائم طعام، ودعوات. اختر قالباً، خصّصه، واستلمه لباب بيتك."
+        canonical="/"
+      />
+      <JsonLd data={localBusinessSchema} />
+      <JsonLd data={websiteSchema} />
+      <JsonLd data={organizationSchema} />
       {/* ─── Hero ─── */}
       <section className="relative bg-gradient-to-bl from-background via-muted/40 to-muted/60 dark:from-[hsl(222,47%,4%)] dark:via-[hsl(222,47%,6%)] dark:to-[hsl(222,47%,8%)] text-foreground dark:text-secondary-foreground pt-12 pb-16 sm:pt-20 sm:pb-28 overflow-hidden">
         {/* subtle bg pattern */}

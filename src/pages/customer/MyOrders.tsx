@@ -10,6 +10,7 @@ import { FileText, ShoppingBag, RefreshCw, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { playNotificationSound } from '@/lib/notificationSound';
+import SEOHead from '@/components/SEOHead';
 
 const MyOrders = () => {
   const navigate = useNavigate();
@@ -97,6 +98,7 @@ const MyOrders = () => {
 
   return (
     <div className="section-spacing-sm">
+      <SEOHead title="طلباتي" description="تتبع جميع طلباتك ومعرفة حالتها - مطبعتي" canonical="/my-orders" noindex />
       <div className="container max-w-4xl">
         <div className="mb-10">
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight">طلباتي</h1>

@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useServices, useSpecializations, buildLabelMap } from '@/hooks/useServices';
 import { ArrowRight } from 'lucide-react';
+import SEOHead from '@/components/SEOHead';
+import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 
 const SpecializationSelection = () => {
   const { serviceType } = useParams<{ serviceType: string }>();
@@ -46,6 +48,16 @@ const SpecializationSelection = () => {
 
   return (
     <div className="section-spacing-sm">
+      <SEOHead
+        title={`اختر التخصص — ${serviceLabel}`}
+        description={`حدد مجال عملك لعرض قوالب ${serviceLabel} المناسبة - مطبعتي، طباعة احترافية في العراق`}
+        canonical={`/specializations/${serviceType}`}
+      />
+      <JsonLd data={breadcrumbSchema([
+        { name: 'الرئيسية', url: '/' },
+        { name: 'الخدمات', url: '/services' },
+        { name: serviceLabel, url: `/specializations/${serviceType}` },
+      ])} />
       <div className="container max-w-4xl">
         <Link to={parentId ? `/sub-services/${parentId}` : '/services'} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
           <ArrowRight className="w-4 h-4" />

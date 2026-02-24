@@ -9,6 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useServices } from '@/hooks/useServices';
+import SEOHead from '@/components/SEOHead';
+import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -288,6 +290,33 @@ const TemplateDetails = () => {
 
   return (
     <div className="section-spacing-sm">
+      <SEOHead
+        title={`${template.name} — ${serviceLabel}`}
+        description={template.description || `قالب ${serviceLabel} احترافي جاهز للتخصيص والطباعة - مطبعتي`}
+        canonical={`/template/${template.id}`}
+        image={template.preview_url || undefined}
+        type="product"
+      />
+      <JsonLd data={breadcrumbSchema([
+        { name: 'الرئيسية', url: '/' },
+        { name: serviceLabel, url: `/templates/${template.service_type}` },
+        { name: template.name, url: `/template/${template.id}` },
+      ])} />
+      <JsonLd data={{
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: template.name,
+        description: template.description || `قالب ${serviceLabel} احترافي`,
+        image: template.preview_url || undefined,
+        brand: { '@type': 'Brand', name: 'مطبعتي' },
+        offers: {
+          '@type': 'Offer',
+          price: unitPrice,
+          priceCurrency: 'IQD',
+          availability: 'https://schema.org/InStock',
+          seller: { '@type': 'Organization', name: 'مطبعتي' },
+        },
+      }} />
       <div className="container max-w-5xl">
         {/* Breadcrumb */}
         <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={0}>

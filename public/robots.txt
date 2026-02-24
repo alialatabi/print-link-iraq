@@ -1,8 +1,19 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /admin
+Disallow: /designer/
+Disallow: /staff-login
+Disallow: /verify-otp
+Disallow: /complete-profile
+Disallow: /order-success
+Disallow: /checkout
+Disallow: /delivery-address/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin
+Disallow: /designer/
+Disallow: /staff-login
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +23,11 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /designer/
+Disallow: /staff-login
+Disallow: /verify-otp
+Disallow: /complete-profile
+Disallow: /order-success
+
+Sitemap: https://matbaty.lovable.app/sitemap.xml
