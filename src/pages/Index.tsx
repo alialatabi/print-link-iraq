@@ -248,27 +248,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* ─── Service Categories ─── */}
-      <section className="py-8 bg-muted/30 dark:bg-[hsl(222,47%,6%)] border-b border-border/50">
-        <div className="container max-w-5xl">
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-            {parentServices.map((svc, i) => (
-              <motion.div key={svc.id} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={scaleIn} custom={i}>
-                <Link to="/services" className="group flex flex-col items-center gap-2 p-3 sm:p-4 rounded-2xl bg-card dark:bg-[hsl(222,47%,9%)] border border-border/60 dark:border-[hsl(217,33%,16%)] hover:border-primary/30 hover:shadow-card-hover dark:hover:shadow-dark-card-hover transition-all duration-300 hover:-translate-y-1 text-center">
-                  <div className={`w-11 h-11 sm:w-13 sm:h-13 rounded-xl flex items-center justify-center ${ICON_BG_COLORS[i % ICON_BG_COLORS.length]} group-hover:scale-110 transition-transform duration-300`}>
-                    {svc.icon_url ? (
-                      <img src={svc.icon_url} alt={svc.label} className="w-7 h-7 object-contain" />
-                    ) : (
-                      <span className="text-2xl">{svc.icon}</span>
-                    )}
-                  </div>
-                  <span className="text-[11px] sm:text-xs font-bold text-foreground leading-tight">{svc.label}</span>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ─── Upload Banner ─── */}
       <section className="py-5 bg-gradient-to-l from-primary/15 via-cmyk-magenta/10 to-primary/15 dark:from-primary/10 dark:via-cmyk-magenta/8 dark:to-primary/10 border-y border-primary/20">
