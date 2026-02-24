@@ -118,11 +118,17 @@ const AdminServicesSpecs = () => {
     if (!iconFile) return existingIconUrl;
     const ext = iconFile.name.split('.').pop();
     const path = `${dialogType}/${itemId}.${ext}`;
-    await supabase.storage.from('service-icons').remove([path]);
+    // Remove old file first (ignore errors if not found)
+    await supabase.storage.from('service-icons').remove([path]).catch(() => {});
     const { error } = await supabase.storage.from('service-icons').upload(path, iconFile, { upsert: true });
-    if (error) { console.error(error); return existingIconUrl; }
+    if (error) { 
+      console.error('Upload error:', error); 
+      toast.error('فشل رفع الصورة: ' + error.message);
+      return existingIconUrl; 
+    }
     const { data } = supabase.storage.from('service-icons').getPublicUrl(path);
-    return data.publicUrl;
+    // Add cache buster to avoid stale cached images
+    return `${data.publicUrl}?t=${Date.now()}`;
   };
 
   const handleSave = async () => {
