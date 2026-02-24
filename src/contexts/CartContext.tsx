@@ -58,7 +58,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateQuantity = (templateId: string, quantity: number) => {
-    if (quantity < 1) return;
+    const item = items.find(i => i.templateId === templateId);
+    const minQ = item?.minQuantity || 1000;
+    if (quantity < minQ) return;
     setItems(prev =>
       prev.map(i => (i.templateId === templateId ? { ...i, quantity } : i))
     );

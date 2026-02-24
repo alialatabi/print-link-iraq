@@ -501,7 +501,12 @@ const TemplateDetails = () => {
                     value={quantity}
                     onChange={e => {
                       const val = parseInt(e.target.value) || minQty;
-                      setQuantity(Math.max(minQty, val));
+                      const rounded = Math.max(minQty, Math.round(val / minQty) * minQty);
+                      setQuantity(rounded);
+                    }}
+                    onBlur={() => {
+                      const rounded = Math.max(minQty, Math.round(quantity / minQty) * minQty);
+                      if (rounded !== quantity) setQuantity(rounded);
                     }}
                     min={minQty}
                     className="w-full text-center text-3xl font-black text-foreground bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
