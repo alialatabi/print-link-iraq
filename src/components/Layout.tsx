@@ -165,8 +165,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
                       {/* Background circle */}
                       <div className={`w-14 h-14 rounded-full transition-all duration-300 ${
                         isActive
-                          ? 'bg-primary/20 shadow-md ring-2 ring-primary/30 scale-105'
-                          : 'bg-muted/60 group-hover:bg-primary/10 group-hover:shadow-sm group-hover:scale-105'
+                          ? 'bg-muted shadow-md ring-2 ring-primary/30 scale-105'
+                          : 'bg-muted/60 group-hover:bg-muted group-hover:shadow-sm group-hover:scale-105'
                       }`} />
                       {/* Floating image - larger than the circle, positioned above */}
                       <div className={`absolute -top-3 left-1/2 -translate-x-1/2 w-[4.5rem] h-[4.5rem] rounded-2xl overflow-hidden transition-all duration-300 drop-shadow-lg group-hover:drop-shadow-xl group-hover:-translate-y-1 group-hover:scale-110 ${
