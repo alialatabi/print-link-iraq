@@ -41,6 +41,39 @@ export type Database = {
         }
         Relationships: []
       }
+      coupons: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          percentage: number
+          used_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          percentage?: number
+          used_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          percentage?: number
+          used_count?: number
+        }
+        Relationships: []
+      }
       designs: {
         Row: {
           approved: boolean | null
@@ -85,6 +118,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      discounts: {
+        Row: {
+          created_at: string
+          discount_type: string
+          ends_at: string | null
+          id: string
+          is_active: boolean
+          percentage: number
+          starts_at: string | null
+          target_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          discount_type?: string
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          percentage?: number
+          starts_at?: string | null
+          target_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          discount_type?: string
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          percentage?: number
+          starts_at?: string | null
+          target_id?: string | null
+        }
+        Relationships: []
       }
       expenses: {
         Row: {
@@ -539,6 +605,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_coupon_usage: {
+        Args: { coupon_id: string }
+        Returns: undefined
       }
     }
     Enums: {

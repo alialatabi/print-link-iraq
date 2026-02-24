@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/contexts/CartContext';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Minus, Plus, Trash2, ShoppingCart, Palette, ShieldCheck, Truck } from 'lucide-react';
+import { ArrowRight, Minus, Plus, Trash2, ShoppingCart, Palette, ShieldCheck, Truck, Tag, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import SEOHead from '@/components/SEOHead';
+import { validateCoupon, Coupon } from '@/hooks/useDiscounts';
+import { toast } from 'sonner';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -14,6 +18,30 @@ const fadeUp = {
 const CartPage = () => {
   const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart();
   const navigate = useNavigate();
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [validating, setValidating] = useState(false);
+
+  const couponDiscount = appliedCoupon ? Math.ceil(totalPrice * appliedCoupon.percentage / 100) : 0;
+  const finalPrice = totalPrice - couponDiscount;
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setValidating(true);
+    const coupon = await validateCoupon(couponCode);
+    setValidating(false);
+    if (coupon) {
+      setAppliedCoupon(coupon);
+      toast.success(`تم تطبيق كوبون خصم ${coupon.percentage}% 🎉`);
+    } else {
+      toast.error('كود الخصم غير صالح أو منتهي');
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+  };
 
   if (items.length === 0) {
     return (
@@ -137,6 +165,47 @@ const CartPage = () => {
           </AnimatePresence>
         </div>
 
+        {/* Coupon Input */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mb-4"
+        >
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-success/10 border border-success/20">
+              <div className="flex items-center gap-2">
+                <Tag className="w-4 h-4 text-success" />
+                <span className="text-sm font-bold text-success">كوبون {appliedCoupon.code}</span>
+                <span className="text-xs text-success/70">(-{appliedCoupon.percentage}%)</span>
+              </div>
+              <button onClick={removeCoupon} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input
+                value={couponCode}
+                onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                placeholder="كود الخصم"
+                className="rounded-xl font-mono tracking-wider text-center"
+                dir="ltr"
+                onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
+              />
+              <Button
+                variant="outline"
+                onClick={handleApplyCoupon}
+                disabled={validating || !couponCode.trim()}
+                className="rounded-xl gap-1.5 shrink-0 px-5"
+              >
+                {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tag className="w-4 h-4" />}
+                تطبيق
+              </Button>
+            </div>
+          )}
+        </motion.div>
+
         {/* Summary */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -144,15 +213,28 @@ const CartPage = () => {
           transition={{ delay: 0.2 }}
           className="p-6 sm:p-8 rounded-2xl bg-card/80 backdrop-blur-sm border border-border/50 shadow-sm"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-muted-foreground text-sm">المجموع الكلي</span>
-            <span className="text-2xl font-extrabold text-success">
-              {totalPrice.toLocaleString('en-US')} <span className="text-sm font-bold text-success/70">د.ع</span>
-            </span>
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">المجموع الفرعي</span>
+              <span className="text-sm font-bold text-foreground">{totalPrice.toLocaleString('en-US')} د.ع</span>
+            </div>
+            {couponDiscount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-success text-sm font-medium">خصم الكوبون ({appliedCoupon!.percentage}%)</span>
+                <span className="text-sm font-bold text-success">-{couponDiscount.toLocaleString('en-US')} د.ع</span>
+              </div>
+            )}
+            <div className="h-px bg-border/40" />
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-foreground text-sm font-bold">المجموع الكلي</span>
+              <span className="text-2xl font-extrabold text-success">
+                {finalPrice.toLocaleString('en-US')} <span className="text-sm font-bold text-success/70">د.ع</span>
+              </span>
+            </div>
           </div>
 
           {/* Trust badges */}
-          <div className="flex items-center gap-4 mb-6 mt-4">
+          <div className="flex items-center gap-4 mb-6">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span className="text-[11px]">دفع آمن</span>
@@ -164,7 +246,15 @@ const CartPage = () => {
           </div>
 
           <Button
-            onClick={() => navigate('/checkout')}
+            onClick={() => {
+              // Store coupon in sessionStorage for checkout to use
+              if (appliedCoupon) {
+                sessionStorage.setItem('matbaty_coupon', JSON.stringify(appliedCoupon));
+              } else {
+                sessionStorage.removeItem('matbaty_coupon');
+              }
+              navigate('/checkout');
+            }}
             className="w-full h-12 text-base font-bold gap-2 rounded-xl animate-cta-glow"
           >
             <ShoppingCart className="w-5 h-5" />
