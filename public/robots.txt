@@ -30,4 +30,4 @@ Disallow: /verify-otp
 Disallow: /complete-profile
 Disallow: /order-success
 
-Sitemap: https://matbaty.lovable.app/sitemap.xml
+Sitemap: https://praotzblwslmmlyhodya.supabase.co/functions/v1/generate-sitemap
