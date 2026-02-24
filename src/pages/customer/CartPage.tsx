@@ -133,8 +133,8 @@ const CartPage = () => {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8 rounded-lg"
-                        onClick={() => updateQuantity(item.templateId, item.quantity - 1000)}
-                        disabled={item.quantity <= 1000}
+                        onClick={() => updateQuantity(item.templateId, item.quantity - (item.minQuantity || 1000))}
+                        disabled={item.quantity <= (item.minQuantity || 1000)}
                       >
                         <Minus className="w-3 h-3" />
                       </Button>
@@ -145,7 +145,7 @@ const CartPage = () => {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8 rounded-lg"
-                        onClick={() => updateQuantity(item.templateId, item.quantity + 1000)}
+                        onClick={() => updateQuantity(item.templateId, item.quantity + (item.minQuantity || 1000))}
                       >
                         <Plus className="w-3 h-3" />
                       </Button>
@@ -154,7 +154,7 @@ const CartPage = () => {
                     {/* Price */}
                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success/10 border border-success/15">
                       <span className="font-extrabold text-success text-sm">
-                        {Math.ceil(item.unitPrice * (item.quantity / 1000)).toLocaleString('en-US')}
+                        {Math.ceil(item.unitPrice * (item.quantity / (item.minQuantity || 1000))).toLocaleString('en-US')}
                       </span>
                       <span className="text-[10px] font-semibold text-success/70">د.ع</span>
                     </div>
