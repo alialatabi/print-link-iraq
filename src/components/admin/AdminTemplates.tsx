@@ -386,24 +386,6 @@ const AdminTemplates = () => {
               )}
             </div>
 
-            {/* Text Fields Editor Toggle */}
-            {previewLocalUrl && (
-              <div>
-                {!showFieldEditor ? (
-                  <Button variant="outline" className="w-full rounded-xl" onClick={() => setShowFieldEditor(true)}>
-                    <Type className="w-4 h-4 ml-2" />
-                    تحديد حقول النص على التصميم
-                    {textFields.length > 0 && <span className="mr-2 text-xs text-primary">({textFields.length} حقل)</span>}
-                  </Button>
-                ) : (
-                  <TemplateFieldEditor
-                    imageUrl={previewLocalUrl}
-                    fields={textFields}
-                    onChange={setTextFields}
-                  />
-                )}
-              </div>
-            )}
 
 
 
@@ -415,7 +397,7 @@ const AdminTemplates = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {services.map(s => (
+                  {services.filter(s => s.parent_id).map(s => (
                     <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -424,7 +406,21 @@ const AdminTemplates = () => {
 
             {/* Specializations (multi-select) */}
             <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">التخصصات</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium text-foreground">التخصصات</label>
+                {specializations.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allSelected = form.specializations.length === specializations.length;
+                      setForm(f => ({ ...f, specializations: allSelected ? [] : specializations.map(s => s.id) }));
+                    }}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    {form.specializations.length === specializations.length ? 'إلغاء الكل' : 'تحديد الكل'}
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-border bg-background min-h-[44px]">
                 {specializations.map(s => {
                   const selected = form.specializations.includes(s.id);
