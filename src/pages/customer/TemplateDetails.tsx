@@ -133,47 +133,47 @@ const PersonalizedRecommendations = ({ serviceType, currentId }: { serviceType: 
       const recentIds = getRecentlyViewed(20);
       const excludeIds = [currentId, ...recentIds.slice(0, 5)];
       const preferredTypes = getPreferredServiceTypes(undefined, 6);
+      const hasHistory = preferredTypes.length > 0;
 
-      // Build a mix: preferred services first, then same service, then random
       const allResults: DbTemplate[] = [];
       const seenIds = new Set(excludeIds);
 
-      // 1. From preferred service types (cross-service personalization)
-      if (preferredTypes.length > 0) {
+      const addUnique = (data: DbTemplate[] | null) => {
+        (data || []).forEach(t => {
+          if (!seenIds.has(t.id)) { seenIds.add(t.id); allResults.push(t); }
+        });
+      };
+
+      if (hasHistory) {
+        // 1. From preferred service types (personalized)
         const { data } = await supabase
           .from('templates')
           .select('*')
           .in('service_type', preferredTypes)
           .not('id', 'in', `(${excludeIds.join(',')})`)
           .limit(6) as unknown as { data: DbTemplate[] | null };
-        (data || []).forEach(t => {
-          if (!seenIds.has(t.id)) { seenIds.add(t.id); allResults.push(t); }
-        });
+        addUnique(data);
+
+        // 2. From same service type
+        if (allResults.length < 8) {
+          const { data: d2 } = await supabase
+            .from('templates')
+            .select('*')
+            .eq('service_type', serviceType)
+            .not('id', 'in', `(${[...seenIds].join(',')})`)
+            .limit(4) as unknown as { data: DbTemplate[] | null };
+          addUnique(d2);
+        }
       }
 
-      // 2. From same service type
+      // 3. Fill with random templates (main source for first-time visitors)
       if (allResults.length < 8) {
-        const { data } = await supabase
-          .from('templates')
-          .select('*')
-          .eq('service_type', serviceType)
-          .not('id', 'in', `(${[...seenIds].join(',')})`)
-          .limit(4) as unknown as { data: DbTemplate[] | null };
-        (data || []).forEach(t => {
-          if (!seenIds.has(t.id)) { seenIds.add(t.id); allResults.push(t); }
-        });
-      }
-
-      // 3. Fill remaining slots with random templates from any service
-      if (allResults.length < 6) {
-        const { data } = await supabase
+        const { data: d3 } = await supabase
           .from('templates')
           .select('*')
           .not('id', 'in', `(${[...seenIds].join(',')})`)
-          .limit(6 - allResults.length) as unknown as { data: DbTemplate[] | null };
-        (data || []).forEach(t => {
-          if (!seenIds.has(t.id)) { seenIds.add(t.id); allResults.push(t); }
-        });
+          .limit(8 - allResults.length) as unknown as { data: DbTemplate[] | null };
+        addUnique(d3);
       }
 
       // Shuffle for variety, keep max 8
