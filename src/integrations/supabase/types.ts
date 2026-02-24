@@ -380,6 +380,7 @@ export type Database = {
       }
       services: {
         Row: {
+          cellophane_type: string
           completion_days: number
           cost: number
           created_at: string
@@ -388,11 +389,13 @@ export type Database = {
           icon_url: string | null
           id: string
           label: string
+          min_quantity: number
           parent_id: string | null
           price: number
           sort_order: number
         }
         Insert: {
+          cellophane_type?: string
           completion_days?: number
           cost?: number
           created_at?: string
@@ -401,11 +404,13 @@ export type Database = {
           icon_url?: string | null
           id: string
           label: string
+          min_quantity?: number
           parent_id?: string | null
           price?: number
           sort_order?: number
         }
         Update: {
+          cellophane_type?: string
           completion_days?: number
           cost?: number
           created_at?: string
@@ -414,6 +419,7 @@ export type Database = {
           icon_url?: string | null
           id?: string
           label?: string
+          min_quantity?: number
           parent_id?: string | null
           price?: number
           sort_order?: number
