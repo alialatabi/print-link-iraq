@@ -9,9 +9,6 @@ interface CouponRow {
   id: string;
   code: string;
   percentage: number;
-  is_active: boolean;
-  max_uses: number | null;
-  used_count: number;
   expires_at: string | null;
 }
 
@@ -23,12 +20,16 @@ const MyCoupons = () => {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      setCoupons((data as CouponRow[]) || []);
+      try {
+        const { data, error } = await supabase.functions.invoke('validate-coupon', {
+          body: { action: 'list' },
+        });
+        if (!error && data?.coupons) {
+          setCoupons(data.coupons);
+        }
+      } catch (e) {
+        console.error('Failed to load coupons', e);
+      }
       setLoading(false);
     };
     load();
@@ -70,8 +71,6 @@ const MyCoupons = () => {
             <div className="space-y-4">
               {coupons.map((c, i) => {
                 const isExpired = c.expires_at && new Date(c.expires_at) < new Date();
-                const isMaxed = c.max_uses && c.used_count >= c.max_uses;
-                const isAvailable = !isExpired && !isMaxed;
 
                 return (
                   <motion.div
@@ -80,7 +79,7 @@ const MyCoupons = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
                     className={`relative overflow-hidden rounded-2xl border-2 border-dashed transition-all ${
-                      isAvailable
+                      !isExpired
                         ? 'border-primary/40 bg-primary/5 hover:border-primary/60 hover:shadow-md'
                         : 'border-border/50 bg-muted/30 opacity-60'
                     }`}
@@ -103,10 +102,10 @@ const MyCoupons = () => {
                       </div>
 
                       <button
-                        onClick={() => isAvailable && copyCode(c)}
-                        disabled={!isAvailable}
+                        onClick={() => !isExpired && copyCode(c)}
+                        disabled={!!isExpired}
                         className={`mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-mono font-black tracking-[0.2em] text-lg transition-all ${
-                          isAvailable
+                          !isExpired
                             ? 'bg-card border-2 border-primary/30 text-primary hover:bg-primary/5 hover:border-primary/50 active:scale-[0.98]'
                             : 'bg-muted/50 border border-border text-muted-foreground cursor-not-allowed'
                         }`}

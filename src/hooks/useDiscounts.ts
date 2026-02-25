@@ -119,19 +119,15 @@ export function useActiveDiscount(serviceId?: string, parentServiceId?: string |
  * Validate a coupon code. Returns the coupon if valid, null otherwise.
  */
 export async function validateCoupon(code: string): Promise<Coupon | null> {
-  const { data } = await supabase
-    .from('coupons' as any)
-    .select('*')
-    .eq('code', code.trim().toUpperCase())
-    .eq('is_active', true)
-    .single();
-
-  if (!data) return null;
-  const coupon = data as unknown as Coupon;
-  const now = new Date().toISOString();
-  if (coupon.expires_at && coupon.expires_at < now) return null;
-  if (coupon.max_uses && coupon.used_count >= coupon.max_uses) return null;
-  return coupon;
+  try {
+    const { data, error } = await supabase.functions.invoke('validate-coupon', {
+      body: { action: 'validate', code },
+    });
+    if (error || !data?.valid) return null;
+    return data.coupon as Coupon;
+  } catch {
+    return null;
+  }
 }
 
 export async function incrementCouponUsage(couponId: string) {
