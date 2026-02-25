@@ -277,8 +277,8 @@ const DesignerOrderDetails = () => {
               {orderItems.map((item, idx) => {
                 const isExpanded = expandedItem === item.id;
                 const itemDesigns = getItemDesigns(item.id);
-                const canUpload = ['assigned', 'design_uploaded'].includes(item.status);
-                const canSendApproval = ['assigned', 'design_uploaded'].includes(item.status) && itemDesigns.length > 0;
+                const canUpload = ['submitted', 'assigned', 'design_uploaded'].includes(item.status);
+                const canSendApproval = ['submitted', 'assigned', 'design_uploaded'].includes(item.status) && itemDesigns.length > 0;
                 const itemDetails = item.details || {};
                 const revisions: any[] = itemDetails.revisions || [];
 
