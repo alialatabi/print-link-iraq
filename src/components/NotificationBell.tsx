@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface Notification {
   id: string;
   order_id: string | null;
+  link: string | null;
   title: string;
   message: string;
   read: boolean;
@@ -119,10 +120,12 @@ const NotificationBell = () => {
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {notifications.map(n => (
+              {notifications.map(n => {
+                const notifLink = n.link || (n.order_id ? `/track-order/${n.order_id}` : null);
+                return (
                 <Link
                   key={n.id}
-                  to={n.order_id ? `/track-order/${n.order_id}` : '#'}
+                  to={notifLink || '#'}
                   onClick={() => { markRead(n.id); setOpen(false); }}
                   className={`block px-4 py-3 hover:bg-muted/50 transition-colors ${!n.read ? 'bg-primary/5' : ''}`}
                 >
@@ -135,7 +138,8 @@ const NotificationBell = () => {
                     </div>
                   </div>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           )}
         </ScrollArea>
