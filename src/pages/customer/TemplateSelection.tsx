@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { TEMPLATE_COLORS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Palette, ChevronDown } from 'lucide-react';
+import { getOptimizedImageUrl } from '@/lib/imageUtils';
 import {
   Select,
   SelectContent,
@@ -152,7 +153,7 @@ const TemplateSelection = () => {
                 >
                   <div className={`bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`} style={{ aspectRatio: '1/1' }}>
                     {template.preview_url ? (
-                      <img src={template.preview_url} alt={template.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500" loading="lazy" />
+                      <img src={getOptimizedImageUrl(template.preview_url, { width: 400, height: 400 })} alt={template.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500" loading="lazy" width="400" height="400" />
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-2 p-4">
                         <img src={logoImg} alt="مطبعتي" className="w-16 h-16 object-contain opacity-40" />
