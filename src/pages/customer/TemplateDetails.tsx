@@ -253,7 +253,7 @@ const TemplateDetails = () => {
 
   const [template, setTemplate] = useState<DbTemplate | null>(null);
   const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1000);
+  const [quantity, setQuantity] = useState(0);
   const [selectedCellophane, setSelectedCellophane] = useState<string>('');
 
   useEffect(() => {
@@ -289,7 +289,7 @@ const TemplateDetails = () => {
 
   // Set initial quantity to min_quantity when service data loads
   useEffect(() => {
-    if (minQty > 1 && quantity < minQty) setQuantity(minQty);
+    if (minQty >= 1 && quantity < minQty) setQuantity(minQty);
   }, [minQty]);
 
   // Set default cellophane when it's single type
