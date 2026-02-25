@@ -426,13 +426,13 @@ const TemplateDetails = () => {
             <div>
               <p className="text-xs text-muted-foreground mb-1.5">السعر لكل {minQty.toLocaleString('en-US')} نسخة</p>
               <div className="flex items-center gap-3 flex-wrap">
-                <p className="text-4xl font-extrabold text-foreground">
+                <p className={`text-4xl font-extrabold ${discountPercent > 0 ? 'text-success' : 'text-foreground'}`}>
                   {discountedUnitPrice.toLocaleString('en-US')}
                   <span className="text-base font-semibold text-muted-foreground mr-1.5"> د.ع</span>
                 </p>
                 {discountPercent > 0 && (
                   <>
-                    <span className="text-lg text-muted-foreground/60 line-through font-bold">
+                    <span className="text-lg text-destructive line-through font-bold">
                       {unitPrice.toLocaleString('en-US')}
                     </span>
                     <span className="px-2.5 py-1 rounded-lg bg-destructive/15 text-destructive text-xs font-black animate-pulse">
@@ -529,7 +529,7 @@ const TemplateDetails = () => {
                 <span className="text-sm text-muted-foreground font-medium">المجموع</span>
                 <div className="flex items-center gap-2">
                   {originalTotalPrice > 0 && (
-                    <span className="text-sm text-muted-foreground/60 line-through">{originalTotalPrice.toLocaleString('en-US')}</span>
+                    <span className="text-sm text-destructive line-through font-bold">{originalTotalPrice.toLocaleString('en-US')}</span>
                   )}
                   <span className="text-2xl font-black text-success">
                     {totalPrice.toLocaleString('en-US')}
