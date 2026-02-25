@@ -6,8 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SUPER_ADMIN_PHONE = "96407838774435"; // normalized
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -28,7 +26,7 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Verify the calling user is the super admin
+    // Verify the calling user
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -43,16 +41,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if caller is super admin by checking their profile phone
+    // Check if caller is super admin using the database flag
     const { data: callerProfile } = await supabaseAdmin
       .from("profiles")
-      .select("phone")
+      .select("is_super_admin")
       .eq("user_id", user.id)
       .single();
 
-    const callerPhone = (callerProfile?.phone || "").replace(/\s+/g, "").replace(/^0/, "964");
-    
-    if (callerPhone !== SUPER_ADMIN_PHONE) {
+    if (!callerProfile?.is_super_admin) {
       return new Response(
         JSON.stringify({ error: "هذه الصلاحية متاحة فقط للسوبر أدمن" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
