@@ -253,7 +253,7 @@ const TemplateDetails = () => {
 
   const [template, setTemplate] = useState<DbTemplate | null>(null);
   const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(0);
+  const [quantity, setQuantity] = useState<number | null>(null);
   const [selectedCellophane, setSelectedCellophane] = useState<string>('');
 
   useEffect(() => {
@@ -283,14 +283,17 @@ const TemplateDetails = () => {
   // Discount
   const { discountPercent, discountLabel } = useActiveDiscount(template?.service_type, parentServiceId);
   const discountedUnitPrice = discountPercent > 0 ? Math.ceil(unitPrice * (1 - discountPercent / 100)) : unitPrice;
-  const totalPrice = Math.ceil(discountedUnitPrice * (quantity / minQty));
-  const originalTotalPrice = discountPercent > 0 ? Math.ceil(unitPrice * (quantity / minQty)) : 0;
+  const qty = quantity || minQty;
+  const totalPrice = Math.ceil(discountedUnitPrice * (qty / minQty));
+  const originalTotalPrice = discountPercent > 0 ? Math.ceil(unitPrice * (qty / minQty)) : 0;
   const isInCart = items.some(i => i.templateId === templateId);
 
   // Set initial quantity to min_quantity when service data loads
   useEffect(() => {
-    if (minQty >= 1 && quantity < minQty) setQuantity(minQty);
-  }, [minQty]);
+    if (serviceData && (quantity === null || quantity === 0)) {
+      setQuantity(minQty);
+    }
+  }, [serviceData, minQty]);
 
   // Set default cellophane when it's single type
   useEffect(() => {
@@ -306,7 +309,7 @@ const TemplateDetails = () => {
       templateName: template.name,
       serviceType: template.service_type,
       previewUrl: template.preview_url,
-      quantity,
+      quantity: qty,
       unitPrice: discountedUnitPrice,
       minQuantity: minQty,
       cellophane: cellophaneType !== 'none' ? selectedCellophane : undefined,
@@ -492,21 +495,21 @@ const TemplateDetails = () => {
                 الكمية
               </label>
               <div className="flex items-center gap-4 bg-muted/20 rounded-xl p-3 border border-border/30">
-                <Button variant="outline" size="icon" onClick={() => quantity > minQty && setQuantity(q => q - minQty)} disabled={quantity <= minQty} className="h-11 w-11 rounded-xl">
+                <Button variant="outline" size="icon" onClick={() => qty > minQty && setQuantity(qty - minQty)} disabled={qty <= minQty} className="h-11 w-11 rounded-xl">
                   <Minus className="w-4 h-4" />
                 </Button>
                 <div className="flex-1 text-center">
                   <input
                     type="number"
-                    value={quantity}
+                    value={qty}
                     onChange={e => {
                       const val = parseInt(e.target.value) || minQty;
                       const rounded = Math.max(minQty, Math.round(val / minQty) * minQty);
                       setQuantity(rounded);
                     }}
                     onBlur={() => {
-                      const rounded = Math.max(minQty, Math.round(quantity / minQty) * minQty);
-                      if (rounded !== quantity) setQuantity(rounded);
+                      const rounded = Math.max(minQty, Math.round(qty / minQty) * minQty);
+                      if (rounded !== qty) setQuantity(rounded);
                     }}
                     min={minQty}
                     className="w-full text-center text-3xl font-black text-foreground bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -514,7 +517,7 @@ const TemplateDetails = () => {
                   />
                   <p className="text-xs text-muted-foreground/70 mt-0.5">الحد الأدنى: {minQty.toLocaleString('en-US')} نسخة</p>
                 </div>
-                <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + minQty)} className="h-11 w-11 rounded-xl">
+                <Button variant="outline" size="icon" onClick={() => setQuantity(qty + minQty)} className="h-11 w-11 rounded-xl">
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
