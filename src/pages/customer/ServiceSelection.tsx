@@ -4,9 +4,12 @@ import { useServices } from '@/hooks/useServices';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
+import { useServiceDiscounts } from '@/hooks/useServiceDiscounts';
+import DiscountBadge from '@/components/DiscountBadge';
 
 const ServiceSelection = () => {
   const { parentServices, loading: servicesLoading } = useServices();
+  const { getDiscount } = useServiceDiscounts();
 
   if (servicesLoading) {
     return (
@@ -45,8 +48,9 @@ const ServiceSelection = () => {
             >
               <Link
                 to={`/sub-services/${service.id}`}
-                className="group block bg-card rounded-2xl p-6 sm:p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60"
+                className="group relative block bg-card rounded-2xl p-6 sm:p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60 overflow-hidden"
               >
+                <DiscountBadge percentage={getDiscount(service.id)} />
                 <div className="w-20 h-20 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-5 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
                   {service.icon_url ? (
                     <img src={getOptimizedImageUrl(service.icon_url, { width: 160, height: 160 })} alt={service.label} loading="lazy" width="80" height="80" className="w-full h-full object-cover" />
