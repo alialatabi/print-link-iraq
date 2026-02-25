@@ -73,17 +73,35 @@ const AdminDiscounts = () => {
     if (!couponForm.code.trim()) { toast.error('الكود مطلوب'); return; }
     if (couponForm.percentage < 1 || couponForm.percentage > 100) { toast.error('النسبة يجب أن تكون بين 1 و 100'); return; }
 
-    const { error } = await supabase.from('coupons' as any).insert({
+    const { data: couponData, error } = await supabase.from('coupons' as any).insert({
       code: couponForm.code.trim().toUpperCase(),
       percentage: couponForm.percentage,
       max_uses: couponForm.max_uses ? parseInt(couponForm.max_uses) : null,
-    });
+    }).select('id').single();
     if (error) {
       if (error.code === '23505') toast.error('هذا الكود مستخدم مسبقاً');
       else toast.error('فشل إنشاء الكوبون');
       return;
     }
-    toast.success('تم إنشاء الكوبون');
+
+    // Send notification to all customers
+    const code = couponForm.code.trim().toUpperCase();
+    const pct = couponForm.percentage;
+    const { data: customerRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'customer');
+    if (customerRoles && customerRoles.length > 0) {
+      const notifs = customerRoles.map((r: any) => ({
+        user_id: r.user_id,
+        title: `🎉 كوبون خصم ${pct}%`,
+        message: `استخدم الكود ${code} للحصول على خصم ${pct}% على طلبك القادم!`,
+        link: '/my-coupons',
+      }));
+      await supabase.from('notifications').insert(notifs);
+    }
+
+    toast.success('تم إنشاء الكوبون وإرسال إشعار للزبائن');
     setCouponDialog(false);
     setCouponForm({ code: generateCode(), percentage: 10, max_uses: '' });
     reloadCoupons();

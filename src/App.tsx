@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { CartProvider } from "@/contexts/CartContext";
 import Layout from "@/components/Layout";
+import ScrollToTop from "@/components/ScrollToTop";
 import ProtectedRoute from "@/components/ProtectedRoute";
 const Index = lazy(() => import("./pages/Index"));
 
@@ -35,6 +36,7 @@ const CheckoutPage = lazy(() => import("./pages/customer/CheckoutPage"));
 const CompleteProfile = lazy(() => import("./pages/customer/CompleteProfile"));
 const UploadDesignPage = lazy(() => import("./pages/customer/UploadDesignPage"));
 const DeliveryAddressPage = lazy(() => import("./pages/customer/DeliveryAddressPage"));
+const MyCoupons = lazy(() => import("./pages/customer/MyCoupons"));
 
 const queryClient = new QueryClient();
 
@@ -47,6 +49,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ScrollToTop />
             <Layout>
               <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
               <Routes>
@@ -72,6 +75,7 @@ const App = () => (
                 <Route path="/delivery-address/:orderId" element={<ProtectedRoute><DeliveryAddressPage /></ProtectedRoute>} />
                 <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                <Route path="/my-coupons" element={<ProtectedRoute><MyCoupons /></ProtectedRoute>} />
 
                 {/* Designer routes */}
                 <Route path="/designer/login" element={<DesignerLogin />} />
