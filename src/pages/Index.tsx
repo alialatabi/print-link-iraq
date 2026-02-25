@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { localBusinessSchema, websiteSchema, organizationSchema } from '@/components/JsonLd';
+import { getOptimizedImageUrl } from '@/lib/imageUtils';
 
 interface PopularTemplate {
   id: string;
@@ -340,7 +341,7 @@ const Index = () => {
                     <div className="relative aspect-[3/4] bg-muted/40 overflow-hidden">
                       {template.preview_url ? (
                         <>
-                          <img src={template.preview_url} alt={template.name} className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500" />
+                          <img src={getOptimizedImageUrl(template.preview_url, { width: 400, height: 533 })} alt={template.name} loading="lazy" width="400" height="533" className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500" />
                           <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.08)] pointer-events-none" />
                         </>
                       ) : (

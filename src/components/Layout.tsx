@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon, ShoppingCart } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
 import NotificationBell from '@/components/NotificationBell';
+import { getOptimizedImageUrl } from '@/lib/imageUtils';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -172,7 +173,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                         isActive ? '-translate-y-1 scale-110' : ''
                       }`}>
                         {service.icon_url ? (
-                          <img src={service.icon_url} alt={service.label} className="w-full h-full object-cover" />
+                          <img src={getOptimizedImageUrl(service.icon_url, { width: 144, height: 144 })} alt={service.label} loading="lazy" width="72" height="72" className="w-full h-full object-cover" />
                         ) : (
                           <div className={`w-full h-full flex items-center justify-center ${
                             isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'
@@ -233,7 +234,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                       className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-150"
                     >
                       {service.icon_url ? (
-                        <img src={service.icon_url} alt={service.label} className="w-7 h-7 rounded-md object-cover" />
+                        <img src={getOptimizedImageUrl(service.icon_url, { width: 56, height: 56 })} alt={service.label} loading="lazy" width="28" height="28" className="w-7 h-7 rounded-md object-cover" />
                       ) : (
                         <span className="text-primary text-lg">{service.icon}</span>
                       )}

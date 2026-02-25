@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useServices } from '@/hooks/useServices';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
+import { getOptimizedImageUrl } from '@/lib/imageUtils';
 
 const ServiceSelection = () => {
   const { parentServices, loading: servicesLoading } = useServices();
@@ -48,7 +49,7 @@ const ServiceSelection = () => {
               >
                 <div className="w-20 h-20 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-5 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
                   {service.icon_url ? (
-                    <img src={service.icon_url} alt={service.label} className="w-full h-full object-cover" />
+                    <img src={getOptimizedImageUrl(service.icon_url, { width: 160, height: 160 })} alt={service.label} loading="lazy" width="80" height="80" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-4xl">{service.icon}</span>
                   )}
