@@ -61,7 +61,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         <div className="bg-card/90 dark:bg-white/90 dark:text-[hsl(222,47%,11%)] backdrop-blur-xl border-b border-border/50 shadow-card">
           <div className="container flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2.5 group" onClick={closeMobile}>
-              <img src={logoImg} alt="مطبعتي" className="h-14 w-auto object-contain drop-shadow-md" />
+              <img src={logoImg} alt="مطبعتي" width="47" height="56" className="h-14 w-auto object-contain drop-shadow-md" />
             </Link>
 
             {/* Desktop nav */}
@@ -150,7 +150,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         {!isDesignerOnly && !pathname.startsWith('/auth') && !pathname.startsWith('/staff-login') && !pathname.startsWith('/designer/login') && (
         <div className="bg-card/50 dark:bg-white/50 dark:text-[hsl(222,47%,11%)] backdrop-blur-sm border-b border-border/30">
           <div className="container">
-            <div className="flex items-end justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide pt-5 pb-3 px-1">
+            <div className="flex items-end justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide pt-5 pb-3 px-1 min-h-[100px]">
               {services.filter(s => !s.parent_id).map((service) => {
                 const isActive = pathname.includes(`/sub-services/${service.id}`) || pathname.includes(`/specializations/${service.id}`) || pathname.includes(`/templates/${service.id}`);
                 return (
@@ -286,7 +286,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8 text-center sm:text-right">
             {/* Brand */}
             <div className="flex flex-col items-center sm:items-start gap-3">
-              <img src={logoImg} alt="مطبعتي" className="h-16 w-auto object-contain drop-shadow-md" />
+              <img src={logoImg} alt="مطبعتي" width="54" height="64" className="h-16 w-auto object-contain drop-shadow-md" />
               <p className="text-muted-foreground text-xs leading-relaxed max-w-[220px]">
                 حلول طباعة متكاملة للأفراد والشركات، بجودة احترافية وتوصيل سريع.
               </p>
