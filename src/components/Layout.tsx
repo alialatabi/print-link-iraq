@@ -62,7 +62,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         <div className="bg-card/90 dark:bg-white/90 dark:text-[hsl(222,47%,11%)] backdrop-blur-xl border-b border-border/50 shadow-card">
           <div className="container flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2.5 group" onClick={closeMobile}>
-              <img src={logoImg} alt="مطبعتي" width="47" height="56" className="h-14 w-auto object-contain drop-shadow-md" />
+              <img src={logoImg} alt="مطبعتي" width="47" height="56" className="h-14 object-contain drop-shadow-md" style={{ aspectRatio: '47/56' }} />
             </Link>
 
             {/* Desktop nav */}
@@ -280,14 +280,14 @@ const Layout = ({ children }: { children: ReactNode }) => {
         </div>
       </header>
 
-      <main className="flex-1" role="main">{children}</main>
+      <main className="flex-1 min-h-[80vh]" role="main">{children}</main>
 
       <footer className="border-t border-border/30 mt-auto bg-card dark:bg-white dark:text-[hsl(222,47%,11%)]">
         <div className="container max-w-5xl py-14">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8 text-center sm:text-right">
             {/* Brand */}
             <div className="flex flex-col items-center sm:items-start gap-3">
-              <img src={logoImg} alt="مطبعتي" width="54" height="64" className="h-16 w-auto object-contain drop-shadow-md" />
+              <img src={logoImg} alt="مطبعتي" width="54" height="64" className="h-16 object-contain drop-shadow-md" style={{ aspectRatio: '54/64' }} />
               <p className="text-muted-foreground text-xs leading-relaxed max-w-[220px]">
                 حلول طباعة متكاملة للأفراد والشركات، بجودة احترافية وتوصيل سريع.
               </p>
