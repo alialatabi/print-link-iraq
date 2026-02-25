@@ -455,13 +455,13 @@ const TemplateDetails = () => {
                   <div className="flex gap-3">
                     <button
                       onClick={() => setSelectedCellophane('matte')}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${selectedCellophane === 'matte' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}
+                      className={`flex-1 py-3.5 sm:py-2.5 rounded-xl text-base sm:text-sm font-bold border-2 transition-all ${selectedCellophane === 'matte' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}
                     >
                       طافي
                     </button>
                     <button
                       onClick={() => setSelectedCellophane('glossy')}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${selectedCellophane === 'glossy' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}
+                      className={`flex-1 py-3.5 sm:py-2.5 rounded-xl text-base sm:text-sm font-bold border-2 transition-all ${selectedCellophane === 'glossy' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'}`}
                     >
                       لمّاع
                     </button>
@@ -546,12 +546,13 @@ const TemplateDetails = () => {
               <Button
                 onClick={handleAddToCart}
                 variant="outline"
-                className="flex-1 h-13 font-bold gap-2 text-sm rounded-xl"
+                size="lg"
+                className="flex-1 font-bold gap-2 rounded-xl"
               >
-                {isInCart ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
+                {isInCart ? <Check /> : <ShoppingCart />}
                 {isInCart ? 'في السلة ✓' : 'أضف للسلة'}
               </Button>
-              <Button onClick={handleOrder} className="flex-1 h-13 font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-shadow">
+              <Button onClick={handleOrder} size="lg" className="flex-1 font-bold rounded-xl shadow-md hover:shadow-lg transition-shadow">
                 اطلب الآن
               </Button>
             </div>
@@ -563,9 +564,9 @@ const TemplateDetails = () => {
                 { icon: Printer, text: 'جودة عالية' },
                 { icon: Truck, text: 'توصيل لكل العراق' },
               ].map((item, i) => (
-                <div key={i} className="flex flex-col items-center gap-1.5 text-center p-3 rounded-xl bg-muted/30 border border-border/30">
-                  <item.icon className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] font-semibold text-muted-foreground leading-tight">{item.text}</span>
+                <div key={i} className="flex flex-col items-center gap-2 sm:gap-1.5 text-center p-3.5 sm:p-3 rounded-xl bg-muted/30 border border-border/30">
+                  <item.icon className="w-5 h-5 sm:w-4 sm:h-4 text-primary" />
+                  <span className="text-xs sm:text-[10px] font-semibold text-muted-foreground leading-tight">{item.text}</span>
                 </div>
               ))}
             </div>
