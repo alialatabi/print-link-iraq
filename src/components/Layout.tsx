@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, Sun, Moon, ShoppingCart } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
 import NotificationBell from '@/components/NotificationBell';
+import SearchBar from '@/components/SearchBar';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -64,6 +65,9 @@ const Layout = ({ children }: { children: ReactNode }) => {
             <Link to="/" className="flex items-center gap-2.5 group" onClick={closeMobile}>
               <img src={logoImg} alt="مطبعتي" width="47" height="56" className="h-14 object-contain drop-shadow-md" style={{ aspectRatio: '47/56' }} />
             </Link>
+
+            {/* Search bar - desktop */}
+            {!isDesignerOnly && <div className="hidden sm:block"><SearchBar /></div>}
 
             {/* Desktop nav */}
             <nav className="hidden sm:flex items-center gap-1">
@@ -207,6 +211,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
               className="sm:hidden overflow-hidden border-t border-border/30 bg-card/95 dark:bg-white/95 dark:text-[hsl(222,47%,11%)] backdrop-blur-xl"
             >
               <div className="container py-4 space-y-1">
+                {/* Search bar - mobile */}
+                {!isDesignerOnly && <div className="mb-3"><SearchBar /></div>}
                 {NAV_ITEMS.filter(i => i.show).map(item => (
                   <Link
                     key={item.path}
