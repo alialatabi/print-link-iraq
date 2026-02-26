@@ -44,9 +44,19 @@ export function useSearch(query: string) {
     load();
   }, []);
 
+  const normalizeArabic = (text: string) =>
+    text
+      .replace(/[أإآا]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/ى/g, 'ي')
+      .replace(/ؤ/g, 'و')
+      .replace(/ئ/g, 'ي')
+      .toLowerCase()
+      .trim();
+
   const results = useMemo<SearchResult[]>(() => {
     if (!allData || !query.trim()) return [];
-    const q = query.trim().toLowerCase();
+    const q = normalizeArabic(query);
 
     const matches: SearchResult[] = [];
 
@@ -55,7 +65,7 @@ export function useSearch(query: string) {
     const parentMap = Object.fromEntries(parents.map(p => [p.id, p.label]));
 
     for (const s of allData.services) {
-      if (s.label.toLowerCase().includes(q)) {
+      if (normalizeArabic(s.label).includes(q)) {
         const isParent = !s.parent_id;
         matches.push({
           id: s.id,
@@ -72,7 +82,7 @@ export function useSearch(query: string) {
 
     // Search templates
     for (const t of allData.templates) {
-      if (t.name.toLowerCase().includes(q)) {
+      if (normalizeArabic(t.name).includes(q)) {
         const serviceLabel = allData.services.find(s => s.id === t.service_type)?.label;
         matches.push({
           id: t.id,
@@ -87,7 +97,7 @@ export function useSearch(query: string) {
 
     // Search specializations
     for (const sp of allData.specializations) {
-      if (sp.label.toLowerCase().includes(q)) {
+      if (normalizeArabic(sp.label).includes(q)) {
         matches.push({
           id: sp.id,
           label: sp.label,
