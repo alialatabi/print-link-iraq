@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface SearchResult {
   id: string;
   label: string;
-  type: 'service' | 'sub_service' | 'template' | 'specialization';
+  type: 'service' | 'sub_service' | 'template';
   typeLabel: string;
   link: string;
   icon?: string;
@@ -15,7 +15,6 @@ export interface SearchResult {
 interface CachedData {
   services: any[];
   templates: any[];
-  specializations: any[];
 }
 
 let cachedData: CachedData | null = null;
@@ -27,15 +26,13 @@ export function useSearch(query: string) {
   useEffect(() => {
     if (cachedData) return;
     const load = async () => {
-      const [sRes, tRes, spRes] = await Promise.all([
+      const [sRes, tRes] = await Promise.all([
         supabase.from('services').select('id, label, icon, icon_url, parent_id').order('sort_order'),
         supabase.from('templates').select('id, name, service_type, preview_url'),
-        supabase.from('specializations').select('id, label, icon, icon_url').order('sort_order'),
       ]);
       const data = {
         services: sRes.data || [],
         templates: tRes.data || [],
-        specializations: spRes.data || [],
       };
       cachedData = data;
       setAllData(data);
@@ -95,20 +92,6 @@ export function useSearch(query: string) {
       }
     }
 
-    // Search specializations
-    for (const sp of allData.specializations) {
-      if (normalizeArabic(sp.label).includes(q)) {
-        matches.push({
-          id: sp.id,
-          label: sp.label,
-          type: 'specialization',
-          typeLabel: 'تخصص',
-          link: `/specializations/${sp.id}`,
-          icon: sp.icon,
-          iconUrl: sp.icon_url,
-        });
-      }
-    }
 
     return matches.slice(0, 12);
   }, [allData, query]);
