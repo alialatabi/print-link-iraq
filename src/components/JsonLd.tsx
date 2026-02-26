@@ -33,8 +33,8 @@ export const organizationSchema = {
   '@type': 'Organization',
   name: 'مطبعتي',
   alternateName: 'Matbaty',
-  url: 'https://matbaty.lovable.app',
-  logo: 'https://matbaty.lovable.app/logo.png',
+  url: 'https://matbaty.com',
+  logo: 'https://matbaty.com/logo.png',
   description: 'خدمات طباعة احترافية أونلاين في العراق - كروت شخصية، فلايرات، وصولات، ترويسة، قوائم طعام، ودعوات.',
   address: {
     '@type': 'PostalAddress',
@@ -52,12 +52,12 @@ export const organizationSchema = {
 export const localBusinessSchema = {
   '@context': 'https://schema.org',
   '@type': 'LocalBusiness',
-  '@id': 'https://matbaty.lovable.app/#business',
+  '@id': 'https://matbaty.com/#business',
   name: 'مطبعتي',
   alternateName: 'Matbaty',
-  url: 'https://matbaty.lovable.app',
-  logo: 'https://matbaty.lovable.app/logo.png',
-  image: 'https://matbaty.lovable.app/logo.png',
+  url: 'https://matbaty.com',
+  logo: 'https://matbaty.com/logo.png',
+  image: 'https://matbaty.com/logo.png',
   description: 'مطبعتي - خدمات طباعة أونلاين في العراق. تصميم وطباعة كروت شخصية، فلايرات، وصولات، ترويسة، قوائم طعام، ودعوات بجودة عالية وتوصيل سريع.',
   address: {
     '@type': 'PostalAddress',
@@ -84,7 +84,7 @@ export const websiteSchema = {
   '@type': 'WebSite',
   name: 'مطبعتي',
   alternateName: 'Matbaty',
-  url: 'https://matbaty.lovable.app',
+  url: 'https://matbaty.com',
   inLanguage: 'ar',
   description: 'خدمات طباعة احترافية أونلاين في العراق',
 };
@@ -96,6 +96,6 @@ export const breadcrumbSchema = (items: { name: string; url: string }[]) => ({
     '@type': 'ListItem',
     position: i + 1,
     name: item.name,
-    item: `https://matbaty.lovable.app${item.url}`,
+    item: `https://matbaty.com${item.url}`,
   })),
 });
