@@ -12,6 +12,15 @@ const TYPE_CONFIG: Record<string, { icon: typeof Search; color: string }> = {
   specialization: { icon: Tag, color: 'bg-success/15 text-success' },
 };
 
+const POPULAR_SUGGESTIONS = [
+  { label: 'كروت شخصية', query: 'كروت شخصية' },
+  { label: 'أطباء', query: 'أطباء' },
+  { label: 'مطاعم', query: 'مطاعم' },
+  { label: 'محامين', query: 'محامين' },
+  { label: 'ستيكرات', query: 'ستيكرات' },
+  { label: 'بروشور', query: 'بروشور' },
+];
+
 const SearchBar = () => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -47,7 +56,14 @@ const SearchBar = () => {
     }
   };
 
-  const showDropdown = open && query.trim().length > 0;
+  const handleSuggestionClick = (suggestion: string) => {
+    setQuery(suggestion);
+    setOpen(true);
+  };
+
+  const showDropdown = open;
+  const showSuggestions = open && query.trim().length === 0;
+  const showResults = open && query.trim().length > 0;
 
   return (
     <div ref={containerRef} className="relative w-full max-w-xs sm:max-w-sm">
@@ -82,7 +98,22 @@ const SearchBar = () => {
             transition={{ duration: 0.15 }}
             className="absolute top-full mt-2 right-0 left-0 bg-card border border-border/60 rounded-2xl shadow-elevated dark:shadow-dark-elevated overflow-hidden z-50 max-h-[360px] overflow-y-auto"
           >
-            {loading ? (
+            {showSuggestions ? (
+              <div className="p-3">
+                <p className="text-[11px] font-medium text-muted-foreground mb-2 px-1">بحث شائع</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {POPULAR_SUGGESTIONS.map(s => (
+                    <button
+                      key={s.query}
+                      onClick={() => handleSuggestionClick(s.query)}
+                      className="px-3 py-1.5 text-xs font-medium rounded-full border border-border/60 bg-muted/40 hover:bg-primary/10 hover:border-primary/40 hover:text-primary text-foreground transition-all duration-150"
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : loading ? (
               <div className="p-4 text-center text-sm text-muted-foreground">جاري التحميل...</div>
             ) : results.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
