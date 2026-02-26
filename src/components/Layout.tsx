@@ -212,7 +212,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             >
               <div className="container py-4 space-y-1">
                 {/* Search bar - mobile */}
-                {!isDesignerOnly && <div className="mb-3"><SearchBar /></div>}
+                {!isDesignerOnly && <div className="mb-3"><SearchBar onNavigate={closeMobile} /></div>}
                 {NAV_ITEMS.filter(i => i.show).map(item => (
                   <Link
                     key={item.path}

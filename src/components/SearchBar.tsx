@@ -20,7 +20,7 @@ const POPULAR_SUGGESTIONS = [
   { label: 'بروشور', query: 'بروشور' },
 ];
 
-const SearchBar = () => {
+const SearchBar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const { results, loading } = useSearch(query);
@@ -42,6 +42,7 @@ const SearchBar = () => {
   const handleSelect = (result: SearchResult) => {
     setQuery('');
     setOpen(false);
+    onNavigate?.();
     navigate(result.link);
   };
 
