@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, FileText, Layers, Tag, Grid3X3 } from 'lucide-react';
+import { Search, X, FileText, Layers, Grid3X3 } from 'lucide-react';
 import { useSearch, SearchResult } from '@/hooks/useSearch';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
@@ -9,7 +9,6 @@ const TYPE_CONFIG: Record<string, { icon: typeof Search; color: string }> = {
   service: { icon: Grid3X3, color: 'bg-primary/15 text-primary' },
   sub_service: { icon: Layers, color: 'bg-cmyk-cyan/15 text-cmyk-cyan' },
   template: { icon: FileText, color: 'bg-accent/20 text-accent-foreground' },
-  specialization: { icon: Tag, color: 'bg-success/15 text-success' },
 };
 
 const POPULAR_SUGGESTIONS = [
