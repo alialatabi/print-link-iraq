@@ -9,7 +9,7 @@ interface SEOHeadProps {
   noindex?: boolean;
 }
 
-const BASE_URL = 'https://matbaty.lovable.app';
+const BASE_URL = 'https://matbaty.com';
 const DEFAULT_TITLE = 'مطبعتي | خدمات طباعة احترافية في العراق';
 const DEFAULT_DESC = 'مطبعتي - خدمات طباعة أونلاين في العراق. كروت شخصية، فلايرات، وصولات، ترويسة، قوائم طعام، ودعوات. اختر قالباً، خصّصه، واستلمه لباب بيتك.';
 const DEFAULT_IMAGE = 'https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/3f83c4dc-4139-4a27-ac19-42d1777ef38e/id-preview-efb191ea--2102bc5b-4765-4e34-a44d-b03d9c6755b7.lovable.app-1771292469981.png';
