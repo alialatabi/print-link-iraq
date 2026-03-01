@@ -32,7 +32,14 @@ Deno.serve(async (req) => {
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
     
     // Generate secure password using SHA-256 + secret salt
-    const salt = Deno.env.get("PHONE_AUTH_SECRET_SALT") || "";
+    const salt = Deno.env.get("PHONE_AUTH_SECRET_SALT");
+    if (!salt) {
+      console.error("PHONE_AUTH_SECRET_SALT is not configured");
+      return new Response(
+        JSON.stringify({ error: "خطأ في إعدادات الخادم" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     const encoder = new TextEncoder();
     const hashData = encoder.encode(`${salt}:${normalizedPhone}`);
     const hashBuffer = await crypto.subtle.digest("SHA-256", hashData);
