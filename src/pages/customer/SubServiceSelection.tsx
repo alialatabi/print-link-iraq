@@ -77,11 +77,11 @@ const SubServiceSelection = () => {
                   className="group relative block bg-card rounded-2xl p-6 sm:p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60 overflow-hidden"
                 >
                   <DiscountBadge percentage={getDiscount(service.id)} />
-                  <div className="w-20 h-20 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-5 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
+                  <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-5 group-hover:scale-105 transition-transform duration-200 overflow-hidden">
                     {service.icon_url ? (
-                      <img src={getOptimizedImageUrl(service.icon_url, { width: 160, height: 160 })} alt={service.label} loading="lazy" width="80" height="80" className="w-full h-full object-cover" />
+                      <img src={getOptimizedImageUrl(service.icon_url, { width: 320, height: 320 })} alt={service.label} loading="lazy" width="160" height="160" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-4xl">{service.icon}</span>
+                      <span className="text-5xl">{service.icon}</span>
                     )}
                   </div>
                   <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{service.label}</h3>
