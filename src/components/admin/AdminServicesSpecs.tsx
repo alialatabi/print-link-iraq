@@ -416,14 +416,19 @@ const AdminServicesSpecs = () => {
             </Button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {specializations.map((spec, i) => (
+            {specializations.sort((a, b) => a.sort_order - b.sort_order).map((spec, i) => (
               <motion.div
                 key={spec.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03 }}
-                className="bg-card rounded-xl p-4 border border-border flex items-center gap-3 group"
+                draggable
+                onDragStart={() => handleSpecDragStart(spec.id)}
+                onDragOver={handleDragOver}
+                onDrop={() => handleSpecDrop(spec.id)}
+                className={`bg-card rounded-xl p-4 border border-border flex items-center gap-3 group cursor-grab active:cursor-grabbing transition-all ${dragId === spec.id ? 'opacity-50 scale-95' : ''}`}
               >
+                <GripVertical className="w-4 h-4 text-muted-foreground/40 shrink-0" />
                 <IconDisplay icon={spec.icon} iconUrl={spec.icon_url} />
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-foreground text-sm">{spec.label}</h4>
