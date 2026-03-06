@@ -323,16 +323,21 @@ const AdminServicesSpecs = () => {
             </Button>
           </div>
           <div className="space-y-2">
-            {services.filter(s => !s.parent_id).map((parent, i) => {
-              const children = services.filter(s => s.parent_id === parent.id);
+            {services.filter(s => !s.parent_id).sort((a, b) => a.sort_order - b.sort_order).map((parent, i) => {
+              const children = services.filter(s => s.parent_id === parent.id).sort((a, b) => a.sort_order - b.sort_order);
               return (
                 <div key={parent.id}>
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.03 }}
-                    className="bg-card rounded-xl p-4 border border-border flex items-center gap-3 group"
+                    draggable
+                    onDragStart={() => handleDragStart(parent.id, 'parents')}
+                    onDragOver={handleDragOver}
+                    onDrop={() => handleDrop(parent.id, 'parents')}
+                    className={`bg-card rounded-xl p-4 border border-border flex items-center gap-3 group cursor-grab active:cursor-grabbing transition-all ${dragId === parent.id ? 'opacity-50 scale-95' : ''}`}
                   >
+                    <GripVertical className="w-4 h-4 text-muted-foreground/40 shrink-0" />
                     <IconDisplay icon={parent.icon} iconUrl={parent.icon_url} />
                     <div className="flex-1 min-w-0">
                       <h4 className="font-bold text-foreground text-sm">{parent.label}</h4>
@@ -360,8 +365,13 @@ const AdminServicesSpecs = () => {
                           initial={{ opacity: 0, x: -8 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: (i * 0.03) + (j * 0.02) }}
-                          className="bg-muted/40 rounded-lg p-3 border border-border/60 flex items-center gap-3 group"
+                          draggable
+                          onDragStart={(e) => { e.stopPropagation(); handleDragStart(child.id, parent.id); }}
+                          onDragOver={(e) => { e.stopPropagation(); handleDragOver(e); }}
+                          onDrop={(e) => { e.stopPropagation(); handleDrop(child.id, parent.id); }}
+                          className={`bg-muted/40 rounded-lg p-3 border border-border/60 flex items-center gap-3 group cursor-grab active:cursor-grabbing transition-all ${dragId === child.id ? 'opacity-50 scale-95' : ''}`}
                         >
+                          <GripVertical className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
                           <IconDisplay icon={child.icon} iconUrl={child.icon_url} size="sm" />
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-foreground text-xs">{child.label}</h4>
