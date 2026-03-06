@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Briefcase, Layers, Upload, X, ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, Briefcase, Layers, Upload, X, ImageIcon, GripVertical } from 'lucide-react';
 import { getUserFriendlyError } from '@/lib/errors';
 
 interface Service {
