@@ -55,6 +55,102 @@ const AdminServicesSpecs = () => {
   const [existingIconUrl, setExistingIconUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragGroup, setDragGroup] = useState<string | null>(null); // 'parents' or parentId for sub-services
+
+  const handleDragStart = (id: string, group: string) => {
+    setDragId(id);
+    setDragGroup(group);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (targetId: string, group: string) => {
+    if (!dragId || dragId === targetId || dragGroup !== group) {
+      setDragId(null);
+      setDragGroup(null);
+      return;
+    }
+
+    // Get the list of items in this group
+    let items: Service[];
+    if (group === 'parents') {
+      items = [...services.filter(s => !s.parent_id)].sort((a, b) => a.sort_order - b.sort_order);
+    } else {
+      items = [...services.filter(s => s.parent_id === group)].sort((a, b) => a.sort_order - b.sort_order);
+    }
+
+    const dragIndex = items.findIndex(s => s.id === dragId);
+    const targetIndex = items.findIndex(s => s.id === targetId);
+    if (dragIndex === -1 || targetIndex === -1) return;
+
+    // Reorder
+    const [moved] = items.splice(dragIndex, 1);
+    items.splice(targetIndex, 0, moved);
+
+    // Update sort_order locally
+    const updates = items.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
+    setServices(prev => prev.map(s => {
+      const update = updates.find(u => u.id === s.id);
+      return update ? { ...s, sort_order: update.sort_order } : s;
+    }));
+
+    setDragId(null);
+    setDragGroup(null);
+
+    // Save to DB
+    try {
+      await Promise.all(updates.map(u =>
+        supabase.from('services').update({ sort_order: u.sort_order } as any).eq('id', u.id)
+      ));
+      toast.success('تم تحديث الترتيب');
+    } catch (err: any) {
+      toast.error('فشل حفظ الترتيب');
+      loadData();
+    }
+  };
+
+  const handleSpecDragStart = (id: string) => {
+    setDragId(id);
+    setDragGroup('specs');
+  };
+
+  const handleSpecDrop = async (targetId: string) => {
+    if (!dragId || dragId === targetId || dragGroup !== 'specs') {
+      setDragId(null);
+      setDragGroup(null);
+      return;
+    }
+
+    const items = [...specializations].sort((a, b) => a.sort_order - b.sort_order);
+    const dragIndex = items.findIndex(s => s.id === dragId);
+    const targetIndex = items.findIndex(s => s.id === targetId);
+    if (dragIndex === -1 || targetIndex === -1) return;
+
+    const [moved] = items.splice(dragIndex, 1);
+    items.splice(targetIndex, 0, moved);
+
+    const updates = items.map((item, idx) => ({ id: item.id, sort_order: idx + 1 }));
+    setSpecializations(prev => prev.map(s => {
+      const update = updates.find(u => u.id === s.id);
+      return update ? { ...s, sort_order: update.sort_order } : s;
+    }));
+
+    setDragId(null);
+    setDragGroup(null);
+
+    try {
+      await Promise.all(updates.map(u =>
+        supabase.from('specializations').update({ sort_order: u.sort_order } as any).eq('id', u.id)
+      ));
+      toast.success('تم تحديث الترتيب');
+    } catch {
+      toast.error('فشل حفظ الترتيب');
+      loadData();
+    }
+  };
 
   const loadData = useCallback(async () => {
     const [{ data: svc }, { data: specs }] = await Promise.all([
