@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ArrowRight, Sparkles, Loader2, Download, RefreshCw, Send, Wand2, Ruler } from 'lucide-react';
+import { ArrowRight, Sparkles, Loader2, Download, RefreshCw, Send, Wand2, Ruler, ShieldCheck, ShieldAlert, CheckCircle2, XCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useServices } from '@/hooks/useServices';
@@ -27,6 +27,52 @@ const AiDesignPage = () => {
   const [generating, setGenerating] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyReport, setVerifyReport] = useState<any | null>(null);
+
+  // Extract quoted texts from the prompt (Arabic/English) — these are what must match exactly.
+  const extractExpectedTexts = (p: string): string[] => {
+    const re = /[«"'"'']([^«»"'""'']{1,120})[»"'"'']/g;
+    const out: string[] = [];
+    let m;
+    while ((m = re.exec(p)) !== null) {
+      const t = m[1].trim();
+      if (t && !out.includes(t)) out.push(t);
+    }
+    return out;
+  };
+
+  const runVerification = async (url: string) => {
+    setVerifying(true);
+    setVerifyReport(null);
+    try {
+      const expectedTexts = extractExpectedTexts(prompt);
+      const { data, error } = await supabase.functions.invoke('ai-design-verify', {
+        body: { imageUrl: url, expectedTexts },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setVerifyReport(data);
+      if (!data.pass) {
+        toast({
+          title: 'فشل التحقق التلقائي',
+          description: 'النصوص أو الألوان لا تطابق متطلبات الطباعة. أعد التوليد.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'تم التحقق ✓', description: 'النصوص مطابقة والألوان CMYK آمنة.' });
+      }
+    } catch (e: any) {
+      toast({
+        title: 'تعذّر التحقق التلقائي',
+        description: e?.message || 'حاول مرة أخرى',
+        variant: 'destructive',
+      });
+      setVerifyReport({ pass: false, report: { summary: e?.message || 'verification failed' } });
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (prompt.trim().length < 5) {
@@ -43,6 +89,8 @@ const AiDesignPage = () => {
       if (data?.error) throw new Error(data.error);
       if (!data?.imageUrl) throw new Error('لم يتم توليد صورة');
       setImageUrl(data.imageUrl);
+      // Auto-run QA verification before allowing submission
+      runVerification(data.imageUrl);
     } catch (e: any) {
       toast({ title: 'فشل توليد التصميم', description: e?.message || 'حاول مرة أخرى', variant: 'destructive' });
     } finally {
@@ -62,6 +110,14 @@ const AiDesignPage = () => {
 
   const handleSubmitOrder = async () => {
     if (!imageUrl) return;
+    if (!verifyReport?.pass) {
+      toast({
+        title: 'لا يمكن إرسال الطلب',
+        description: 'يجب أن ينجح التحقق التلقائي (نصوص 100% + ألوان CMYK) أولاً.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!user) {
       navigate('/auth');
       return;
