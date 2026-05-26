@@ -155,6 +155,23 @@ const AiDesignPage = () => {
             </p>
           </div>
 
+          <div>
+            <Label className="text-foreground font-medium mb-2 flex items-center gap-2">
+              <Ruler className="w-4 h-4 text-muted-foreground" />
+              مقاس التصميم
+            </Label>
+            <Input
+              value={size}
+              onChange={e => setSize(e.target.value)}
+              placeholder="مثال: 9×5 سم (كارت شخصي) أو A4 أو 50×70 سم"
+              disabled={generating}
+              className="text-right rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              📐 سيتم إرسال المقاس للذكاء الاصطناعي لاعتماد النسبة الصحيحة، مع استخدام ألوان CMYK مناسبة لطباعة الأوفست.
+            </p>
+          </div>
+
           <Button
             onClick={handleGenerate}
             disabled={generating || prompt.trim().length < 5}
