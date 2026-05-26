@@ -27,21 +27,11 @@ Deno.serve(async (req) => {
     }
 
     const sizeLine = size && typeof size === 'string' && size.trim()
-      ? `\n\nمقاس التصميم المطلوب: ${size.trim()} (التزم بهذه الأبعاد ونسبتها بدقة).`
+      ? ` Exact dimensions: ${size.trim()} (keep aspect ratio precisely).`
       : '';
 
-    const qualityDirectives = `
-
-متطلبات إلزامية يجب الالتزام بها حرفياً:
-1) دقة النصوص: اكتب جميع النصوص (العربية والإنجليزية والأرقام) بشكل صحيح 100% بدون أي حروف ناقصة أو زائدة أو مشوهة، وبدون أخطاء إملائية، مع وضوح كامل لكل حرف، والتزم بنفس النصوص المذكورة في وصف المستخدم حرفياً دون تعديل أو اختصار أو ترجمة.
-2) الخطوط: استخدم خطوطاً عربية واضحة ومقروءة (مثل خطوط الديواني، الكوفي، الثلث، أو خطوط عصرية للنصوص)، وتأكد من اتصال الحروف العربية بشكل صحيح.
-3) الألوان: استخدم فقط ألواناً متوافقة مع طباعة الأوفست بنظام CMYK (Cyan, Magenta, Yellow, Key/Black)، وتجنب تماماً ألوان RGB الفلورية أو النيون أو الألوان التي لا يمكن طباعتها بدقة (مثل الأخضر النيون، الوردي الفسفوري، الأزرق الكهربائي)، واعتمد ألواناً صلبة ومتناسقة قابلة للطباعة الاحترافية.
-4) جودة الطباعة: التصميم يجب أن يكون جاهزاً للطباعة بدقة عالية (300 DPI)، مع هوامش أمان للنصوص، ووضوح كامل عند التكبير.
-5) النسبة والأبعاد: حافظ على نسبة الأبعاد المطلوبة بدقة.${sizeLine}
-
-قبل إنهاء التصميم: راجع جميع النصوص حرفاً حرفاً وتأكد من مطابقتها للوصف، وتأكد من أن كل الألوان المستخدمة قابلة للتحويل إلى CMYK بدون فقدان.`;
-
-    const fullPrompt = `صمم لي ${serviceLabel || 'تصميم احترافي'} عالي الجودة بناءً على المواصفات التالية من المستخدم:\n\n"""${prompt}"""${qualityDirectives}`;
+    // Keep prompt short and image-focused. Long instruction blocks make Nano Banana return text instead of an image.
+    const fullPrompt = `Professional print-ready ${serviceLabel || 'design'}, 300 DPI, CMYK offset-printing safe colors only (no neon/fluorescent/RGB-only colors).${sizeLine} All text must be spelled exactly as given, fully legible, Arabic letters properly connected. User brief (render text verbatim):\n${prompt}`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -50,7 +40,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image',
+        model: 'google/gemini-3.1-flash-image-preview',
         messages: [{ role: 'user', content: fullPrompt }],
         modalities: ['image', 'text'],
       }),
