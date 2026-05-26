@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
       : '';
 
     // Keep prompt short and image-focused. Long instruction blocks make Nano Banana return text instead of an image.
-    const fullPrompt = `Professional print-ready ${serviceLabel || 'design'}, 300 DPI, CMYK offset-printing safe colors only (no neon/fluorescent/RGB-only colors).${sizeLine} All text must be spelled exactly as given, fully legible, Arabic letters properly connected. User brief (render text verbatim):\n${prompt}`;
+    const fullPrompt = `Professional print-ready ${serviceLabel || 'design'}, FLAT 2D vector-style design, strictly front-facing (no perspective, no angle, no 3D, no mockup, no shadows, no reflections). Transparent background (PNG with alpha channel) — absolutely no background color, no scene, no surface, no environment, just the design artwork isolated on full transparency. 300 DPI, CMYK offset-printing safe colors only (no neon/fluorescent/RGB-only colors).${sizeLine} All text must be spelled exactly as given, fully legible, Arabic letters properly connected. User brief (render text verbatim):\n${prompt}`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
