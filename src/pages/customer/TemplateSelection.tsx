@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { TEMPLATE_COLORS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Palette, ChevronDown } from 'lucide-react';
+import { ArrowRight, Palette, ChevronDown, Sparkles } from 'lucide-react';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
 import {
   Select,
@@ -100,6 +100,30 @@ const TemplateSelection = () => {
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">اختر القالب المناسب وسنقوم بتعديله حسب بياناتك</p>
         </div>
+
+        {/* AI Design CTA */}
+        <Link
+          to={`/ai-design/${serviceType}`}
+          className="group relative block mb-6 rounded-2xl overflow-hidden border-2 border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-5 hover:border-primary/60 hover:shadow-card-hover transition-all duration-300"
+        >
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+              <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-primary-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold mb-1">
+                جديد ✨
+              </div>
+              <h3 className="font-extrabold text-foreground text-sm sm:text-base mb-0.5">
+                صمم بالذكاء الاصطناعي
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
+                لم تجد قالباً يناسبك؟ اكتب وصفك وسيصممه لك الذكاء الاصطناعي
+              </p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-primary rotate-180 group-hover:-translate-x-1 transition-transform" />
+          </div>
+        </Link>
 
         {/* Specialization dropdown filter */}
         {!specsLoading && availableSpecs.length > 0 && (
