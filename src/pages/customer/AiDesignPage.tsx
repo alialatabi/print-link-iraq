@@ -302,8 +302,24 @@ const AiDesignPage = () => {
                 <div className="relative">
                   <Sparkles className="w-12 h-12 text-primary animate-pulse" />
                 </div>
-                <p className="text-sm font-bold text-foreground">الذكاء الاصطناعي يصمم لك...</p>
+                <p className="text-sm font-bold text-foreground">
+                  {retryAttempt > 0 ? `محاولة تلقائية #${retryAttempt} — إعادة التصميم...` : 'الذكاء الاصطناعي يصمم لك...'}
+                </p>
                 <p className="text-xs text-muted-foreground">قد يستغرق هذا 10-30 ثانية</p>
+              </motion.div>
+            )}
+
+            {autoRetrying && !generating && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="rounded-2xl border border-primary/30 bg-primary/5 p-4 flex items-center gap-3"
+              >
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <div className="text-sm">
+                  <div className="font-bold text-foreground">تحسين تلقائي للبرومبت — محاولة #{retryAttempt}</div>
+                  <div className="text-xs text-muted-foreground">الذكاء الاصطناعي يعيد صياغة الوصف بناءً على نتيجة التحقق...</div>
+                </div>
               </motion.div>
             )}
 
@@ -392,7 +408,7 @@ const AiDesignPage = () => {
                       )}
                       <Button
                         size="sm" variant="outline"
-                        onClick={() => imageUrl && runVerification(imageUrl)}
+                        onClick={() => imageUrl && runVerification(imageUrl, lastEffectivePrompt || prompt, MAX_AUTO_RETRIES)}
                         className="rounded-lg mt-1"
                       >
                         <RefreshCw className="w-3.5 h-3.5 ml-1.5" />
