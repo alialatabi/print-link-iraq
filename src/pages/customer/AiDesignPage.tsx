@@ -207,7 +207,7 @@ const AiDesignPage = () => {
               className="text-right resize-none rounded-xl"
             />
             <p className="text-xs text-muted-foreground mt-2">
-              💡 كلما كان الوصف أدق (الألوان، النصوص، الأسلوب)، كانت النتيجة أفضل.
+              💡 ضع أي نص يجب أن يظهر حرفياً بين علامتي اقتباس "مثل هذا" — سيتم التحقق منه تلقائياً.
             </p>
           </div>
 
