@@ -37,7 +37,6 @@ const CompleteProfile = lazy(() => import("./pages/customer/CompleteProfile"));
 const UploadDesignPage = lazy(() => import("./pages/customer/UploadDesignPage"));
 const DeliveryAddressPage = lazy(() => import("./pages/customer/DeliveryAddressPage"));
 const MyCoupons = lazy(() => import("./pages/customer/MyCoupons"));
-const AiDesignPage = lazy(() => import("./pages/customer/AiDesignPage"));
 
 const queryClient = new QueryClient();
 
@@ -63,8 +62,6 @@ const App = () => (
                 <Route path="/specializations/:serviceType" element={<SpecializationSelection />} />
                 <Route path="/templates/:serviceType" element={<TemplateSelection />} />
                 <Route path="/template/:templateId" element={<TemplateDetails />} />
-                <Route path="/ai-design" element={<AiDesignPage />} />
-                <Route path="/ai-design/:serviceType" element={<AiDesignPage />} />
                 <Route path="/cart" element={<CartPage />} />
 
                 {/* Authenticated customer routes */}
