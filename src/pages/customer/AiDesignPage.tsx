@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ArrowRight, Sparkles, Loader2, Download, RefreshCw, Send, Wand2, Ruler } from 'lucide-react';
+import { ArrowRight, Sparkles, Loader2, Download, RefreshCw, Send, Wand2, Ruler, ShieldCheck, ShieldAlert, CheckCircle2, XCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useServices } from '@/hooks/useServices';
@@ -27,6 +27,52 @@ const AiDesignPage = () => {
   const [generating, setGenerating] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyReport, setVerifyReport] = useState<any | null>(null);
+
+  // Extract quoted texts from the prompt (Arabic/English) — these are what must match exactly.
+  const extractExpectedTexts = (p: string): string[] => {
+    const re = /[«"'"'']([^«»"'""'']{1,120})[»"'"'']/g;
+    const out: string[] = [];
+    let m;
+    while ((m = re.exec(p)) !== null) {
+      const t = m[1].trim();
+      if (t && !out.includes(t)) out.push(t);
+    }
+    return out;
+  };
+
+  const runVerification = async (url: string) => {
+    setVerifying(true);
+    setVerifyReport(null);
+    try {
+      const expectedTexts = extractExpectedTexts(prompt);
+      const { data, error } = await supabase.functions.invoke('ai-design-verify', {
+        body: { imageUrl: url, expectedTexts },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setVerifyReport(data);
+      if (!data.pass) {
+        toast({
+          title: 'فشل التحقق التلقائي',
+          description: 'النصوص أو الألوان لا تطابق متطلبات الطباعة. أعد التوليد.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'تم التحقق ✓', description: 'النصوص مطابقة والألوان CMYK آمنة.' });
+      }
+    } catch (e: any) {
+      toast({
+        title: 'تعذّر التحقق التلقائي',
+        description: e?.message || 'حاول مرة أخرى',
+        variant: 'destructive',
+      });
+      setVerifyReport({ pass: false, report: { summary: e?.message || 'verification failed' } });
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (prompt.trim().length < 5) {
@@ -43,6 +89,8 @@ const AiDesignPage = () => {
       if (data?.error) throw new Error(data.error);
       if (!data?.imageUrl) throw new Error('لم يتم توليد صورة');
       setImageUrl(data.imageUrl);
+      // Auto-run QA verification before allowing submission
+      runVerification(data.imageUrl);
     } catch (e: any) {
       toast({ title: 'فشل توليد التصميم', description: e?.message || 'حاول مرة أخرى', variant: 'destructive' });
     } finally {
@@ -62,6 +110,14 @@ const AiDesignPage = () => {
 
   const handleSubmitOrder = async () => {
     if (!imageUrl) return;
+    if (!verifyReport?.pass) {
+      toast({
+        title: 'لا يمكن إرسال الطلب',
+        description: 'يجب أن ينجح التحقق التلقائي (نصوص 100% + ألوان CMYK) أولاً.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!user) {
       navigate('/auth');
       return;
@@ -151,7 +207,7 @@ const AiDesignPage = () => {
               className="text-right resize-none rounded-xl"
             />
             <p className="text-xs text-muted-foreground mt-2">
-              💡 كلما كان الوصف أدق (الألوان، النصوص، الأسلوب)، كانت النتيجة أفضل.
+              💡 ضع أي نص يجب أن يظهر حرفياً بين علامتي اقتباس "مثل هذا" — سيتم التحقق منه تلقائياً.
             </p>
           </div>
 
@@ -221,7 +277,7 @@ const AiDesignPage = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     onClick={handleGenerate}
-                    disabled={generating || submitting}
+                    disabled={generating || submitting || verifying}
                     variant="outline"
                     className="rounded-xl py-5"
                   >
@@ -239,9 +295,72 @@ const AiDesignPage = () => {
                   </Button>
                 </div>
 
+                {/* Auto QA panel */}
+                <div className={`rounded-2xl border p-4 ${
+                  verifying ? 'border-border bg-muted/30'
+                    : verifyReport?.pass ? 'border-success/40 bg-success/10'
+                    : verifyReport ? 'border-destructive/40 bg-destructive/10'
+                    : 'border-border bg-muted/20'
+                }`}>
+                  {verifying ? (
+                    <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      جاري التحقق من النصوص وألوان CMYK...
+                    </div>
+                  ) : verifyReport?.pass ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-bold text-success">
+                        <ShieldCheck className="w-5 h-5" />
+                        نجح التحقق التلقائي
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        النصوص مطابقة 100% والألوان ضمن نطاق CMYK الآمن للطباعة.
+                      </p>
+                    </div>
+                  ) : verifyReport ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-bold text-destructive">
+                        <ShieldAlert className="w-5 h-5" />
+                        فشل التحقق — لا يمكن إرسال الطلب
+                      </div>
+                      {verifyReport.report?.text_results?.length > 0 && (
+                        <ul className="space-y-1 text-xs">
+                          {verifyReport.report.text_results.map((r: any, i: number) => (
+                            <li key={i} className="flex items-start gap-1.5">
+                              {r.match
+                                ? <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" />
+                                : <XCircle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />}
+                              <span className="text-foreground">
+                                <span className="font-bold">«{r.expected}»</span>
+                                {!r.match && r.found && <span className="text-muted-foreground"> — وُجد: «{r.found}»</span>}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {verifyReport.report?.cmyk_safe === false && (
+                        <div className="text-xs text-destructive">
+                          ⚠️ ألوان خارج نطاق CMYK: {verifyReport.report.cmyk_issues?.join('، ') || 'غير محدد'}
+                        </div>
+                      )}
+                      {verifyReport.report?.summary && (
+                        <p className="text-xs text-muted-foreground">{verifyReport.report.summary}</p>
+                      )}
+                      <Button
+                        size="sm" variant="outline"
+                        onClick={() => imageUrl && runVerification(imageUrl)}
+                        className="rounded-lg mt-1"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 ml-1.5" />
+                        إعادة التحقق
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+
                 <Button
                   onClick={handleSubmitOrder}
-                  disabled={submitting}
+                  disabled={submitting || verifying || !verifyReport?.pass}
                   size="lg"
                   className="w-full bg-success hover:bg-success/90 text-success-foreground text-base py-6 rounded-xl"
                 >
