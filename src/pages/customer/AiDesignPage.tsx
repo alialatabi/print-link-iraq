@@ -274,7 +274,7 @@ const AiDesignPage = () => {
 
           <Button
             onClick={handleGenerate}
-            disabled={generating || prompt.trim().length < 5}
+            disabled={generating || autoRetrying || prompt.trim().length < 5}
             size="lg"
             className="w-full text-base py-6 rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
           >
@@ -337,7 +337,7 @@ const AiDesignPage = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     onClick={handleGenerate}
-                    disabled={generating || submitting || verifying}
+                    disabled={generating || submitting || verifying || autoRetrying}
                     variant="outline"
                     className="rounded-xl py-5"
                   >
@@ -420,7 +420,7 @@ const AiDesignPage = () => {
 
                 <Button
                   onClick={handleSubmitOrder}
-                  disabled={submitting || verifying || !verifyReport?.pass}
+                  disabled={submitting || verifying || autoRetrying || !verifyReport?.pass}
                   size="lg"
                   className="w-full bg-success hover:bg-success/90 text-success-foreground text-base py-6 rounded-xl"
                 >
