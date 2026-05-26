@@ -29,6 +29,10 @@ const AiDesignPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [verifyReport, setVerifyReport] = useState<any | null>(null);
+  const [autoRetrying, setAutoRetrying] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const [lastEffectivePrompt, setLastEffectivePrompt] = useState<string>('');
+  const MAX_AUTO_RETRIES = 2;
 
   // Extract quoted texts from the prompt (Arabic/English) — these are what must match exactly.
   const extractExpectedTexts = (p: string): string[] => {
@@ -42,11 +46,12 @@ const AiDesignPage = () => {
     return out;
   };
 
-  const runVerification = async (url: string) => {
+  const runVerification = async (url: string, usedPrompt?: string, attempt: number = 0) => {
     setVerifying(true);
     setVerifyReport(null);
     try {
-      const expectedTexts = extractExpectedTexts(prompt);
+      const effectivePrompt = usedPrompt || prompt;
+      const expectedTexts = extractExpectedTexts(effectivePrompt);
       const { data, error } = await supabase.functions.invoke('ai-design-verify', {
         body: { imageUrl: url, expectedTexts },
       });
@@ -54,9 +59,15 @@ const AiDesignPage = () => {
       if (data?.error) throw new Error(data.error);
       setVerifyReport(data);
       if (!data.pass) {
+        // Auto-retry: ask AI to improve the prompt and regenerate
+        if (attempt < MAX_AUTO_RETRIES) {
+          setVerifying(false);
+          await autoImproveAndRegenerate(effectivePrompt, data.report, attempt + 1);
+          return;
+        }
         toast({
-          title: 'فشل التحقق التلقائي',
-          description: 'النصوص أو الألوان لا تطابق متطلبات الطباعة. أعد التوليد.',
+          title: 'فشل التحقق بعد عدة محاولات',
+          description: 'لم ينجح التحسين التلقائي. عدّل البرومبت يدوياً.',
           variant: 'destructive',
         });
       } else {
@@ -74,28 +85,61 @@ const AiDesignPage = () => {
     }
   };
 
-  const handleGenerate = async () => {
-    if (prompt.trim().length < 5) {
-      toast({ title: 'اكتب وصفاً أوضح للتصميم', variant: 'destructive' });
-      return;
-    }
+  const generateWithPrompt = async (promptText: string, attempt: number = 0) => {
     setGenerating(true);
     setImageUrl(null);
     try {
       const { data, error } = await supabase.functions.invoke('ai-design-generate', {
-        body: { prompt, serviceLabel, size },
+        body: { prompt: promptText, serviceLabel, size },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (!data?.imageUrl) throw new Error('لم يتم توليد صورة');
       setImageUrl(data.imageUrl);
-      // Auto-run QA verification before allowing submission
-      runVerification(data.imageUrl);
-    } catch (e: any) {
-      toast({ title: 'فشل توليد التصميم', description: e?.message || 'حاول مرة أخرى', variant: 'destructive' });
-    } finally {
+      setLastEffectivePrompt(promptText);
       setGenerating(false);
+      // Verify (may auto-retry)
+      runVerification(data.imageUrl, promptText, attempt);
+    } catch (e: any) {
+      setGenerating(false);
+      toast({ title: 'فشل توليد التصميم', description: e?.message || 'حاول مرة أخرى', variant: 'destructive' });
     }
+  };
+
+  const autoImproveAndRegenerate = async (failedPrompt: string, failureReport: any, attempt: number) => {
+    setAutoRetrying(true);
+    setRetryAttempt(attempt);
+    try {
+      toast({
+        title: `محاولة تلقائية #${attempt}`,
+        description: 'الذكاء الاصطناعي يحسّن البرومبت ويعيد التوليد...',
+      });
+      const { data, error } = await supabase.functions.invoke('ai-design-improve-prompt', {
+        body: { originalPrompt: failedPrompt, failureReport, attempt: attempt + 1 },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const improved: string = (data?.improvedPrompt || '').trim();
+      if (!improved) throw new Error('لم يتم توليد برومبت محسّن');
+      setAutoRetrying(false);
+      await generateWithPrompt(improved, attempt);
+    } catch (e: any) {
+      setAutoRetrying(false);
+      toast({
+        title: 'تعذّر التحسين التلقائي',
+        description: e?.message || 'حاول مرة أخرى يدوياً',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (prompt.trim().length < 5) {
+      toast({ title: 'اكتب وصفاً أوضح للتصميم', variant: 'destructive' });
+      return;
+    }
+    setRetryAttempt(0);
+    await generateWithPrompt(prompt, 0);
   };
 
   const handleDownload = () => {
@@ -230,7 +274,7 @@ const AiDesignPage = () => {
 
           <Button
             onClick={handleGenerate}
-            disabled={generating || prompt.trim().length < 5}
+            disabled={generating || autoRetrying || prompt.trim().length < 5}
             size="lg"
             className="w-full text-base py-6 rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
           >
@@ -258,8 +302,24 @@ const AiDesignPage = () => {
                 <div className="relative">
                   <Sparkles className="w-12 h-12 text-primary animate-pulse" />
                 </div>
-                <p className="text-sm font-bold text-foreground">الذكاء الاصطناعي يصمم لك...</p>
+                <p className="text-sm font-bold text-foreground">
+                  {retryAttempt > 0 ? `محاولة تلقائية #${retryAttempt} — إعادة التصميم...` : 'الذكاء الاصطناعي يصمم لك...'}
+                </p>
                 <p className="text-xs text-muted-foreground">قد يستغرق هذا 10-30 ثانية</p>
+              </motion.div>
+            )}
+
+            {autoRetrying && !generating && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="rounded-2xl border border-primary/30 bg-primary/5 p-4 flex items-center gap-3"
+              >
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <div className="text-sm">
+                  <div className="font-bold text-foreground">تحسين تلقائي للبرومبت — محاولة #{retryAttempt}</div>
+                  <div className="text-xs text-muted-foreground">الذكاء الاصطناعي يعيد صياغة الوصف بناءً على نتيجة التحقق...</div>
+                </div>
               </motion.div>
             )}
 
@@ -277,7 +337,7 @@ const AiDesignPage = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     onClick={handleGenerate}
-                    disabled={generating || submitting || verifying}
+                    disabled={generating || submitting || verifying || autoRetrying}
                     variant="outline"
                     className="rounded-xl py-5"
                   >
@@ -348,7 +408,7 @@ const AiDesignPage = () => {
                       )}
                       <Button
                         size="sm" variant="outline"
-                        onClick={() => imageUrl && runVerification(imageUrl)}
+                        onClick={() => imageUrl && runVerification(imageUrl, lastEffectivePrompt || prompt, MAX_AUTO_RETRIES)}
                         className="rounded-lg mt-1"
                       >
                         <RefreshCw className="w-3.5 h-3.5 ml-1.5" />
@@ -360,7 +420,7 @@ const AiDesignPage = () => {
 
                 <Button
                   onClick={handleSubmitOrder}
-                  disabled={submitting || verifying || !verifyReport?.pass}
+                  disabled={submitting || verifying || autoRetrying || !verifyReport?.pass}
                   size="lg"
                   className="w-full bg-success hover:bg-success/90 text-success-foreground text-base py-6 rounded-xl"
                 >
