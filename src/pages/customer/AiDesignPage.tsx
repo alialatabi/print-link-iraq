@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ArrowRight, Sparkles, Loader2, Download, RefreshCw, Send, Wand2 } from 'lucide-react';
+import { ArrowRight, Sparkles, Loader2, Download, RefreshCw, Send, Wand2, Ruler } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useServices } from '@/hooks/useServices';
 import SEOHead from '@/components/SEOHead';
@@ -22,6 +23,7 @@ const AiDesignPage = () => {
   const serviceLabel = currentService?.label || 'تصميم';
 
   const [prompt, setPrompt] = useState('');
+  const [size, setSize] = useState('');
   const [generating, setGenerating] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -35,7 +37,7 @@ const AiDesignPage = () => {
     setImageUrl(null);
     try {
       const { data, error } = await supabase.functions.invoke('ai-design-generate', {
-        body: { prompt, serviceLabel },
+        body: { prompt, serviceLabel, size },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
