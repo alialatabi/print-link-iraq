@@ -124,6 +124,12 @@ const DesignerOrders = () => {
     const isRevision = hasRevisionItems(order);
     const hasItems = order._items && order._items.length > 0;
     const itemCount = hasItems ? order._items.length : 1;
+    const isReseller = order.details?.order_type === 'reseller';
+    const reviewResult = order.details?.review?.result;
+    const resellerRejected = isReseller && reviewResult === 'rejected';
+    const needsResellerReview = isReseller && !isApproved
+      && !['print_ready', 'printed', 'delivered'].includes(order.status)
+      && reviewResult !== 'rejected';
 
     return (
       <motion.div
@@ -141,17 +147,42 @@ const DesignerOrders = () => {
             : 'bg-card border-border'
         )}
       >
-        {isApproved && (
-          <div className="flex items-center gap-2 text-success text-xs font-bold mb-3 bg-success/10 rounded-lg px-3 py-1.5 w-fit">
-            <Printer className="w-3.5 h-3.5 animate-pulse" />
-            بانتظار رفع ملف الطبع
-          </div>
-        )}
-        {isRevision && (
-          <div className="flex items-center gap-2 text-destructive text-xs font-bold mb-3 bg-destructive/10 rounded-lg px-3 py-1.5 w-fit">
-            <Edit2 className="w-3.5 h-3.5 animate-pulse" />
-            مطلوب تعديل
-          </div>
+        {isReseller ? (
+          <>
+            {needsResellerReview && (
+              <div className="flex items-center gap-2 text-primary text-xs font-bold mb-3 bg-primary/10 rounded-lg px-3 py-1.5 w-fit">
+                <Eye className="w-3.5 h-3.5 animate-pulse" />
+                مراجعة تصميم مطبعة
+              </div>
+            )}
+            {resellerRejected && (
+              <div className="flex items-center gap-2 text-destructive text-xs font-bold mb-3 bg-destructive/10 rounded-lg px-3 py-1.5 w-fit">
+                <Edit2 className="w-3.5 h-3.5" />
+                بانتظار تعديل المطبعة
+              </div>
+            )}
+            {isApproved && (
+              <div className="flex items-center gap-2 text-success text-xs font-bold mb-3 bg-success/10 rounded-lg px-3 py-1.5 w-fit">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                تمت الموافقة — قيد الطباعة
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {isApproved && (
+              <div className="flex items-center gap-2 text-success text-xs font-bold mb-3 bg-success/10 rounded-lg px-3 py-1.5 w-fit">
+                <Printer className="w-3.5 h-3.5 animate-pulse" />
+                بانتظار رفع ملف الطبع
+              </div>
+            )}
+            {isRevision && (
+              <div className="flex items-center gap-2 text-destructive text-xs font-bold mb-3 bg-destructive/10 rounded-lg px-3 py-1.5 w-fit">
+                <Edit2 className="w-3.5 h-3.5 animate-pulse" />
+                مطلوب تعديل
+              </div>
+            )}
+          </>
         )}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-4">
@@ -172,7 +203,12 @@ const DesignerOrders = () => {
                   <span className="text-xs font-normal text-muted-foreground mr-2">({itemCount} عناصر)</span>
                 )}
               </h3>
-              {hasItems ? (
+              {isReseller ? (
+                <p className="text-muted-foreground text-sm">
+                  {order.details?.service_label || 'طلب طباعة'}
+                  {order.details?.quantity ? ` • ${Number(order.details.quantity).toLocaleString('en-US')}` : ''}
+                </p>
+              ) : hasItems ? (
                 <div className="flex flex-wrap gap-1 mt-1">
                   {order._items.slice(0, 3).map((item: any, idx: number) => (
                     <span key={idx} className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">

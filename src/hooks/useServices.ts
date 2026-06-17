@@ -13,6 +13,7 @@ export interface DbService {
   parent_id: string | null;
   completion_days: number;
   min_quantity: number;
+  cellophane_type: string;
 }
 
 export interface DbSpecialization {

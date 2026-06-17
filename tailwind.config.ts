@@ -20,6 +20,9 @@ export default {
     },
     extend: {
       fontFamily: {
+        sans: ["'Tajawal'", "'Cairo'", "sans-serif"],
+        tajawal: ["'Tajawal'", "'Cairo'", "sans-serif"],
+        mono: ["'IBM Plex Mono'", "ui-monospace", "monospace"],
         cairo: ["Cairo", "sans-serif"],
         omnes: ["'Omnes Arabic'", "Cairo", "sans-serif"],
         noor: ["'Noor'", "Cairo", "sans-serif"],
@@ -85,11 +88,11 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        'card': '0 1px 4px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
-        'card-hover': '0 12px 24px -6px rgb(0 0 0 / 0.1), 0 4px 8px -4px rgb(0 0 0 / 0.06)',
-        'elevated': '0 6px 16px -4px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.04)',
-        'brand': '0 4px 20px -4px hsl(190 85% 38% / 0.15)',
-        'brand-hover': '0 8px 30px -4px hsl(190 85% 38% / 0.25)',
+        'card': '0 1px 3px 0 rgb(80 60 40 / 0.07), 0 1px 2px -1px rgb(80 60 40 / 0.05)',
+        'card-hover': '0 12px 26px -10px rgb(80 60 40 / 0.18), 0 4px 10px -4px rgb(80 60 40 / 0.1)',
+        'elevated': '0 8px 22px -8px rgb(80 60 40 / 0.16), 0 2px 6px -2px rgb(80 60 40 / 0.08)',
+        'brand': '0 10px 22px -10px hsl(194 87% 47% / 0.45)',
+        'brand-hover': '0 12px 28px -10px hsl(194 87% 47% / 0.6)',
         'dark-card': '0 2px 8px 0 rgb(0 0 0 / 0.3), 0 1px 3px -1px rgb(0 0 0 / 0.2)',
         'dark-card-hover': '0 16px 40px -8px rgb(0 0 0 / 0.4), 0 6px 12px -4px rgb(0 0 0 / 0.25)',
         'dark-elevated': '0 8px 24px -4px rgb(0 0 0 / 0.35), 0 4px 8px -2px rgb(0 0 0 / 0.2)',

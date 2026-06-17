@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink, Printer, XCircle, ChevronDown, ChevronUp, Package } from 'lucide-react';
+import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink, Printer, XCircle, ChevronDown, ChevronUp, Package, Store } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { OrderStatus } from '@/data/mockData';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
@@ -43,6 +43,8 @@ const DesignerOrderDetails = () => {
   const [approvalFormItem, setApprovalFormItem] = useState<string | null>(null);
   const [designerMessages, setDesignerMessages] = useState<Record<string, string>>({});
   const [printingItem, setPrintingItem] = useState<string | null>(null);
+  const [reviewNote, setReviewNote] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState<'approve' | 'reject' | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const printFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -227,6 +229,36 @@ const DesignerOrderDetails = () => {
     }
   };
 
+  // Reseller orders: designer reviews the uploaded design and approves or rejects with notes.
+  const handleResellerReview = async (result: 'approved' | 'rejected') => {
+    if (!orderId || !order) return;
+    if (result === 'rejected' && !reviewNote.trim()) {
+      toast({ title: 'اكتب ملاحظات الرفض للمطبعة', variant: 'destructive' });
+      return;
+    }
+    setReviewSubmitting(result === 'approved' ? 'approve' : 'reject');
+    try {
+      const newDetails = {
+        ...(order.details || {}),
+        review: { result, note: reviewNote.trim() || null, at: new Date().toISOString() },
+      };
+      // Approve → move to printing stage. Reject → keep assigned so the reseller can re-upload.
+      const newStatus = result === 'approved' ? 'approved' : 'assigned';
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus as OrderStatus, details: newDetails })
+        .eq('id', orderId);
+      if (error) throw error;
+      toast({ title: result === 'approved' ? 'تمت الموافقة على التصميم ✅' : 'تم إرسال الملاحظات للمطبعة' });
+      setReviewNote('');
+      loadOrder();
+    } catch (err: any) {
+      toast({ title: 'فشل العملية', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setReviewSubmitting(null);
+    }
+  };
+
   const handleViewDesign = async (filePath: string) => {
     const url = await getDesignSignedUrl(filePath);
     if (url) window.open(url, '_blank');
@@ -249,6 +281,15 @@ const DesignerOrderDetails = () => {
   if (!order) return <div className="py-20 text-center"><p className="text-muted-foreground text-lg">لم يتم العثور على الطلب</p></div>;
 
   const hasItems = orderItems.length > 0;
+  const isReseller = order.details?.order_type === 'reseller';
+  const resellerDetails = order.details || {};
+  const review = resellerDetails.review;
+  const resellerAttachments: string[] = resellerDetails.attachment_urls || [];
+  const canReview = isReseller
+    && order.status !== 'approved'
+    && review?.result !== 'rejected'
+    && !['print_ready', 'printed', 'delivered'].includes(order.status);
+  const cellophaneLabel = resellerDetails.cellophane === 'glossy' ? 'لامع' : resellerDetails.cellophane === 'matte' ? 'مطفي' : null;
 
   return (
     <div className="py-8">
@@ -271,8 +312,121 @@ const DesignerOrderDetails = () => {
             <StatusBadge status={order.status as OrderStatus} />
           </div>
 
-          {/* Items List */}
-          {hasItems ? (
+          {/* Reseller order: design review flow */}
+          {isReseller ? (
+            <div className="space-y-4">
+              {/* Order info */}
+              <div className="bg-card rounded-xl border border-border p-4">
+                <h3 className="font-bold text-foreground text-sm mb-3 flex items-center gap-2">
+                  <Store className="w-4 h-4 text-primary" />
+                  طلب طباعة من مطبعة
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground text-xs">المنتج</span>
+                    <p className="text-foreground font-medium">{resellerDetails.service_label || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs">الكمية</span>
+                    <p className="text-foreground font-medium">{Number(resellerDetails.quantity || 0).toLocaleString('en-US')}</p>
+                  </div>
+                  {cellophaneLabel && (
+                    <div>
+                      <span className="text-muted-foreground text-xs">السلوفان</span>
+                      <p className="text-foreground font-medium">{cellophaneLabel}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Uploaded design files */}
+              <div className="bg-card rounded-xl border border-border p-4">
+                <h4 className="font-bold text-foreground text-sm mb-3 flex items-center gap-2">
+                  <Image className="w-4 h-4 text-primary" />
+                  التصميم المرفوع ({resellerAttachments.length})
+                </h4>
+                {resellerAttachments.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {resellerAttachments.map((url, i) => {
+                      const isImg = /\.(png|jpe?g|webp|gif)$/i.test(url);
+                      return (
+                        <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                          className="relative rounded-xl overflow-hidden border border-border/60 aspect-square bg-muted/20 group hover:border-primary/40 transition-colors flex items-center justify-center">
+                          {isImg ? (
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="text-center p-2">
+                              <FileText className="w-8 h-8 text-primary mx-auto mb-1" />
+                              <span className="text-[11px] text-muted-foreground">ملف {i + 1}</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <ExternalLink className="w-5 h-5 text-white" />
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm">لا يوجد ملف مرفوع</p>
+                )}
+              </div>
+
+              {/* Approved state */}
+              {order.status === 'approved' || ['print_ready', 'printed', 'delivered'].includes(order.status) ? (
+                <div className="bg-success/10 border border-success/20 rounded-xl p-4 text-center">
+                  <CheckCircle2 className="w-6 h-6 text-success mx-auto mb-2" />
+                  <p className="font-bold text-foreground text-sm">تمت الموافقة على التصميم</p>
+                  <p className="text-muted-foreground text-xs mt-1">الطلب الآن في مرحلة الطباعة</p>
+                </div>
+              ) : review?.result === 'rejected' ? (
+                <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4">
+                  <p className="text-sm font-bold text-destructive mb-1 flex items-center gap-1.5">
+                    <XCircle className="w-4 h-4" />
+                    تم رفض التصميم — بانتظار تعديل المطبعة
+                  </p>
+                  {review.note && <p className="text-foreground text-sm mt-2 bg-card rounded-lg p-3 border border-border/50">{review.note}</p>}
+                </div>
+              ) : null}
+
+              {/* Review actions */}
+              {canReview && (
+                <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+                  <h4 className="font-bold text-foreground text-sm flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-primary" />
+                    مراجعة التصميم
+                  </h4>
+                  <Textarea
+                    value={reviewNote}
+                    onChange={e => setReviewNote(e.target.value)}
+                    placeholder="ملاحظات للمطبعة (مطلوبة عند الرفض)..."
+                    className="min-h-[70px] text-sm resize-none"
+                    dir="rtl"
+                    maxLength={500}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleResellerReview('approved')}
+                      disabled={reviewSubmitting !== null}
+                      className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
+                    >
+                      <CheckCircle2 className="w-4 h-4 ml-1" />
+                      {reviewSubmitting === 'approve' ? 'جاري...' : 'موافقة'}
+                    </Button>
+                    <Button
+                      onClick={() => handleResellerReview('rejected')}
+                      disabled={reviewSubmitting !== null}
+                      variant="outline"
+                      className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                    >
+                      <XCircle className="w-4 h-4 ml-1" />
+                      {reviewSubmitting === 'reject' ? 'جاري...' : 'رفض مع ملاحظات'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : hasItems ? (
             <div className="space-y-4">
               {orderItems.map((item, idx) => {
                 const isExpanded = expandedItem === item.id;

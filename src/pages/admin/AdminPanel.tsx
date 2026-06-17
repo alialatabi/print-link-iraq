@@ -24,7 +24,7 @@ import {
   Trash2, Palette, User, LayoutGrid,
   ShieldCheck, Search, Calendar, ArrowUpDown,
   TrendingUp, Clock, CheckCircle, Truck, FileText, Download,
-  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp, Crown, Percent
+  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp, Crown, Percent, Store
 } from 'lucide-react';
 import { Activity } from 'lucide-react';
 
@@ -34,6 +34,7 @@ import AdminCustomers from '@/components/admin/AdminCustomers';
 import AdminServicesSpecs from '@/components/admin/AdminServicesSpecs';
 import AdminActivityLog from '@/components/admin/AdminActivityLog';
 import AdminDiscounts from '@/components/admin/AdminDiscounts';
+import AdminResellers from '@/components/admin/AdminResellers';
 
 const ORDER_STATUSES: OrderStatus[] = [
   'draft', 'submitted', 'assigned', 'design_uploaded',
@@ -584,6 +585,10 @@ const AdminPanel = () => {
                   الأدمنز
                 </TabsTrigger>
               )}
+              <TabsTrigger value="resellers" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <Store className="w-4 h-4 flex-shrink-0" />
+                المطابع
+              </TabsTrigger>
               <TabsTrigger value="discounts" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
                 <Percent className="w-4 h-4 flex-shrink-0" />
                 الخصومات
@@ -685,18 +690,22 @@ const AdminPanel = () => {
               <div className="space-y-3">
                 {filteredOrders.map((order, i) => {
                   const details = (order.details || {}) as Record<string, any>;
+                  const isReseller = details.order_type === 'reseller';
+                  const resellerAttachments: string[] = isReseller ? (details.attachment_urls || []) : [];
                   const DETAIL_LABELS: Record<string, string> = {
                     name: 'الاسم', phone: 'الهاتف', job_title: 'المسمى الوظيفي',
                     address: 'العنوان', email: 'البريد', notes: 'ملاحظات',
-                    quantity: 'الكمية', delivery_phone: 'هاتف التوصيل',
+                    quantity: 'الكمية', cellophane: 'السلوفان', delivery_phone: 'هاتف التوصيل',
                     delivery_province: 'المحافظة', delivery_area: 'المنطقة',
                     delivery_landmark: 'أقرب نقطة دالة', delivery_label: 'عنوان التوصيل',
                     approved_at: 'تاريخ الموافقة',
                   };
                   const deliveryKeys = ['delivery_province', 'delivery_area', 'delivery_landmark', 'delivery_label', 'delivery_phone'];
+                  // Reseller bookkeeping keys are shown via a dedicated block, not as raw fields.
+                  const hiddenKeys = ['order_type', 'service_type', 'service_label', 'attachment_urls', 'pricing'];
                   const hasDelivery = deliveryKeys.some(k => details[k]);
                   const contentFields = Object.entries(details)
-                    .filter(([key, val]) => !deliveryKeys.includes(key) && key !== 'approved_at' && val && typeof val !== 'object')
+                    .filter(([key, val]) => !deliveryKeys.includes(key) && !hiddenKeys.includes(key) && key !== 'approved_at' && val && typeof val !== 'object')
                     .map(([key, val]) => ({ key, label: DETAIL_LABELS[key] || key, value: String(val) }));
                   const deliveryFields = deliveryKeys
                     .filter(k => details[k])
@@ -718,7 +727,17 @@ const AdminPanel = () => {
                               {order._items?.length > 1 ? <Package className="w-5 h-5 text-primary" /> : <FileText className="w-5 h-5 text-primary" />}
                             </div>
                             <div>
-                              {order._items?.length > 0 ? (
+                              {isReseller ? (
+                                <>
+                                  <h3 className="font-bold text-foreground text-sm leading-tight flex items-center gap-2">
+                                    {details.service_label || SERVICE_LABELS[details.service_type] || 'طلب مطبعة'}
+                                    <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">مطبعة</Badge>
+                                  </h3>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    <span className="font-mono">#{order.id.slice(0, 8)}</span>
+                                  </p>
+                                </>
+                              ) : order._items?.length > 0 ? (
                                 <>
                                   <h3 className="font-bold text-foreground text-sm leading-tight">
                                     {order._items.length > 1 ? `${order._items.length} عناصر` : (order._items[0]?.templates?.name || '-')}
@@ -801,6 +820,35 @@ const AdminPanel = () => {
                           </div>
                         </div>
                       ) : null}
+
+                      {/* Reseller order: design files + total */}
+                      {isReseller && (
+                        <div className="mx-4 mb-3 bg-primary/5 border border-primary/10 rounded-lg p-3 flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {resellerAttachments.length > 0 ? (
+                              resellerAttachments.map((url, idx) => (
+                                <a
+                                  key={url}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs text-primary hover:underline flex items-center gap-1 bg-card border border-primary/20 rounded-lg px-2 py-1"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  التصميم {resellerAttachments.length > 1 ? idx + 1 : ''}
+                                </a>
+                              ))
+                            ) : (
+                              <span className="text-xs text-muted-foreground">لا يوجد ملف مرفق</span>
+                            )}
+                          </div>
+                          {details.pricing?.total != null && (
+                            <span className="text-sm font-extrabold text-primary">
+                              {Number(details.pricing.total).toLocaleString('en-US')} د.ع
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Delivery Info */}
                       {hasDelivery && (
@@ -1391,6 +1439,11 @@ const AdminPanel = () => {
               </Dialog>
             </TabsContent>
           )}
+
+          {/* RESELLERS TAB */}
+          <TabsContent value="resellers">
+            <AdminResellers />
+          </TabsContent>
 
           {/* DISCOUNTS TAB */}
           <TabsContent value="discounts">

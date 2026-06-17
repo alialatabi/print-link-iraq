@@ -169,6 +169,10 @@ const Index = () => {
     return <Navigate to="/designer/orders" replace />;
   }
 
+  if (role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+
   return (
     <div className="overflow-hidden">
       <SEOHead
@@ -200,7 +204,7 @@ const Index = () => {
                 اختر — خصّص — اطبع — استلم
               </motion.div>
 
-              <motion.h1 className="font-noor text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.15] mb-3 tracking-tight" initial="hidden" animate="visible" variants={fadeUp} custom={1}>
+              <motion.h1 className="font-tajawal text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.15] mb-3 tracking-tight" initial="hidden" animate="visible" variants={fadeUp} custom={1}>
                 <span className="text-primary">خصّص</span> تصميمك
                 <br />
                 واطبعه <span className="relative inline-block">بلحظة

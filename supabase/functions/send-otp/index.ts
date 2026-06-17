@@ -49,7 +49,8 @@ Deno.serve(async (req) => {
         .eq("user_id", existingUser.user_id);
 
       const isStaff = (roles || []).some(
-        (r: { role: string }) => r.role === "designer" || r.role === "admin"
+        (r: { role: string }) =>
+          r.role === "designer" || r.role === "admin" || r.role === "reseller"
       );
 
       if (isStaff) {

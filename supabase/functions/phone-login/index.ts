@@ -6,6 +6,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const json = (body: unknown, status: number) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -15,46 +21,49 @@ Deno.serve(async (req) => {
     const { phone, password } = await req.json();
 
     if (!phone || typeof phone !== "string" || phone.length < 10) {
-      return new Response(
-        JSON.stringify({ error: "رقم هاتف غير صالح" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json({ error: "رقم هاتف غير صالح" }, 400);
     }
 
     const normalizedPhone = phone.replace(/\s+/g, "").replace(/^0/, "964");
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
-    
-    // Generate secure password using SHA-256 + secret salt
-    const salt = Deno.env.get("PHONE_AUTH_SECRET_SALT");
-    if (!salt) {
-      console.error("PHONE_AUTH_SECRET_SALT is not configured");
-      return new Response(
-        JSON.stringify({ error: "خطأ في إعدادات الخادم" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    const encoder = new TextEncoder();
-    const hashData = encoder.encode(`${salt}:${normalizedPhone}`);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", hashData);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const defaultHashedPassword = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-    const loginPassword = password || defaultHashedPassword;
 
-    // Check if user already exists
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Resolve the password to use. If the caller supplied one (staff login),
+    // use it directly. Otherwise fall back to the deterministic salt-derived
+    // password (legacy passwordless flow) — only this branch needs the salt.
+    let loginPassword: string | undefined = password;
+    if (!loginPassword) {
+      const salt = Deno.env.get("PHONE_AUTH_SECRET_SALT");
+      if (!salt) {
+        console.error("PHONE_AUTH_SECRET_SALT is not configured");
+        return json({ error: "خطأ في إعدادات الخادم" }, 500);
+      }
+      const encoder = new TextEncoder();
+      const hashBuffer = await crypto.subtle.digest(
+        "SHA-256",
+        encoder.encode(`${salt}:${normalizedPhone}`),
+      );
+      loginPassword = Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    // Check whether the account already exists.
     const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = userList?.users?.find(u => u.email === syntheticEmail);
+    const existingUser = userList?.users?.find((u) => u.email === syntheticEmail);
 
     let isNewUser = false;
 
     if (!existingUser) {
-      // Create new user
+      // First time this phone is seen: create the account with the supplied
+      // password so the user can sign in with it from now on.
       const { error: signUpError } = await supabaseAdmin.auth.admin.createUser({
         email: syntheticEmail,
         password: loginPassword,
@@ -65,66 +74,30 @@ Deno.serve(async (req) => {
 
       if (signUpError && signUpError.code !== "email_exists") {
         console.error("Sign up error:", signUpError);
-        return new Response(
-          JSON.stringify({ error: "فشل إنشاء الحساب" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return json({ error: "فشل إنشاء الحساب" }, 500);
       }
       isNewUser = !signUpError;
     }
 
-    // Generate magic link session (bypasses email provider requirement)
-    const { data: linkData, error: linkError } =
-      await supabaseAdmin.auth.admin.generateLink({
-        type: "magiclink",
+    // Authenticate with the password. This is the real verification step:
+    // an existing user must provide the correct password to obtain a session.
+    const supabaseAuth = createClient(supabaseUrl, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: signInData, error: signInError } =
+      await supabaseAuth.auth.signInWithPassword({
         email: syntheticEmail,
+        password: loginPassword!,
       });
 
-    if (linkError || !linkData?.properties?.hashed_token) {
-      console.error("Generate link error:", linkError);
-      return new Response(
-        JSON.stringify({ error: "فشل إنشاء الجلسة" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (signInError || !signInData?.session) {
+      console.error("Sign in error:", signInError?.message);
+      return json({ error: "كلمة المرور غير صحيحة" }, 401);
     }
 
-    // Exchange magic link token for a real session
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const verifyResp = await fetch(`${supabaseUrl}/auth/v1/verify`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,
-      },
-      body: JSON.stringify({
-        type: "magiclink",
-        token_hash: linkData.properties.hashed_token,
-      }),
-    });
-
-    const sessionData = await verifyResp.json();
-
-    if (!verifyResp.ok || !sessionData?.access_token) {
-      console.error("Verify error:", JSON.stringify(sessionData));
-      return new Response(
-        JSON.stringify({ error: "فشل تسجيل الدخول" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        session: sessionData,
-        isNewUser,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({ success: true, session: signInData.session, isNewUser }, 200);
   } catch (err) {
     console.error("Unexpected error:", err);
-    return new Response(
-      JSON.stringify({ error: "خطأ غير متوقع" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({ error: "خطأ غير متوقع" }, 500);
   }
 });

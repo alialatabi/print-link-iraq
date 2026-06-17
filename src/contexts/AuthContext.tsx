@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 import { useHeartbeat } from '@/hooks/useHeartbeat';
 
-type AppRole = 'customer' | 'designer' | 'admin';
+type AppRole = 'customer' | 'designer' | 'admin' | 'reseller';
 type SignOutCallback = () => void;
 
 interface AuthState {
@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const roleList = (roles || []).map(r => r.role);
     if (roleList.includes('admin')) setRole('admin');
     else if (roleList.includes('designer')) setRole('designer');
+    else if (roleList.includes('reseller')) setRole('reseller');
     else setRole('customer');
     
     // Check super admin from database

@@ -37,6 +37,8 @@ const CompleteProfile = lazy(() => import("./pages/customer/CompleteProfile"));
 const UploadDesignPage = lazy(() => import("./pages/customer/UploadDesignPage"));
 const DeliveryAddressPage = lazy(() => import("./pages/customer/DeliveryAddressPage"));
 const MyCoupons = lazy(() => import("./pages/customer/MyCoupons"));
+const ResellerDashboard = lazy(() => import("./pages/reseller/ResellerDashboard"));
+const ResellerNewOrder = lazy(() => import("./pages/reseller/ResellerNewOrder"));
 
 const queryClient = new QueryClient();
 
@@ -81,6 +83,10 @@ const App = () => (
                 <Route path="/designer/login" element={<DesignerLogin />} />
                 <Route path="/designer/orders" element={<ProtectedRoute requiredRole="designer"><DesignerOrders /></ProtectedRoute>} />
                 <Route path="/designer/orders/:orderId" element={<ProtectedRoute requiredRole="designer"><DesignerOrderDetails /></ProtectedRoute>} />
+
+                {/* Reseller (print shop) routes */}
+                <Route path="/reseller" element={<ProtectedRoute requiredRole="reseller"><ResellerDashboard /></ProtectedRoute>} />
+                <Route path="/reseller/new" element={<ProtectedRoute requiredRole="reseller"><ResellerNewOrder /></ProtectedRoute>} />
 
                 {/* Admin routes */}
                 <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminPanel /></ProtectedRoute>} />

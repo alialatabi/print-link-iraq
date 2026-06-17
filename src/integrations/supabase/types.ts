@@ -411,6 +411,63 @@ export type Database = {
         }
         Relationships: []
       }
+      reseller_price_overrides: {
+        Row: {
+          created_at: string
+          id: string
+          price_type: string
+          reseller_id: string | null
+          service_id: string | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          price_type: string
+          reseller_id?: string | null
+          service_id?: string | null
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          price_type?: string
+          reseller_id?: string | null
+          service_id?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      resellers: {
+        Row: {
+          created_at: string
+          shop_address: string
+          shop_name: string
+          shop_phone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          shop_address: string
+          shop_name: string
+          shop_phone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          shop_address?: string
+          shop_name?: string
+          shop_phone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       saved_addresses: {
         Row: {
           area: string
@@ -615,7 +672,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "customer" | "designer" | "admin"
+      app_role: "customer" | "designer" | "admin" | "reseller"
       order_status:
         | "draft"
         | "submitted"
@@ -754,7 +811,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["customer", "designer", "admin"],
+      app_role: ["customer", "designer", "admin", "reseller"],
       order_status: [
         "draft",
         "submitted",

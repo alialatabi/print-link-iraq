@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +32,20 @@ const StaffLogin = () => {
       navigate('/complete-profile');
     } else {
       toast({ title: 'تم تسجيل الدخول بنجاح!' });
-      navigate('/');
+      // Send each staff member to their own area
+      const { data: { user } } = await supabase.auth.getUser();
+      let dest = '/';
+      if (user) {
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id);
+        const list = (roles || []).map(r => r.role);
+        if (list.includes('admin')) dest = '/admin';
+        else if (list.includes('designer')) dest = '/designer/orders';
+        else if (list.includes('reseller')) dest = '/reseller';
+      }
+      navigate(dest);
     }
     setSubmitting(false);
   };

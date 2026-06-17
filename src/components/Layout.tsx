@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, ShoppingCart } from 'lucide-react';
+import { Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, ShoppingCart, Store } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
 import NotificationBell from '@/components/NotificationBell';
 import SearchBar from '@/components/SearchBar';
@@ -24,12 +24,17 @@ const Layout = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const isDesignerOnly = role === 'designer';
+  const isResellerOnly = role === 'reseller';
+  const isAdminOnly = role === 'admin';
+  // Hide the customer-facing chrome (catalog/cart/search) for staff-only roles.
+  const hideShopChrome = isDesignerOnly || isResellerOnly || isAdminOnly;
 
   const NAV_ITEMS = [
-    { label: 'الرئيسية', path: '/', icon: Home, show: !isDesignerOnly },
-    { label: 'طلباتي', path: '/my-orders', icon: User, show: !!user && !isDesignerOnly },
-    { label: 'حسابي', path: '/profile', icon: User, show: !!user && !isDesignerOnly },
+    { label: 'الرئيسية', path: '/', icon: Home, show: !hideShopChrome },
+    { label: 'طلباتي', path: '/my-orders', icon: User, show: !!user && !hideShopChrome },
+    { label: 'حسابي', path: '/profile', icon: User, show: !!user && !hideShopChrome },
     { label: 'المصمم', path: '/designer/orders', icon: Palette, show: role === 'designer' || role === 'admin' },
+    { label: 'بوابة المطبعة', path: '/reseller', icon: Store, show: role === 'reseller' || role === 'admin' },
     { label: 'الإدارة', path: '/admin', icon: ShieldCheck, show: role === 'admin' },
   ];
 
@@ -42,7 +47,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
   const closeMobile = () => setMobileMenuOpen(false);
 
   return (
-    <div className="min-h-screen flex flex-col font-cairo" dir="rtl">
+    <div className="min-h-screen flex flex-col font-tajawal" dir="rtl">
       {/* CMYK color strip */}
       <div className="flex h-0.5">
         <div className="flex-1 bg-cmyk-cyan" />
@@ -59,7 +64,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             </Link>
 
             {/* Search bar - desktop */}
-            {!isDesignerOnly && <div className="hidden sm:block"><SearchBar /></div>}
+            {!hideShopChrome && <div className="hidden sm:block"><SearchBar /></div>}
 
             {/* Desktop nav */}
             <nav className="hidden sm:flex items-center gap-1">
@@ -78,7 +83,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
               ))}
 
             {/* Cart icon */}
-            {!isDesignerOnly && (
+            {!hideShopChrome && (
             <Link to="/cart" aria-label="سلة التسوق" className="relative p-2.5 rounded-xl text-muted-foreground dark:text-gray-600 hover:text-foreground dark:hover:text-gray-900 hover:bg-muted/60 dark:hover:bg-gray-100 transition-all duration-150">
               <ShoppingCart className="w-[18px] h-[18px]" />
               {itemCount > 0 && (
@@ -114,7 +119,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
           {/* Mobile menu button */}
           <div className="flex items-center gap-1 sm:hidden">
-            {!isDesignerOnly && (
+            {!hideShopChrome && (
             <Link to="/cart" aria-label="سلة التسوق" className="relative p-2.5 rounded-xl text-muted-foreground dark:text-gray-600 hover:text-foreground dark:hover:text-gray-900 hover:bg-muted/60 dark:hover:bg-gray-100 transition-all duration-150">
               <ShoppingCart className="w-5 h-5" />
               {itemCount > 0 && (
@@ -136,7 +141,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         </div>
 
         {/* Services sub-navbar - circular icons (hidden for designers) */}
-        {!isDesignerOnly && !pathname.startsWith('/auth') && !pathname.startsWith('/staff-login') && !pathname.startsWith('/designer/login') && (
+        {!hideShopChrome && !pathname.startsWith('/auth') && !pathname.startsWith('/staff-login') && !pathname.startsWith('/designer/login') && (
         <div className="bg-card/50 dark:bg-white/50 dark:text-[hsl(222,47%,11%)] backdrop-blur-sm border-b border-border/30">
           <div className="container">
             <div className="flex items-end justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide pt-5 pb-3 px-1 min-h-[100px]">
@@ -196,7 +201,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             >
               <div className="container py-4 space-y-1">
                 {/* Search bar - mobile */}
-                {!isDesignerOnly && <div className="mb-3"><SearchBar onNavigate={closeMobile} /></div>}
+                {!hideShopChrome && <div className="mb-3"><SearchBar onNavigate={closeMobile} /></div>}
                 {NAV_ITEMS.filter(i => i.show).map(item => (
                   <Link
                     key={item.path}
@@ -213,7 +218,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                   </Link>
                 ))}
 
-                {!isDesignerOnly && (
+                {!hideShopChrome && (
                 <div className="pt-3 border-t border-border/30 mt-3">
                   <p className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">خدماتنا</p>
                   {services.filter(s => !s.parent_id).map(service => (

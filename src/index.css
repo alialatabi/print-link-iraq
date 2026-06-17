@@ -28,93 +28,94 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    /* Matbaty design system — warm cream + navy, cyan & magenta accents */
+    --background: 36 48% 93%;
+    --foreground: 38 18% 23%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: 36 56% 97%;
+    --card-foreground: 38 18% 23%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 36 56% 97%;
+    --popover-foreground: 38 18% 23%;
 
     /* Cyan - primary brand color */
-    --primary: 190 85% 38%;
+    --primary: 194 87% 47%;
     --primary-foreground: 0 0% 100%;
 
-    /* Key (Black) - secondary */
-    --secondary: 222 47% 11%;
-    --secondary-foreground: 210 20% 98%;
+    /* Navy - secondary */
+    --secondary: 226 46% 26%;
+    --secondary-foreground: 36 56% 97%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 20% 38%;
+    --muted: 35 37% 90%;
+    --muted-foreground: 36 12% 46%;
 
-    /* Yellow - accent */
-    --accent: 48 96% 53%;
-    --accent-foreground: 222 47% 11%;
+    /* Amber - accent (light, dark foreground for tint-safe contrast) */
+    --accent: 37 91% 55%;
+    --accent-foreground: 38 18% 22%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 4 72% 56%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Magenta - success/action */
-    --success: 160 84% 39%;
+    /* Green - success/action */
+    --success: 151 66% 39%;
     --success-foreground: 0 0% 100%;
 
     /* CMYK spot colors for decoration */
-    --cmyk-cyan: 190 85% 38%;
-    --cmyk-magenta: 330 80% 50%;
-    --cmyk-yellow: 48 96% 53%;
-    --cmyk-key: 222 47% 11%;
+    --cmyk-cyan: 194 87% 47%;
+    --cmyk-magenta: 328 73% 47%;
+    --cmyk-yellow: 37 91% 55%;
+    --cmyk-key: 226 46% 26%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 190 85% 38%;
+    --border: 37 34% 85%;
+    --input: 37 34% 85%;
+    --ring: 194 87% 47%;
 
-    --radius: 0.875rem;
+    --radius: 1.1rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 222 47% 11%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 210 40% 96%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 190 85% 38%;
+    --sidebar-background: 36 56% 97%;
+    --sidebar-foreground: 38 18% 23%;
+    --sidebar-primary: 226 46% 26%;
+    --sidebar-primary-foreground: 36 56% 97%;
+    --sidebar-accent: 35 37% 90%;
+    --sidebar-accent-foreground: 38 18% 23%;
+    --sidebar-border: 37 34% 85%;
+    --sidebar-ring: 194 87% 47%;
   }
 
   .dark {
-    --background: 222 47% 5%;
-    --foreground: 210 40% 96%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 190 80% 48%;
-    --primary-foreground: 222 47% 5%;
-    --secondary: 215 28% 14%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 33% 12%;
-    --muted-foreground: 215 18% 62%;
-    --accent: 48 96% 53%;
-    --accent-foreground: 222 47% 5%;
-    --destructive: 0 72% 51%;
+    --background: 226 32% 8%;
+    --foreground: 36 30% 92%;
+    --card: 226 28% 11%;
+    --card-foreground: 36 30% 92%;
+    --popover: 226 28% 11%;
+    --popover-foreground: 36 30% 92%;
+    --primary: 194 82% 52%;
+    --primary-foreground: 226 40% 9%;
+    --secondary: 226 30% 22%;
+    --secondary-foreground: 36 30% 92%;
+    --muted: 226 20% 16%;
+    --muted-foreground: 36 12% 64%;
+    --accent: 37 90% 58%;
+    --accent-foreground: 226 40% 9%;
+    --destructive: 4 72% 56%;
     --destructive-foreground: 0 0% 100%;
-    --success: 160 84% 39%;
+    --success: 151 60% 46%;
     --success-foreground: 0 0% 100%;
-    --cmyk-cyan: 190 80% 48%;
-    --cmyk-magenta: 330 75% 55%;
-    --cmyk-yellow: 48 96% 53%;
-    --cmyk-key: 215 20% 80%;
-    --border: 217 33% 15%;
-    --input: 217 33% 15%;
-    --ring: 190 80% 48%;
-    --sidebar-background: 222 47% 6%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 190 80% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 11%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 217 33% 14%;
-    --sidebar-ring: 190 80% 48%;
+    --cmyk-cyan: 194 82% 52%;
+    --cmyk-magenta: 328 75% 58%;
+    --cmyk-yellow: 37 90% 58%;
+    --cmyk-key: 36 30% 88%;
+    --border: 226 20% 20%;
+    --input: 226 20% 20%;
+    --ring: 194 82% 52%;
+    --sidebar-background: 226 30% 9%;
+    --sidebar-foreground: 36 30% 92%;
+    --sidebar-primary: 194 82% 52%;
+    --sidebar-primary-foreground: 226 40% 9%;
+    --sidebar-accent: 226 20% 15%;
+    --sidebar-accent-foreground: 36 30% 92%;
+    --sidebar-border: 226 20% 18%;
+    --sidebar-ring: 194 82% 52%;
   }
 }
 
@@ -124,7 +125,11 @@
   }
 
   html {
-    font-family: 'Noor', 'Cairo', sans-serif;
+    font-family: 'Tajawal', 'Cairo', sans-serif;
+    /* Tajawal has a smaller x-height than the previous Cairo font; normalize
+       apparent size so text matches the previous look without changing any
+       font-size or spacing values. Tune this number if needed (higher = larger). */
+    font-size-adjust: 0.52;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     line-height: 1.7;
