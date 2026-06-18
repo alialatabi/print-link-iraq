@@ -113,76 +113,84 @@ Deno.serve(async (req) => {
       console.error("Session exchange failed for returning user:", JSON.stringify(sessionData));
     }
 
-    // New user — send OTP for first-time verification
-    // Generate 6-digit OTP using cryptographically secure randomness
-    const randomBytes = new Uint32Array(1);
-    crypto.getRandomValues(randomBytes);
-    const code = String(100000 + (randomBytes[0] % 900000));
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-    // Invalidate previous unused codes for this phone
-    await supabaseAdmin
-      .from("otp_codes")
-      .update({ used: true })
-      .eq("phone", normalizedPhone)
-      .eq("used", false);
-
-    // Insert new code
-    const { error: insertError } = await supabaseAdmin
-      .from("otp_codes")
-      .insert({ phone: normalizedPhone, code, expires_at: expiresAt });
-
-    if (insertError) {
-      console.error("DB insert error:", insertError);
+    // New user — OTP DISABLED: auto-create the account and issue a session
+    // directly (no WhatsApp code). NOTE: this means a phone number is NOT
+    // verified — anyone can sign in as any number. Temporary, by request.
+    const salt = Deno.env.get("PHONE_AUTH_SECRET_SALT");
+    if (!salt) {
+      console.error("PHONE_AUTH_SECRET_SALT is not configured");
       return new Response(
-        JSON.stringify({ error: "خطأ في حفظ الرمز" }),
+        JSON.stringify({ error: "خطأ في إعدادات الخادم" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(`${salt}:${normalizedPhone}`));
+    const hashedPassword = Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
 
-    // Send via Twilio WhatsApp
-    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const fromNumber = Deno.env.get("TWILIO_WHATSAPP_FROM");
-
-    if (!accountSid || !authToken || !fromNumber) {
-      console.error("Twilio credentials not configured");
-      return new Response(
-        JSON.stringify({ error: "خدمة الرسائل غير مهيأة" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-    const credentials = btoa(`${accountSid}:${authToken}`);
-
-    const body = new URLSearchParams({
-      From: `whatsapp:${fromNumber}`,
-      To: `whatsapp:+${normalizedPhone}`,
-      Body: `رمز التحقق الخاص بك هو: ${code}\n\nصالح لمدة 5 دقائق.`,
+    const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
+      email: syntheticEmail,
+      password: hashedPassword,
+      phone: normalizedPhone,
+      email_confirm: true,
+      user_metadata: { display_name: normalizedPhone, phone: normalizedPhone },
     });
 
-    const twilioResponse = await fetch(twilioUrl, {
+    if (signUpError || !newUser?.user) {
+      console.error("Sign up error:", signUpError);
+      return new Response(
+        JSON.stringify({ error: "فشل إنشاء الحساب" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Issue a session via magic link (same mechanism as returning users).
+    const { data: newLink, error: newLinkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email: syntheticEmail,
+    });
+
+    if (newLinkError || !newLink?.properties?.hashed_token) {
+      console.error("Generate link error for new user:", newLinkError);
+      return new Response(
+        JSON.stringify({ error: "فشل تسجيل الدخول التلقائي" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const newUserVerifyResp = await fetch(`${Deno.env.get("SUPABASE_URL")!}/auth/v1/verify`, {
       method: "POST",
       headers: {
-        Authorization: `Basic ${credentials}`,
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Type": "application/json",
+        "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,
       },
-      body: body.toString(),
+      body: JSON.stringify({
+        type: "magiclink",
+        token_hash: newLink.properties.hashed_token,
+      }),
     });
 
-    const twilioData = await twilioResponse.json();
+    const newSession = await newUserVerifyResp.json();
 
-    if (!twilioResponse.ok) {
-      console.error("Twilio API error:", JSON.stringify(twilioData));
+    if (!newUserVerifyResp.ok || !newSession?.access_token) {
+      console.error("Session exchange failed for new user:", JSON.stringify(newSession));
       return new Response(
-        JSON.stringify({ error: "فشل إرسال رمز التحقق", details: twilioData }),
+        JSON.stringify({ error: "فشل إنشاء الجلسة" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     return new Response(
-      JSON.stringify({ success: true, existingUser: false, phone: normalizedPhone }),
+      JSON.stringify({
+        success: true,
+        existingUser: false,
+        isNewUser: true,
+        isStaff: false,
+        session: newSession,
+        phone: normalizedPhone,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

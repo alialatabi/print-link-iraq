@@ -24,7 +24,7 @@ import {
   Trash2, Palette, User, LayoutGrid,
   ShieldCheck, Search, Calendar, ArrowUpDown,
   TrendingUp, Clock, CheckCircle, Truck, FileText, Download,
-  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp, Crown, Percent, Store
+  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp, Crown, Percent, Store, Sparkles
 } from 'lucide-react';
 import { Activity } from 'lucide-react';
 
@@ -32,6 +32,7 @@ import AdminTemplates from '@/components/admin/AdminTemplates';
 import AdminAccounts from '@/components/admin/AdminAccounts';
 import AdminCustomers from '@/components/admin/AdminCustomers';
 import AdminServicesSpecs from '@/components/admin/AdminServicesSpecs';
+import AdminAiProducts from '@/components/admin/AdminAiProducts';
 import AdminActivityLog from '@/components/admin/AdminActivityLog';
 import AdminDiscounts from '@/components/admin/AdminDiscounts';
 import AdminResellers from '@/components/admin/AdminResellers';
@@ -567,6 +568,10 @@ const AdminPanel = () => {
                 <Package className="w-4 h-4 flex-shrink-0" />
                 الخدمات
               </TabsTrigger>
+              <TabsTrigger value="ai-products" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <Sparkles className="w-4 h-4 flex-shrink-0" />
+                تصاميم AI
+              </TabsTrigger>
               <TabsTrigger value="designers" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
                 <Palette className="w-4 h-4 flex-shrink-0" />
                 المصممين
@@ -964,6 +969,11 @@ const AdminPanel = () => {
           {/* SERVICES & SPECIALIZATIONS TAB */}
           <TabsContent value="services">
             <AdminServicesSpecs />
+          </TabsContent>
+
+          {/* AI DESIGN PRODUCTS TAB */}
+          <TabsContent value="ai-products">
+            <AdminAiProducts />
           </TabsContent>
 
           {/* DESIGNERS TAB */}

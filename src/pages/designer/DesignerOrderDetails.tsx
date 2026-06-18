@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink, Printer, XCircle, ChevronDown, ChevronUp, Package, Store } from 'lucide-react';
+import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink, Printer, XCircle, ChevronDown, ChevronUp, Package, Store, Sparkles, Pencil } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { OrderStatus } from '@/data/mockData';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
@@ -476,6 +476,35 @@ const DesignerOrderDetails = () => {
 
                         {/* Customer Details for this item */}
                         <div className="p-4 border-b border-border">
+                          {itemDetails.is_ai_design && (
+                            <div className="mb-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                              <p className="text-sm font-bold text-primary flex items-center gap-2">
+                                <Sparkles className="w-4 h-4" />
+                                تصميم بالذكاء الاصطناعي (مسودة)
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                                الصورة المرفقة نتاج الذكاء الاصطناعي — يرجى تدقيق النصوص العربية وإعادة تنضيدها وتجهيز الملف للطباعة بدقة.
+                              </p>
+                              {itemDetails.edit_request && (
+                                <div className="mt-2 rounded-lg border border-accent/40 bg-accent/10 p-2.5">
+                                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    <Pencil className="w-3.5 h-3.5 text-accent-foreground" />
+                                    التعديلات المطلوبة من الزبون
+                                  </p>
+                                  <p className="text-sm text-foreground mt-1 whitespace-pre-wrap leading-relaxed">{itemDetails.edit_request}</p>
+                                </div>
+                              )}
+                              {itemDetails.unit_price ? (
+                                <p className="text-xs font-medium text-foreground mt-1">رسوم التصميم بالذكاء الاصطناعي: {Number(itemDetails.unit_price).toLocaleString('en-US')} د.ع</p>
+                              ) : null}
+                              {itemDetails.ai_prompt && (
+                                <details className="mt-2">
+                                  <summary className="text-xs text-primary cursor-pointer">عرض الوصف المُرسل للذكاء الاصطناعي</summary>
+                                  <p className="text-[11px] text-muted-foreground mt-1 whitespace-pre-wrap" dir="ltr">{itemDetails.ai_prompt}</p>
+                                </details>
+                              )}
+                            </div>
+                          )}
                           <h4 className="font-bold text-foreground text-sm mb-3 flex items-center gap-2">
                             <FileText className="w-4 h-4 text-primary" />
                             تفاصيل الزبون

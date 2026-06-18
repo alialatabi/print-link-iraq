@@ -29,9 +29,3 @@ verify_jwt = false
 
 [functions.ai-design-generate]
 verify_jwt = false
-
-[functions.ai-design-verify]
-verify_jwt = false
-
-[functions.ai-design-improve-prompt]
-verify_jwt = false

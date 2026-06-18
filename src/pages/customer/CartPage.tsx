@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/contexts/CartContext';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Minus, Plus, Trash2, ShoppingCart, Palette, ShieldCheck, Truck, Tag, Loader2, X } from 'lucide-react';
+import { ArrowRight, Minus, Plus, Trash2, ShoppingCart, Palette, ShieldCheck, Truck, Tag, Loader2, X, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import SEOHead from '@/components/SEOHead';
@@ -115,7 +115,9 @@ const CartPage = () => {
                     <div>
                       <h3 className="font-bold text-foreground text-sm truncate">{item.templateName}</h3>
                       <span className="text-xs text-muted-foreground">
-                        {SERVICE_LABELS[item.serviceType as ServiceType] || item.serviceType}
+                        {item.aiDesign
+                          ? `تصميم بالذكاء الاصطناعي${item.aiDesign.sizeLabel ? ' · ' + item.aiDesign.sizeLabel : ''}`
+                          : (SERVICE_LABELS[item.serviceType as ServiceType] || item.serviceType)}
                       </span>
                     </div>
                     <button
@@ -127,29 +129,35 @@ const CartPage = () => {
                   </div>
 
                   <div className="flex items-center justify-between mt-4">
-                    {/* Quantity */}
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg"
-                        onClick={() => updateQuantity(item.templateId, item.quantity - (item.minQuantity || 1000))}
-                        disabled={item.quantity <= (item.minQuantity || 1000)}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </Button>
-                      <span className="text-sm font-bold text-foreground min-w-[3.5rem] text-center">
-                        {item.quantity.toLocaleString('en-US')}
+                    {/* Quantity (AI items are a single fixed-price design) */}
+                    {item.aiDesign ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-lg px-2.5 py-1.5">
+                        <Sparkles className="w-3.5 h-3.5" /> تصميم AI
                       </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg"
-                        onClick={() => updateQuantity(item.templateId, item.quantity + (item.minQuantity || 1000))}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          onClick={() => updateQuantity(item.templateId, item.quantity - (item.minQuantity || 1000))}
+                          disabled={item.quantity <= (item.minQuantity || 1000)}
+                        >
+                          <Minus className="w-3 h-3" />
+                        </Button>
+                        <span className="text-sm font-bold text-foreground min-w-[3.5rem] text-center">
+                          {item.quantity.toLocaleString('en-US')}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg"
+                          onClick={() => updateQuantity(item.templateId, item.quantity + (item.minQuantity || 1000))}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Price */}
                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success/10 border border-success/15">

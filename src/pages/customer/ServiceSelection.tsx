@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { Sparkles, ArrowLeft } from 'lucide-react';
 import { useServices } from '@/hooks/useServices';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
@@ -37,6 +38,25 @@ const ServiceSelection = () => {
           <h1 className="text-3xl font-extrabold text-foreground mb-3 tracking-tight">اختر نوع الخدمة</h1>
           <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">حدد نوع المطبوعة التي تريد تصميمها</p>
         </div>
+
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+          <Link
+            to="/ai-design"
+            className="group relative flex items-center gap-4 bg-gradient-to-l from-primary/10 to-primary/5 rounded-2xl p-5 sm:p-6 border border-primary/30 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-0.5 overflow-hidden"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-7 h-7 text-primary" />
+            </div>
+            <div className="flex-1 text-right">
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5 mb-1">
+                ميزة جديدة
+              </div>
+              <h3 className="font-bold text-base sm:text-lg text-foreground">تصميم بالذكاء الاصطناعي</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">اكتب فكرتك ودع الذكاء الاصطناعي يصممها لك خلال ثوانٍ</p>
+            </div>
+            <ArrowLeft className="w-5 h-5 text-primary group-hover:-translate-x-1 transition-transform" />
+          </Link>
+        </motion.div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-5 sm:gap-6">
           {parentServices.map((service, i) => (

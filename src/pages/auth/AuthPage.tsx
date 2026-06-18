@@ -43,19 +43,29 @@ const AuthPage = () => {
         body: { phone },
       });
       if (error || data?.error) {
-        toast({ title: 'خطأ', description: data?.error || error?.message || 'فشل إرسال الرمز', variant: 'destructive' });
+        toast({ title: 'خطأ', description: data?.error || error?.message || 'فشل تسجيل الدخول', variant: 'destructive' });
       } else if (data?.existingUser && data?.isStaff) {
         // Staff member — redirect to staff login page
         navigate('/staff-login');
         toast({ title: 'يرجى تسجيل الدخول بكلمة المرور' });
-      } else if (data?.existingUser && data?.session) {
+      } else if (data?.session) {
+        // OTP disabled: send-otp returns a session for both returning and new users.
         await supabase.auth.setSession({
           access_token: data.session.access_token,
           refresh_token: data.session.refresh_token,
         });
-        toast({ title: 'تم تسجيل الدخول بنجاح!' });
-        navigate(redirectTo);
+        if (data?.isNewUser) {
+          toast({ title: 'تم إنشاء حسابك بنجاح!' });
+          const completeProfileUrl = redirectTo !== '/'
+            ? `/complete-profile?redirect=${encodeURIComponent(redirectTo)}`
+            : '/complete-profile';
+          navigate(completeProfileUrl);
+        } else {
+          toast({ title: 'تم تسجيل الدخول بنجاح!' });
+          navigate(redirectTo);
+        }
       } else {
+        // Fallback (OTP screen) — no longer expected now that OTP is disabled.
         toast({ title: 'تم إرسال رمز التحقق عبر واتساب' });
         setStep('otp');
         setCountdown(RESEND_COOLDOWN);

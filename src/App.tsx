@@ -35,6 +35,8 @@ const CartPage = lazy(() => import("./pages/customer/CartPage"));
 const CheckoutPage = lazy(() => import("./pages/customer/CheckoutPage"));
 const CompleteProfile = lazy(() => import("./pages/customer/CompleteProfile"));
 const UploadDesignPage = lazy(() => import("./pages/customer/UploadDesignPage"));
+const AiDesignPage = lazy(() => import("./pages/customer/AiDesignPage"));
+const DesignVaultPage = lazy(() => import("./pages/customer/DesignVaultPage"));
 const DeliveryAddressPage = lazy(() => import("./pages/customer/DeliveryAddressPage"));
 const MyCoupons = lazy(() => import("./pages/customer/MyCoupons"));
 const ResellerDashboard = lazy(() => import("./pages/reseller/ResellerDashboard"));
@@ -71,11 +73,13 @@ const App = () => (
                 <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
                 <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
                 <Route path="/upload-design" element={<ProtectedRoute><UploadDesignPage /></ProtectedRoute>} />
+                <Route path="/ai-design" element={<ProtectedRoute><AiDesignPage /></ProtectedRoute>} />
                 <Route path="/verify-otp" element={<ProtectedRoute><OTPVerification /></ProtectedRoute>} />
                 <Route path="/order-success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
                 <Route path="/track-order/:orderId" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
                 <Route path="/delivery-address/:orderId" element={<ProtectedRoute><DeliveryAddressPage /></ProtectedRoute>} />
                 <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
+                <Route path="/design-vault" element={<ProtectedRoute><DesignVaultPage /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                 <Route path="/my-coupons" element={<ProtectedRoute><MyCoupons /></ProtectedRoute>} />
 

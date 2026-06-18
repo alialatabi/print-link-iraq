@@ -12,34 +12,6 @@ export type OrderStatus =
   | 'delivered'
   | 'cancelled';
 
-export interface Template {
-  id: string;
-  name: string;
-  service_type: ServiceType;
-  preview_url: string;
-  description: string;
-}
-
-export interface Order {
-  id: string;
-  customer_name: string;
-  customer_phone: string;
-  template_id: string;
-  template_name: string;
-  service_type: ServiceType;
-  status: OrderStatus;
-  details: {
-    name?: string;
-    job_title?: string;
-    phone?: string;
-    address?: string;
-    email?: string;
-    notes?: string;
-  };
-  design_url?: string;
-  created_at: string;
-}
-
 export const SERVICE_LABELS: Record<ServiceType, string> = {
   business_card: 'كروت شخصية',
   flyer: 'فلايرات',
@@ -75,79 +47,6 @@ export const STATUS_COLORS: Record<OrderStatus, string> = {
   cancelled: 'bg-destructive/10 text-destructive',
 };
 
-export const SERVICES: { type: ServiceType; icon: string; description: string }[] = [
-  { type: 'business_card', icon: '💳', description: 'تصميم كروت شخصية احترافية بأشكال متعددة' },
-  { type: 'flyer', icon: '📄', description: 'فلايرات إعلانية جذابة لعملك' },
-  { type: 'receipt', icon: '🧾', description: 'وصولات رسمية لمعاملاتك التجارية' },
-  { type: 'letterhead', icon: '📋', description: 'ترويسة رسمية لمؤسستك' },
-  { type: 'menu', icon: '🍽️', description: 'قوائم طعام أنيقة لمطعمك' },
-  { type: 'invitation', icon: '💌', description: 'بطاقات دعوة مميزة لمناسباتك' },
-];
-
-export const MOCK_TEMPLATES: Template[] = [
-  { id: 't1', name: 'كلاسيك بزنس', service_type: 'business_card', preview_url: '', description: 'تصميم كلاسيكي أنيق' },
-  { id: 't2', name: 'مودرن كارد', service_type: 'business_card', preview_url: '', description: 'تصميم عصري حديث' },
-  { id: 't3', name: 'إبداعي', service_type: 'business_card', preview_url: '', description: 'تصميم إبداعي ملفت' },
-  { id: 't4', name: 'بسيط وأنيق', service_type: 'business_card', preview_url: '', description: 'بساطة مع أناقة' },
-  { id: 't5', name: 'فلاير عرض', service_type: 'flyer', preview_url: '', description: 'فلاير لعروض خاصة' },
-  { id: 't6', name: 'فلاير حدث', service_type: 'flyer', preview_url: '', description: 'فلاير لإعلان حدث' },
-  { id: 't7', name: 'فلاير منتج', service_type: 'flyer', preview_url: '', description: 'فلاير عرض منتجات' },
-  { id: 't8', name: 'وصل رسمي', service_type: 'receipt', preview_url: '', description: 'وصل رسمي معتمد' },
-  { id: 't9', name: 'وصل بسيط', service_type: 'receipt', preview_url: '', description: 'وصل بسيط وعملي' },
-  { id: 't10', name: 'ترويسة رسمية', service_type: 'letterhead', preview_url: '', description: 'ترويسة لمراسلاتك الرسمية' },
-  { id: 't11', name: 'منيو مطعم', service_type: 'menu', preview_url: '', description: 'قائمة طعام عصرية' },
-  { id: 't12', name: 'دعوة زفاف', service_type: 'invitation', preview_url: '', description: 'دعوة زفاف أنيقة' },
-];
-
-export const MOCK_ORDERS: Order[] = [
-  {
-    id: 'ord-001',
-    customer_name: 'أحمد محمد',
-    customer_phone: '07701234567',
-    template_id: 't1',
-    template_name: 'كلاسيك بزنس',
-    service_type: 'business_card',
-    status: 'waiting_approval',
-    details: { name: 'أحمد محمد', job_title: 'مدير تسويق', phone: '07701234567', address: 'بغداد - الكرادة', email: 'ahmed@mail.com' },
-    design_url: '',
-    created_at: '2026-02-14',
-  },
-  {
-    id: 'ord-002',
-    customer_name: 'سارة علي',
-    customer_phone: '07809876543',
-    template_id: 't5',
-    template_name: 'فلاير عرض',
-    service_type: 'flyer',
-    status: 'assigned',
-    details: { name: 'سارة علي', notes: 'عرض خاص لمحل ملابس', phone: '07809876543', address: 'بغداد - المنصور' },
-    created_at: '2026-02-15',
-  },
-  {
-    id: 'ord-003',
-    customer_name: 'علي حسين',
-    customer_phone: '07712345678',
-    template_id: 't8',
-    template_name: 'وصل رسمي',
-    service_type: 'receipt',
-    status: 'approved',
-    details: { name: 'شركة النور', phone: '07712345678', address: 'البصرة - العشار' },
-    design_url: '',
-    created_at: '2026-02-13',
-  },
-  {
-    id: 'ord-004',
-    customer_name: 'فاطمة كريم',
-    customer_phone: '07801112233',
-    template_id: 't2',
-    template_name: 'مودرن كارد',
-    service_type: 'business_card',
-    status: 'submitted',
-    details: { name: 'فاطمة كريم', job_title: 'مهندسة برمجيات', phone: '07801112233', address: 'أربيل' },
-    created_at: '2026-02-16',
-  },
-];
-
 export const TEMPLATE_COLORS: Record<ServiceType, { bg: string; accent: string }> = {
   business_card: { bg: 'from-primary/5 to-primary/10', accent: 'border-primary/30' },
   flyer: { bg: 'from-accent/5 to-accent/15', accent: 'border-accent/30' },
@@ -167,31 +66,3 @@ export const TEMPLATE_ASPECT_RATIOS: Record<ServiceType, string> = {
   invitation: '4/5',        // portrait invitation
 };
 
-export interface Specialization {
-  id: string;
-  label: string;
-  icon: string;
-}
-
-export const SPECIALIZATIONS: Specialization[] = [
-  { id: 'lawyer', label: 'محامين', icon: '⚖️' },
-  { id: 'doctor', label: 'أطباء', icon: '🩺' },
-  { id: 'fashion', label: 'أزياء وموضة', icon: '👗' },
-  { id: 'handmade', label: 'أعمال يدوية', icon: '🧶' },
-  { id: 'pajama', label: 'بيجامات', icon: '👕' },
-  { id: 'retail', label: 'محلات تجارية', icon: '🏪' },
-  { id: 'restaurant', label: 'مطاعم ومقاهي', icon: '☕' },
-  { id: 'real_estate', label: 'عقارات', icon: '🏠' },
-  { id: 'education', label: 'تعليم وتدريب', icon: '📚' },
-  { id: 'tech', label: 'تكنولوجيا', icon: '💻' },
-  { id: 'beauty', label: 'تجميل وعناية', icon: '💄' },
-  { id: 'fitness', label: 'رياضة ولياقة', icon: '🏋️' },
-  { id: 'photography', label: 'تصوير', icon: '📷' },
-  { id: 'construction', label: 'مقاولات وبناء', icon: '🏗️' },
-  { id: 'automotive', label: 'سيارات', icon: '🚗' },
-  { id: 'other', label: 'أخرى', icon: '📋' },
-];
-
-export const SPECIALIZATION_LABELS: Record<string, string> = Object.fromEntries(
-  SPECIALIZATIONS.map(s => [s.id, s.label])
-);

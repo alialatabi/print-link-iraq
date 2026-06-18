@@ -60,26 +60,6 @@ export function getPreferredServiceTypes(excludeService?: string, limit = 4): st
     .map(([st]) => st);
 }
 
-/**
- * Return specialization IDs the user has shown interest in (most → least).
- */
-export function getPreferredSpecializations(limit = 6): string[] {
-  const history = getHistory();
-  const counts: Record<string, number> = {};
-
-  history.forEach((e, i) => {
-    const weight = i >= history.length - 30 ? 2 : 1;
-    e.specializations.forEach(s => {
-      counts[s] = (counts[s] || 0) + weight;
-    });
-  });
-
-  return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([s]) => s);
-}
-
 /** IDs of recently viewed templates (newest first) */
 export function getRecentlyViewed(limit = 20): string[] {
   return getHistory()

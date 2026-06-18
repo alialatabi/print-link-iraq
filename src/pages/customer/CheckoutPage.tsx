@@ -8,10 +8,11 @@ import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ArrowRight, FileText, Upload, X, Image, Loader2, ChevronLeft, ChevronRight, Check, Copy, Palette } from 'lucide-react';
+import { ArrowRight, FileText, Upload, X, Image, Loader2, ChevronLeft, ChevronRight, Check, Copy, Palette, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
 import { incrementCouponUsage, Coupon } from '@/hooks/useDiscounts';
+import { buildAiOrderItemDetails } from '@/lib/aiDesign';
 interface TemplateData {
   id: string;
   name: string;
@@ -37,7 +38,9 @@ const CheckoutPage = () => {
   useEffect(() => {
     if (items.length === 0) { navigate('/cart'); return; }
     const load = async () => {
-      const ids = items.map(i => i.templateId);
+      // AI items have synthetic (non-UUID) ids and no template row — exclude them from the query.
+      const ids = items.filter(i => !i.aiDesign).map(i => i.templateId);
+      if (ids.length === 0) { setLoading(false); return; }
       const { data } = await supabase
         .from('templates')
         .select('id, name, preview_url, service_type')
@@ -92,7 +95,7 @@ const CheckoutPage = () => {
 
   const goNext = () => {
     if (!currentItem) return;
-    if (!details[currentItem.templateId]?.trim()) {
+    if (!currentItem.aiDesign && !details[currentItem.templateId]?.trim()) {
       toast({ title: 'يرجى إدخال تفاصيل التصميم', variant: 'destructive' });
       return;
     }
@@ -117,7 +120,7 @@ const CheckoutPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!currentItem || !details[currentItem.templateId]?.trim()) {
+    if (!currentItem || (!currentItem.aiDesign && !details[currentItem.templateId]?.trim())) {
       toast({ title: 'يرجى إدخال تفاصيل التصميم', variant: 'destructive' });
       return;
     }
@@ -155,6 +158,28 @@ const CheckoutPage = () => {
 
       // 2. Create order_items for each cart item
       for (const item of items) {
+        // AI items: image already uploaded; build the AI details (records the 1000 IQD fee).
+        if (item.aiDesign) {
+          await supabase
+            .from('order_items' as never)
+            .insert({
+              order_id: orderData.id,
+              template_id: null,
+              details: buildAiOrderItemDetails({
+                brief: item.aiDesign.brief,
+                productType: item.aiDesign.productType,
+                productLabel: item.aiDesign.productLabel,
+                rewrittenPrompt: item.aiDesign.rewrittenPrompt,
+                imageUrls: [item.aiDesign.imageUrl],
+                quantity: 1,
+                sizeLabel: item.aiDesign.sizeLabel,
+                unitPrice: item.unitPrice,
+              }),
+              status: 'submitted',
+            });
+          continue;
+        }
+
         const itemDetails = details[item.templateId] || '';
         const itemFiles = attachments[item.templateId] || [];
 
@@ -206,8 +231,9 @@ const CheckoutPage = () => {
     );
   }
 
-  if (!currentItem || !currentTemplate) return null;
+  if (!currentItem) return null;
 
+  const isAi = !!currentItem.aiDesign;
   const tid = currentItem.templateId;
   const curPreviews = previews[tid] || [];
   const curAttachments = attachments[tid] || [];
@@ -244,30 +270,59 @@ const CheckoutPage = () => {
               </div>
             )}
             <div className="p-4 bg-card flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">رقم القالب</p>
-                <div className="flex items-center gap-2">
-                  <p className="font-mono font-bold text-primary text-lg tracking-widest">{shortId(tid)}</p>
-                  <button onClick={() => copyId(tid)} className="text-muted-foreground hover:text-primary transition-colors">
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="text-left">
-                <p className="text-xs text-muted-foreground">{SERVICE_LABELS[currentItem.serviceType as ServiceType]}</p>
-                <p className="text-sm font-medium text-foreground">{currentItem.quantity.toLocaleString('en-US')} نسخة</p>
-                {currentItem.cellophane && (
-                  <p className="text-xs text-primary font-medium mt-0.5">
-                    سيلفان: {currentItem.cellophane === 'matte' ? 'طافي' : 'لمّاع'}
-                  </p>
-                )}
-              </div>
+              {isAi ? (
+                <>
+                  <div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" /> تصميم بالذكاء الاصطناعي
+                    </p>
+                    <p className="text-sm font-bold text-foreground mt-0.5">{currentItem.aiDesign!.productLabel}</p>
+                    <p className="text-xs text-muted-foreground">{currentItem.aiDesign!.sizeLabel}</p>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-extrabold text-success">{currentItem.unitPrice.toLocaleString('en-US')} د.ع</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-xs text-muted-foreground">رقم القالب</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono font-bold text-primary text-lg tracking-widest">{shortId(tid)}</p>
+                      <button onClick={() => copyId(tid)} className="text-muted-foreground hover:text-primary transition-colors">
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs text-muted-foreground">{SERVICE_LABELS[currentItem.serviceType as ServiceType]}</p>
+                    <p className="text-sm font-medium text-foreground">{currentItem.quantity.toLocaleString('en-US')} نسخة</p>
+                    {currentItem.cellophane && (
+                      <p className="text-xs text-primary font-medium mt-0.5">
+                        سيلفان: {currentItem.cellophane === 'matte' ? 'طافي' : 'لمّاع'}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </motion.div>
 
         {/* Form */}
         <motion.div key={`form-${tid}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+          {isAi && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+              <p className="text-sm font-bold text-primary flex items-center gap-2">
+                <Sparkles className="w-4 h-4" /> تصميم جاهز بالذكاء الاصطناعي
+              </p>
+              <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{currentItem.aiDesign!.brief}</p>
+              <p className="text-xs text-muted-foreground">
+                سيراجع مصمّمنا التصميم ويجهّزه للطباعة بدقة. رسوم التصميم: {currentItem.unitPrice.toLocaleString('en-US')} د.ع
+              </p>
+            </div>
+          )}
+          {!isAi && (<>
           <div>
             <Label className="text-foreground font-medium flex items-center gap-2 mb-2">
               <FileText className="w-4 h-4 text-muted-foreground" />
@@ -316,6 +371,7 @@ const CheckoutPage = () => {
               </button>
             )}
           </div>
+          </>)}
 
           {/* Navigation */}
           <div className="flex gap-3 pt-4">

@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, ShoppingCart, Store } from 'lucide-react';
+import { Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, ShoppingCart, Store, Archive, Sparkles } from 'lucide-react';
 import logoImg from '@/assets/logo.png';
 import NotificationBell from '@/components/NotificationBell';
 import SearchBar from '@/components/SearchBar';
@@ -32,6 +32,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
   const NAV_ITEMS = [
     { label: 'الرئيسية', path: '/', icon: Home, show: !hideShopChrome },
     { label: 'طلباتي', path: '/my-orders', icon: User, show: !!user && !hideShopChrome },
+    { label: 'خزنة التصاميم', path: '/design-vault', icon: Archive, show: !!user && !hideShopChrome },
     { label: 'حسابي', path: '/profile', icon: User, show: !!user && !hideShopChrome },
     { label: 'المصمم', path: '/designer/orders', icon: Palette, show: role === 'designer' || role === 'admin' },
     { label: 'بوابة المطبعة', path: '/reseller', icon: Store, show: role === 'reseller' || role === 'admin' },
@@ -145,6 +146,18 @@ const Layout = ({ children }: { children: ReactNode }) => {
         <div className="bg-card/50 dark:bg-white/50 dark:text-[hsl(222,47%,11%)] backdrop-blur-sm border-b border-border/30">
           <div className="container">
             <div className="flex items-end justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide pt-5 pb-3 px-1 min-h-[100px]">
+              {/* AI design — same floating-pedestal style/hover as the categories */}
+              <Link to="/ai-design" className="flex flex-col items-center gap-1.5 min-w-[60px] group">
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-full transition-all duration-300 bg-muted/60 dark:bg-[hsl(210,40%,96%)]/60 group-hover:bg-muted dark:group-hover:bg-[hsl(210,40%,96%)] group-hover:shadow-sm group-hover:scale-105" />
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-[4.5rem] h-[4.5rem] rounded-2xl overflow-hidden transition-all duration-300 drop-shadow-lg group-hover:drop-shadow-xl group-hover:-translate-y-1 group-hover:scale-110 bg-gradient-to-br from-[#E4F7FC] to-[#FCE7F1] flex items-center justify-center">
+                    <Sparkles className="w-7 h-7 text-[#10B0E0]" />
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold whitespace-nowrap transition-colors duration-150 mt-1 text-muted-foreground group-hover:text-foreground">
+                  تصميم AI
+                </span>
+              </Link>
               {services.filter(s => !s.parent_id).map((service) => {
                 const isActive = pathname.includes(`/sub-services/${service.id}`) || pathname.includes(`/specializations/${service.id}`) || pathname.includes(`/templates/${service.id}`);
                 return (
@@ -287,6 +300,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 {[
                   { label: 'الخدمات', path: '/services' },
                   { label: 'طلباتي', path: '/my-orders' },
+                  { label: 'خزنة التصاميم', path: '/design-vault' },
                   { label: 'ارفع تصميمك', path: '/upload-design' },
                 ].map(link => (
                   <li key={link.path}>

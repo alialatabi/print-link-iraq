@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import type { AiCartPayload } from '@/lib/aiDesign';
 
 export interface CartItem {
   templateId: string;
@@ -9,6 +10,8 @@ export interface CartItem {
   unitPrice: number; // price per minQuantity
   minQuantity: number; // minimum order quantity for this service
   cellophane?: string; // 'matte' | 'glossy' | '' (none)
+  /** Present when this is an AI-designed item (priced at AI_DESIGN_FEE, fixed qty 1). */
+  aiDesign?: AiCartPayload;
 }
 
 interface CartContextType {
