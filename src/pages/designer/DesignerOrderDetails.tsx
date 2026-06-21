@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink, Printer, XCircle, ChevronDown, ChevronUp, Package, Store, Sparkles, Pencil } from 'lucide-react';
+import { ArrowRight, Upload, Send, FileText, Image, Trash2, CheckCircle2, Clock, RefreshCw, Eye, MessageSquare, AlertTriangle, Copy, ExternalLink, Printer, ChevronDown, ChevronUp, Package, Store, Sparkles, Pencil } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { OrderStatus } from '@/data/mockData';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
@@ -46,7 +46,6 @@ const DesignerOrderDetails = () => {
   const [reviewNote, setReviewNote] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState<'approve' | 'reject' | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const printFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const loadOrder = useCallback(async () => {
     const { data } = await supabase
@@ -194,46 +193,58 @@ const DesignerOrderDetails = () => {
     setPrintingItem(null);
   };
 
-  const handleUploadAndSendToTelegram = async (e: React.ChangeEvent<HTMLInputElement>, itemId: string) => {
-    const file = e.target.files?.[0];
-    if (!file || !orderId) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: 'الملف كبير جداً', variant: 'destructive' });
+  // Core: send a design file (already in the `designs` bucket) to the Telegram print group and
+  // flip the item to print_ready. Throws on failure (so a failed send leaves the item approved
+  // and retryable). State + toasts are handled by the callers below.
+  const sendDesignToPrint = async (itemId: string, filePath: string) => {
+    const { error: tgError } = await supabase.functions.invoke('send-to-telegram', { body: { orderId, orderItemId: itemId, designFilePath: filePath } });
+    if (tgError) {
+      // supabase-js collapses any non-2xx into a FunctionsHttpError whose generic message hides the
+      // real reason (e.g. missing Telegram config). The raw Response is on `error.context` — read the
+      // function's own `{ error }` body so the designer sees it.
+      let message = (tgError as { message?: string })?.message || 'تعذّر إرسال التصميم للتلكرام';
+      const ctx = (tgError as { context?: unknown }).context;
+      if (ctx && typeof (ctx as Response).json === 'function') {
+        try {
+          const body = await (ctx as Response).json();
+          if (body?.error) message = body.error as string;
+        } catch { /* keep the fallback message */ }
+      }
+      throw new Error(message);
+    }
+    await supabase.from('order_items').update({ status: 'print_ready' as any }).eq('id', itemId);
+  };
+
+  // Primary path: send the already-approved design straight to the print group — no new file needed.
+  const handleSendExistingToPrint = async (itemId: string) => {
+    if (!orderId) return;
+    const latest = getItemDesigns(itemId).find(d => d.file_url);
+    if (!latest?.file_url) {
+      toast({ title: 'لا يوجد تصميم مرفوع لإرساله', variant: 'destructive' });
       return;
     }
-
     setPrintingItem(itemId);
     try {
-      const ext = file.name.split('.').pop();
-      const filePath = `${orderId}/${itemId}/print-ready.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('designs').upload(filePath, file, { upsert: true });
-      if (uploadError) throw uploadError;
-
-      const itemDesigns = getItemDesigns(itemId);
-      const nextVersion = itemDesigns.length > 0 ? itemDesigns[0].version + 1 : 1;
-      await supabase.from('designs').insert({ order_id: orderId, order_item_id: itemId, version: nextVersion, file_url: filePath, approved: true });
-
-      await supabase.functions.invoke('send-to-telegram', { body: { orderId, designFilePath: filePath } });
-
-      await supabase.from('order_items').update({ status: 'print_ready' as any }).eq('id', itemId);
-
+      await sendDesignToPrint(itemId, latest.file_url);
       toast({ title: '✅ تم إرسال التصميم للطبع' });
       loadDesigns();
       loadItems();
-    } catch (err: any) {
+    } catch (err) {
       toast({ title: 'فشل الإرسال', description: getUserFriendlyError(err), variant: 'destructive' });
     } finally {
       setPrintingItem(null);
-      const ref = printFileInputRefs.current[itemId];
-      if (ref) ref.value = '';
     }
   };
 
-  // Reseller orders: designer reviews the uploaded design and approves or rejects with notes.
+  // Optional path: upload a separate print-ready file (e.g. a high-res TIF) and send that instead.
+
+  // Reseller orders: designer reviews the uploaded design and either approves it
+  // (which sends the file straight to the Telegram print group) or sends an edit
+  // request back to the customer.
   const handleResellerReview = async (result: 'approved' | 'rejected') => {
     if (!orderId || !order) return;
     if (result === 'rejected' && !reviewNote.trim()) {
-      toast({ title: 'اكتب ملاحظات الرفض للمطبعة', variant: 'destructive' });
+      toast({ title: 'اكتب التعديلات المطلوبة من الزبون', variant: 'destructive' });
       return;
     }
     setReviewSubmitting(result === 'approved' ? 'approve' : 'reject');
@@ -242,14 +253,37 @@ const DesignerOrderDetails = () => {
         ...(order.details || {}),
         review: { result, note: reviewNote.trim() || null, at: new Date().toISOString() },
       };
-      // Approve → move to printing stage. Reject → keep assigned so the reseller can re-upload.
+      // Approve → move to printing stage. Reject → keep assigned so the customer can re-upload.
       const newStatus = result === 'approved' ? 'approved' : 'assigned';
       const { error } = await supabase
         .from('orders')
         .update({ status: newStatus as OrderStatus, details: newDetails })
         .eq('id', orderId);
       if (error) throw error;
-      toast({ title: result === 'approved' ? 'تمت الموافقة على التصميم ✅' : 'تم إرسال الملاحظات للمطبعة' });
+
+      if (result === 'approved') {
+        // Send the approved design file(s) directly to the Telegram print group.
+        const designFileUrls: string[] = (order.details?.attachment_urls as string[]) || [];
+        if (designFileUrls.length > 0) {
+          const { error: tgError } = await supabase.functions.invoke('send-to-telegram', {
+            body: { orderId, designFileUrls },
+          });
+          if (tgError) {
+            toast({
+              title: 'تمت الموافقة، لكن تعذّر الإرسال للتلكرام',
+              description: 'الطلب معتمد — أعد المحاولة لإرسال الملف للطباعة.',
+              variant: 'destructive',
+            });
+          } else {
+            toast({ title: 'تمت الموافقة وأُرسل التصميم للطباعة ✅' });
+          }
+        } else {
+          toast({ title: 'تمت الموافقة على التصميم ✅' });
+        }
+      } else {
+        toast({ title: 'تم إرسال التعديل للزبون' });
+      }
+
       setReviewNote('');
       loadOrder();
     } catch (err: any) {
@@ -382,8 +416,8 @@ const DesignerOrderDetails = () => {
               ) : review?.result === 'rejected' ? (
                 <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4">
                   <p className="text-sm font-bold text-destructive mb-1 flex items-center gap-1.5">
-                    <XCircle className="w-4 h-4" />
-                    تم رفض التصميم — بانتظار تعديل المطبعة
+                    <Pencil className="w-4 h-4" />
+                    تم إرسال تعديل للزبون — بانتظار التعديل
                   </p>
                   {review.note && <p className="text-foreground text-sm mt-2 bg-card rounded-lg p-3 border border-border/50">{review.note}</p>}
                 </div>
@@ -399,7 +433,7 @@ const DesignerOrderDetails = () => {
                   <Textarea
                     value={reviewNote}
                     onChange={e => setReviewNote(e.target.value)}
-                    placeholder="ملاحظات للمطبعة (مطلوبة عند الرفض)..."
+                    placeholder="التعديلات المطلوبة من الزبون (مطلوبة عند إرسال تعديل)..."
                     className="min-h-[70px] text-sm resize-none"
                     dir="rtl"
                     maxLength={500}
@@ -411,7 +445,7 @@ const DesignerOrderDetails = () => {
                       className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
                     >
                       <CheckCircle2 className="w-4 h-4 ml-1" />
-                      {reviewSubmitting === 'approve' ? 'جاري...' : 'موافقة'}
+                      {reviewSubmitting === 'approve' ? 'جاري...' : 'موافقة وإرسال للطباعة'}
                     </Button>
                     <Button
                       onClick={() => handleResellerReview('rejected')}
@@ -419,8 +453,8 @@ const DesignerOrderDetails = () => {
                       variant="outline"
                       className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
                     >
-                      <XCircle className="w-4 h-4 ml-1" />
-                      {reviewSubmitting === 'reject' ? 'جاري...' : 'رفض مع ملاحظات'}
+                      <Pencil className="w-4 h-4 ml-1" />
+                      {reviewSubmitting === 'reject' ? 'جاري...' : 'إرسال تعديل للزبون'}
                     </Button>
                   </div>
                 </div>
@@ -615,17 +649,16 @@ const DesignerOrderDetails = () => {
                             </div>
                           )}
 
-                          {/* Approved - upload print file */}
+                          {/* Approved - send the final design straight to the print group */}
                           {item.status === 'approved' && (
                             <div className="space-y-3">
                               <div className="bg-success/10 rounded-lg p-4 text-center">
                                 <CheckCircle2 className="w-5 h-5 text-success mx-auto mb-2" />
                                 <p className="font-medium text-foreground text-sm">تمت الموافقة!</p>
-                                <p className="text-muted-foreground text-xs mt-1">ارفع الملف الجاهز للطبع بصيغة TIF</p>
+                                <p className="text-muted-foreground text-xs mt-1">أرسل التصميم النهائي للمطبعة</p>
                               </div>
-                              <input ref={el => { printFileInputRefs.current[item.id] = el; }} type="file" accept=".tif,.tiff" onChange={e => handleUploadAndSendToTelegram(e, item.id)} className="hidden" />
-                              <Button onClick={() => printFileInputRefs.current[item.id]?.click()} disabled={printingItem === item.id} size="lg" className="w-full bg-success hover:bg-success/90 text-success-foreground rounded-xl">
-                                <Printer className="w-4 h-4 ml-2" />{printingItem === item.id ? 'جاري الإرسال...' : 'رفع للمطبعة 🖨'}
+                              <Button onClick={() => handleSendExistingToPrint(item.id)} disabled={printingItem === item.id} size="lg" className="w-full bg-success hover:bg-success/90 text-success-foreground rounded-xl">
+                                <Printer className="w-4 h-4 ml-2" />{printingItem === item.id ? 'جاري الإرسال...' : 'إرسال للطبع 🖨'}
                               </Button>
                             </div>
                           )}

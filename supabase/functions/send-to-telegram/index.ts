@@ -7,6 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
+// Flat delivery fee (IQD) added to every customer order total.
+const DELIVERY_FEE = 5000
+
 function tifToPng(tifBuffer: ArrayBuffer): Uint8Array {
   const ifds = UTIF.decode(tifBuffer)
   UTIF.decodeImage(tifBuffer, ifds[0])
@@ -16,6 +19,24 @@ function tifToPng(tifBuffer: ArrayBuffer): Uint8Array {
   const png = UPNG.encode([rgba.buffer], width, height, 0)
   return new Uint8Array(png)
 }
+
+const MIME_BY_EXT: Record<string, string> = {
+  tif: 'image/tiff',
+  tiff: 'image/tiff',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+}
+
+// Extract a lowercase file extension from a storage path or a public URL (ignoring any query string).
+function extFromPath(path: string): string {
+  const clean = path.split('?')[0].split('#')[0]
+  return clean.split('.').pop()?.toLowerCase() || ''
+}
+
+type DesignFile = { buffer: ArrayBuffer; ext: string }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -40,9 +61,12 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-    const { orderId, designFilePath } = await req.json()
-    if (!orderId || !designFilePath) {
-      return new Response(JSON.stringify({ error: 'orderId and designFilePath are required' }), { status: 400, headers: corsHeaders })
+    // designFilePath  → a single path inside the private `designs` bucket (customer/template flow)
+    // designFileUrls  → public URLs (e.g. reseller uploads in `order-attachments`) fetched over HTTP
+    const { orderId, orderItemId, designFilePath, designFileUrls } = await req.json()
+    const fileUrls: string[] = Array.isArray(designFileUrls) ? designFileUrls.filter(Boolean) : []
+    if (!orderId || (!designFilePath && fileUrls.length === 0)) {
+      return new Response(JSON.stringify({ error: 'orderId and a design file (designFilePath or designFileUrls) are required' }), { status: 400, headers: corsHeaders })
     }
 
     // Fetch order with template info
@@ -57,87 +81,153 @@ Deno.serve(async (req) => {
     }
 
     const details = order.details || {}
-    const quantity = details.quantity || 1000
-    const templatePrice = order.templates?.price || 0
-    const totalPrice = templatePrice * (quantity / 1000)
+    const isReseller = details.order_type === 'reseller'
 
-    // Build message
-    const deliveryPhone = details.delivery_phone || details.phone || '—'
-    const deliveryProvince = details.delivery_province || '—'
-    const deliveryArea = details.delivery_area || '—'
-    const deliveryLandmark = details.delivery_landmark || ''
-    const templateName = order.templates?.name || 'طلب تصميم'
+    // Build the caption — reseller print jobs and customer orders carry different fields.
+    let message: string
+    if (isReseller) {
+      const quantity = details.quantity || 1000
+      const serviceLabel = details.service_label || 'طلب طباعة'
+      const cellophane = details.cellophane === 'glossy' ? 'لامع' : details.cellophane === 'matte' ? 'مطفي' : null
+      const total = details.pricing?.total ?? 0
+      message = `🖨 *طلب مطبعة جاهز للطباعة*
 
-    const address = `${deliveryProvince} — ${deliveryArea}${deliveryLandmark ? ` — ${deliveryLandmark}` : ''}`
+📋 *المنتج:* ${serviceLabel}
+📦 *الكمية:* ${Number(quantity).toLocaleString()}
+${cellophane ? `✨ *السلوفان:* ${cellophane}\n` : ''}💰 *الكلفة:* ${Number(total).toLocaleString()} د.ع
 
-    const message = `🖨 *طلب جاهز للطباعة*
+🔗 *رقم الطلب:* \`${orderId.slice(0, 8)}\``
+    } else {
+      // Customer order: the total is the sum of ALL items (+ flat delivery fee). It is sent with
+      // every file so each item in a multi-item order carries the full delivery + total info.
+      const { data: itemsData } = await supabase
+        .from('order_items')
+        .select('*, templates(name, service_type)')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true })
+      const items = (itemsData || []) as Array<Record<string, any>>
 
-📋 *القالب:* ${templateName}
-📦 *الكمية:* ${quantity}
-💰 *السعر الكلي:* ${totalPrice.toLocaleString()} د.ع
+      // Look up service prices for non-AI items (service price is per `min_quantity`, default 1000).
+      const svcTypes = [...new Set(items.map((i) => i.templates?.service_type).filter(Boolean))]
+      const svcMap = new Map<string, { price: number; min_quantity: number }>()
+      if (svcTypes.length > 0) {
+        const { data: svcs } = await supabase.from('services').select('id, price, min_quantity').in('id', svcTypes)
+        for (const s of (svcs || []) as Array<Record<string, any>>) {
+          svcMap.set(s.id, { price: Number(s.price) || 0, min_quantity: Number(s.min_quantity) || 1000 })
+        }
+      }
+      const priceOfItem = (it: Record<string, any>): number => {
+        const d = it.details || {}
+        const qty = Number(d.quantity) || 1
+        if (d.is_ai_design) return (Number(d.unit_price) || 0) * qty
+        const svc = svcMap.get(it.templates?.service_type)
+        if (!svc) return 0
+        return Math.ceil(svc.price * (qty / (svc.min_quantity || 1000)))
+      }
+      const itemsTotal = items.reduce((sum, it) => sum + priceOfItem(it), 0)
+      const grandTotal = itemsTotal + DELIVERY_FEE
+
+      // The specific item this file belongs to (by id, else inferred from the file path).
+      const current = items.find((i) => i.id === orderItemId)
+        || items.find((i) => typeof designFilePath === 'string' && designFilePath.includes(i.id))
+        || items[0]
+      const cd = current?.details || {}
+      const itemName = cd.service_label || current?.templates?.name || 'تصميم'
+      const sizeLabel = cd.size_label ? ` — ${cd.size_label}` : ''
+      const itemQty = Number(cd.quantity) || 1
+      const idx = current ? items.findIndex((i) => i.id === current.id) + 1 : 0
+      const isMulti = items.length > 1
+
+      const deliveryPhone = details.delivery_phone || details.phone || '—'
+      const deliveryProvince = details.delivery_province || '—'
+      const deliveryArea = details.delivery_area || '—'
+      const deliveryLandmark = details.delivery_landmark || ''
+      const address = `${deliveryProvince} — ${deliveryArea}${deliveryLandmark ? ` — ${deliveryLandmark}` : ''}`
+
+      message = `🖨 *طلب جاهز للطباعة*
+
+📋 *المنتج:* ${itemName}${sizeLabel}${isMulti ? `\n🧾 *العنصر:* ${idx} من ${items.length}` : ''}
+📦 *الكمية:* ${Number(itemQty).toLocaleString()}
 
 📍 *عنوان الاستلام:*
 ${address}
 
 📞 *رقم الاستلام:* ${deliveryPhone}
 
-🔗 *رقم الطلب:* \`${orderId.slice(0, 8)}\``
+💰 *المجموع الكلي:* ${grandTotal.toLocaleString()} د.ع _(شامل التوصيل ${DELIVERY_FEE.toLocaleString()} د.ع)_
 
-    // Download the file from storage
-    const { data: fileData, error: dlError } = await supabase.storage
-      .from('designs')
-      .download(designFilePath)
+🔗 *رقم الطلب:* \`${orderId.slice(0, 8)}\``
+    }
+
+    // Collect the design file(s) to send.
+    const files: DesignFile[] = []
+    if (designFilePath) {
+      const { data: fileData, error: dlError } = await supabase.storage.from('designs').download(designFilePath)
+      if (fileData && !dlError) {
+        files.push({ buffer: await fileData.arrayBuffer(), ext: extFromPath(designFilePath) })
+      } else {
+        console.error('Failed to download design from storage:', dlError)
+      }
+    }
+    for (const url of fileUrls) {
+      try {
+        const res = await fetch(url)
+        if (!res.ok) { console.error(`Failed to fetch design URL [${res.status}]:`, url); continue }
+        files.push({ buffer: await res.arrayBuffer(), ext: extFromPath(url) })
+      } catch (fetchErr) {
+        console.error('Error fetching design URL:', url, fetchErr)
+      }
+    }
 
     const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`
-    const ext = designFilePath.split('.').pop()?.toLowerCase() || ''
-    const isTif = ['tif', 'tiff'].includes(ext)
+    const shortId = orderId.slice(0, 8)
 
-    if (fileData && !dlError) {
-      const fileArrayBuffer = await fileData.arrayBuffer()
+    const sendDocument = async (buffer: ArrayBuffer | Uint8Array, fileName: string, mime: string, caption: string) => {
+      const formData = new FormData()
+      formData.append('chat_id', TELEGRAM_CHAT_ID)
+      formData.append('caption', caption)
+      formData.append('parse_mode', 'Markdown')
+      formData.append('document', new Blob([buffer], { type: mime }), fileName)
+      const res = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) console.error('Telegram sendDocument failed:', data)
+      return res.ok
+    }
 
-      // Step 1: Send the original TIF file as document
-      const formData1 = new FormData()
-      formData1.append('chat_id', TELEGRAM_CHAT_ID)
-      formData1.append('caption', message)
-      formData1.append('parse_mode', 'Markdown')
-      const fileName = `design-${orderId.slice(0, 8)}.${ext}`
-      formData1.append('document', new Blob([fileArrayBuffer], { type: 'image/tiff' }), fileName)
+    let sentAny = false
+    if (files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const { buffer, ext } = files[i]
+        const mime = MIME_BY_EXT[ext] || 'application/octet-stream'
+        const isTif = ['tif', 'tiff'].includes(ext)
+        const suffix = files.length > 1 ? `-${i + 1}` : ''
+        const caption = i === 0 ? message : `📎 ملف ${i + 1} — طلب \`${shortId}\``
+        const ok = await sendDocument(buffer, `design-${shortId}${suffix}.${ext}`, mime, caption)
+        sentAny = sentAny || ok
 
-      const res1 = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData1 })
-      const data1 = await res1.json()
-      if (!res1.ok) console.error('Telegram sendDocument (TIF) failed:', data1)
-
-      // Step 2: If TIF, convert to PNG and send as a second message
-      if (isTif) {
-        try {
-          const pngData = tifToPng(fileArrayBuffer)
-          const pngFileName = `design-${orderId.slice(0, 8)}.png`
-
-          const formData2 = new FormData()
-          formData2.append('chat_id', TELEGRAM_CHAT_ID)
-          formData2.append('caption', `📎 نسخة PNG — طلب \`${orderId.slice(0, 8)}\``)
-          formData2.append('parse_mode', 'Markdown')
-          formData2.append('document', new Blob([pngData], { type: 'image/png' }), pngFileName)
-
-          const res2 = await fetch(`${telegramUrl}/sendDocument`, { method: 'POST', body: formData2 })
-          const data2 = await res2.json()
-          if (!res2.ok) console.error('Telegram sendDocument (PNG) failed:', data2)
-        } catch (convErr) {
-          console.error('TIF to PNG conversion failed:', convErr)
-          // Send a text message noting the conversion failure
-          await fetch(`${telegramUrl}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: TELEGRAM_CHAT_ID,
-              text: `⚠️ تعذر تحويل ملف TIF إلى PNG للطلب \`${orderId.slice(0, 8)}\``,
-              parse_mode: 'Markdown',
-            }),
-          })
+        // For TIF files, also send a PNG preview so it can be viewed inline.
+        if (isTif) {
+          try {
+            const pngData = tifToPng(buffer)
+            await sendDocument(pngData, `design-${shortId}${suffix}.png`, 'image/png', `📎 نسخة PNG — طلب \`${shortId}\``)
+          } catch (convErr) {
+            console.error('TIF to PNG conversion failed:', convErr)
+            await fetch(`${telegramUrl}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: TELEGRAM_CHAT_ID,
+                text: `⚠️ تعذر تحويل ملف TIF إلى PNG للطلب \`${shortId}\``,
+                parse_mode: 'Markdown',
+              }),
+            })
+          }
         }
       }
-    } else {
-      // Fallback: send text message only
+    }
+
+    // Fallback: if no file could be sent, at least deliver the order details as text.
+    if (!sentAny) {
       const msgRes = await fetch(`${telegramUrl}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

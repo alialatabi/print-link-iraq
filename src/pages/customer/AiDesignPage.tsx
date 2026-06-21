@@ -10,12 +10,15 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ArrowRight, Sparkles, Loader2, RefreshCw, ShoppingCart, Wand2, Ruler, Archive, Pencil, Send } from 'lucide-react';
+import { ArrowRight, Sparkles, Loader2, RefreshCw, ShoppingCart, Wand2, Ruler, Archive, Pencil, Send, ImagePlus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
 import { generateAiDesign, resolveRequest, uploadAiDraftImage, createAiEditOrder, AI_DESIGN_FEE, GenerateResult } from '@/lib/aiDesign';
 import { useAiProducts } from '@/hooks/useAiProducts';
 import { saveAiDesignToVault } from '@/lib/designVault';
+import { fileToDownscaledDataUrl } from '@/lib/imageUtils';
+
+const MAX_REF_IMAGES = 3;
 
 const AiDesignPage = () => {
   const navigate = useNavigate();
@@ -28,6 +31,7 @@ const AiDesignPage = () => {
   const [optionId, setOptionId] = useState('');
   const [customSize, setCustomSize] = useState('');
   const [brief, setBrief] = useState('');
+  const [refImages, setRefImages] = useState<{ id: string; dataUrl: string }[]>([]);
   const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -56,6 +60,25 @@ const AiDesignPage = () => {
     setCustomSize('');
   };
 
+  // Reference / logo images: read, downscale (longest side ≤ 1024px) and keep as data URLs.
+  const handleAddRefImages = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const room = MAX_REF_IMAGES - refImages.length;
+    if (room <= 0) { toast({ title: `الحد الأقصى ${MAX_REF_IMAGES} صور`, variant: 'destructive' }); return; }
+    for (const file of Array.from(files).slice(0, room)) {
+      if (!file.type.startsWith('image/')) { toast({ title: 'يرجى اختيار صور فقط', variant: 'destructive' }); continue; }
+      if (file.size > 10 * 1024 * 1024) { toast({ title: 'حجم الصورة كبير جداً (الحد 10MB)', variant: 'destructive' }); continue; }
+      try {
+        const dataUrl = await fileToDownscaledDataUrl(file, 1024);
+        setRefImages(prev => (prev.length < MAX_REF_IMAGES ? [...prev, { id: crypto.randomUUID(), dataUrl }] : prev));
+      } catch {
+        toast({ title: 'تعذّر معالجة الصورة', variant: 'destructive' });
+      }
+    }
+  };
+
+  const removeRefImage = (id: string) => setRefImages(prev => prev.filter(r => r.id !== id));
+
   const handleGenerate = async () => {
     if (brief.trim().length < 5) {
       toast({ title: 'اكتب وصفاً أوضح للتصميم', variant: 'destructive' });
@@ -71,7 +94,7 @@ const AiDesignPage = () => {
     setEditText('');
     try {
       const req = resolveRequest(selected, optionId, customSize);
-      const res = await generateAiDesign({ brief, ...req });
+      const res = await generateAiDesign({ brief, ...req, referenceImages: refImages.map(r => r.dataUrl) });
       setResult(res);
       setRemaining(res.remaining);
     } catch (e) {
@@ -187,29 +210,37 @@ const AiDesignPage = () => {
   const busy = generating || submitting || saving || sendingEdit;
 
   return (
-    <div className="py-8 sm:py-12">
+    <div className="py-6 sm:py-10 bg-gradient-to-b from-primary/[0.04] to-transparent min-h-screen">
       <SEOHead
         title="تصميم بالذكاء الاصطناعي"
         description="أنشئ تصميمك المطبوع بالذكاء الاصطناعي خلال ثوانٍ، ثم يعتمده مصمّمنا للطباعة."
         canonical="/ai-design"
       />
       <div className="container max-w-2xl">
-        <Link to="/services" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
+        <Link to="/services" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-5 transition-colors">
           <ArrowRight className="w-4 h-4" />
           العودة للخدمات
         </Link>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold mb-3">
-            <Sparkles className="w-3.5 h-3.5" />
-            ميزة جديدة
+        {/* Hero */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/12 via-primary/5 to-transparent p-6 sm:p-8 mb-6"
+        >
+          <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/15 text-primary text-[11px] font-bold mb-3">
+              <Sparkles className="w-3.5 h-3.5" />
+              ميزة جديدة
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2 flex items-center gap-2">
+              تصميم بالذكاء الاصطناعي
+            </h1>
+            <p className="text-muted-foreground text-sm leading-relaxed max-w-xl">
+              اختر نوع المطبوعة، أرفق شعارك أو صوراً مرجعية إن وجدت، واكتب فكرتك — وسيُنشئ الذكاء الاصطناعي تصميمك خلال ثوانٍ. بعد اعتمادك يجهّزه مصمّمنا للطباعة.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2">
-            تصميم بالذكاء الاصطناعي
-          </h1>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            اختر نوع المطبوعة واكتب كل تفاصيل التصميم الذي تريده، وسيقوم الذكاء الاصطناعي بإنشائه لك خلال ثوانٍ. بعد اعتمادك، يجهّزه مصمّمنا للطباعة.
-          </p>
         </motion.div>
 
         {!selected ? (
@@ -217,15 +248,21 @@ const AiDesignPage = () => {
             <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
           </div>
         ) : (
-        <div className="space-y-5">
-          {/* Product type */}
-          <div>
-            <Label className="text-foreground font-medium mb-2 flex items-center gap-2">
-              <Ruler className="w-4 h-4 text-muted-foreground" />
-              نوع المطبوعة
-            </Label>
+        <div className="space-y-4">
+          {/* Step 1 — Product + size */}
+          <motion.section
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+            className="bg-card rounded-2xl border border-border/60 shadow-card p-5 space-y-4"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">1</span>
+              <Label className="text-foreground font-bold flex items-center gap-2">
+                <Ruler className="w-4 h-4 text-primary" />
+                نوع المطبوعة
+              </Label>
+            </div>
             <Select value={productType} onValueChange={handleProductChange} disabled={busy || productsLoading}>
-              <SelectTrigger className="rounded-xl text-right" dir="rtl">
+              <SelectTrigger className="rounded-xl text-right h-12" dir="rtl">
                 <SelectValue placeholder={productsLoading ? 'جاري التحميل...' : 'اختر نوع المطبوعة'} />
               </SelectTrigger>
               <SelectContent dir="rtl">
@@ -238,71 +275,124 @@ const AiDesignPage = () => {
                 ))}
               </SelectContent>
             </Select>
-          </div>
 
-          {/* Sub-option: cascading control that depends on the selected product */}
-          {selected.options ? (
-            <div>
-              <Label className="text-foreground font-medium mb-2 flex items-center gap-2">
-                <Ruler className="w-4 h-4 text-muted-foreground" />
-                {selected.optionLabel}
-              </Label>
-              <Select value={optionId} onValueChange={setOptionId} disabled={busy}>
-                <SelectTrigger className="rounded-xl text-right" dir="rtl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent dir="rtl">
-                  {selected.options.map(o => (
-                    <SelectItem key={o.id} value={o.id}>
-                      {o.label} <span className="text-muted-foreground">— {o.sizeLabel}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : selected.customSize ? (
-            <div>
-              <Label className="text-foreground font-medium mb-2 flex items-center gap-2">
-                <Ruler className="w-4 h-4 text-muted-foreground" />
-                {selected.customSize.label}
-              </Label>
-              <Input
-                value={customSize}
-                onChange={e => setCustomSize(e.target.value)}
-                placeholder={selected.customSize.placeholder}
-                dir="rtl"
-                disabled={busy}
-                className="rounded-xl text-right"
-              />
-            </div>
-          ) : selected.sizeLabel ? (
-            <p className="text-xs text-muted-foreground">القياس: {selected.sizeLabel}</p>
-          ) : null}
+            {/* Sub-option: cascading control that depends on the selected product */}
+            {selected.options ? (
+              <div>
+                <Label className="text-foreground font-medium mb-2 flex items-center gap-2 text-sm">
+                  <Ruler className="w-4 h-4 text-muted-foreground" />
+                  {selected.optionLabel}
+                </Label>
+                <Select value={optionId} onValueChange={setOptionId} disabled={busy}>
+                  <SelectTrigger className="rounded-xl text-right" dir="rtl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent dir="rtl">
+                    {selected.options.map(o => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.label} <span className="text-muted-foreground">— {o.sizeLabel}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : selected.customSize ? (
+              <div>
+                <Label className="text-foreground font-medium mb-2 flex items-center gap-2 text-sm">
+                  <Ruler className="w-4 h-4 text-muted-foreground" />
+                  {selected.customSize.label}
+                </Label>
+                <Input
+                  value={customSize}
+                  onChange={e => setCustomSize(e.target.value)}
+                  placeholder={selected.customSize.placeholder}
+                  dir="rtl"
+                  disabled={busy}
+                  className="rounded-xl text-right"
+                />
+              </div>
+            ) : selected.sizeLabel ? (
+              <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 inline-block">القياس: {selected.sizeLabel}</p>
+            ) : null}
+          </motion.section>
 
-          {/* Brief */}
-          <div>
-            <Label className="text-foreground font-medium mb-2 flex items-center gap-2">
-              <Wand2 className="w-4 h-4 text-muted-foreground" />
-              وصف التصميم <span className="text-destructive">*</span>
-            </Label>
+          {/* Step 2 — Reference / logo images */}
+          <motion.section
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="bg-card rounded-2xl border border-border/60 shadow-card p-5 space-y-3"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">2</span>
+              <Label className="text-foreground font-bold flex items-center gap-2">
+                <ImagePlus className="w-4 h-4 text-primary" />
+                صور مرجعية / شعار
+                <span className="text-[11px] font-normal text-muted-foreground">(اختياري)</span>
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              ارفع شعارك أو صوراً مرجعية ليُدمجها الذكاء الاصطناعي في التصميم (حتى {MAX_REF_IMAGES} صور).
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <AnimatePresence>
+                {refImages.map(img => (
+                  <motion.div
+                    key={img.id}
+                    initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                    className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted/30 group"
+                  >
+                    <img src={img.dataUrl} alt="مرجع" className="w-full h-full object-contain p-1" />
+                    <button
+                      type="button"
+                      onClick={() => removeRefImage(img.id)}
+                      disabled={busy}
+                      className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center shadow-sm hover:bg-destructive transition-colors"
+                      aria-label="حذف الصورة"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {refImages.length < MAX_REF_IMAGES && (
+                <label className={`aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5 ${busy ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <input type="file" accept="image/*" multiple className="hidden" disabled={busy} onChange={e => { handleAddRefImages(e.target.files); e.currentTarget.value = ''; }} />
+                  <ImagePlus className="w-6 h-6 text-muted-foreground" />
+                  <span className="text-[11px] text-muted-foreground font-medium">إضافة صورة</span>
+                </label>
+              )}
+            </div>
+          </motion.section>
+
+          {/* Step 3 — Brief */}
+          <motion.section
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+            className="bg-card rounded-2xl border border-border/60 shadow-card p-5 space-y-3"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">3</span>
+              <Label className="text-foreground font-bold flex items-center gap-2">
+                <Wand2 className="w-4 h-4 text-primary" />
+                وصف التصميم <span className="text-destructive">*</span>
+              </Label>
+            </div>
             <Textarea
               value={brief}
               onChange={e => setBrief(e.target.value)}
               placeholder={`مثال: ${selected.label} لمطعم اسمه "النخيل" بألوان ذهبية وخضراء، خط عربي عصري، الرقم 07901234567، شعار شجرة نخيل بسيط...`}
-              rows={7}
+              rows={6}
               disabled={busy}
               className="text-right resize-none rounded-xl"
             />
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 leading-relaxed">
               💡 ضع أي نص يجب أن يظهر حرفياً بين علامتي اقتباس "مثل هذا". سيتم استخدام ألوان CMYK مناسبة لطباعة الأوفست.
             </p>
-          </div>
+          </motion.section>
 
           <Button
             onClick={handleGenerate}
             disabled={busy || brief.trim().length < 5}
             size="lg"
-            className="w-full text-base py-6 rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+            className="w-full text-base py-7 rounded-2xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-card-hover"
           >
             {generating ? (
               <><Loader2 className="w-5 h-5 ml-2 animate-spin" /> جاري إنشاء التصميم...</>
@@ -332,7 +422,11 @@ const AiDesignPage = () => {
             )}
 
             {result && !generating && (
-              <motion.div key="result" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <motion.div key="result" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 rounded-2xl border border-primary/20 bg-card shadow-card p-4">
+                <div className="flex items-center gap-2 text-sm font-bold text-primary">
+                  <Sparkles className="w-4 h-4" />
+                  تصميمك جاهز
+                </div>
                 <div className="rounded-2xl overflow-hidden border border-border/60 shadow-card bg-muted/20">
                   <img src={result.imageDataUrl} alt="التصميم المولد" className="w-full object-contain" />
                 </div>

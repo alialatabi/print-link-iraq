@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { AiProductType, AiProductRow, AI_PRODUCT_TYPES, dbRowToAiProduct } from '@/lib/aiDesign';
+import { AiProductType, AiServiceRow, AI_PRODUCT_TYPES, dbServiceToAiProduct } from '@/lib/aiDesign';
 
 /**
- * Load the admin-managed AI-design product catalog from `ai_products` (active rows, ordered).
- * Falls back to the bundled `AI_PRODUCT_TYPES` defaults if the table is empty or the fetch fails,
- * so the AI Design page always has something to show.
+ * Load the AI-design product catalog from the unified `services` table — every sub-service
+ * flagged `ai_enabled` is an AI-designable product, carrying its own `ai_*` config. Ordered by
+ * `sort_order` (the same order the admin drags in the Services tab). Falls back to the bundled
+ * `AI_PRODUCT_TYPES` defaults if nothing is AI-enabled or the fetch fails, so the AI Design page
+ * always has something to show.
  */
 export function useAiProducts() {
   const [products, setProducts] = useState<AiProductType[]>([]);
@@ -14,17 +16,18 @@ export function useAiProducts() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // `as never` keeps this untyped: the generated Supabase types don't yet include the ai_* columns.
       const { data, error } = await supabase
-        .from('ai_products' as never)
-        .select('*')
-        .eq('active', true)
+        .from('services' as never)
+        .select('id,label,sort_order,ai_enabled,ai_fee,ai_canvas,ai_size_label,ai_option_label,ai_options,ai_custom_size,ai_directives')
+        .eq('ai_enabled' as never, true as never)
         .order('sort_order', { ascending: true });
       if (cancelled) return;
-      const rows = (data as AiProductRow[] | null) || [];
+      const rows = (data as AiServiceRow[] | null) || [];
       if (error || rows.length === 0) {
         setProducts(AI_PRODUCT_TYPES);
       } else {
-        setProducts(rows.map(dbRowToAiProduct));
+        setProducts(rows.map(dbServiceToAiProduct));
       }
       setLoading(false);
     })();

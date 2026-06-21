@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Briefcase, Layers, Upload, X, ImageIcon, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, Briefcase, Layers, Upload, X, ImageIcon, GripVertical, Sparkles } from 'lucide-react';
 import { getUserFriendlyError } from '@/lib/errors';
+import AiFieldsEditor, { AiFieldsValue, emptyAiFields, aiFieldsFromRow, aiFieldsToRow, aiFieldsValid } from '@/components/admin/AiFieldsEditor';
 
 interface Service {
   id: string;
@@ -21,6 +23,16 @@ interface Service {
   cost: number;
   parent_id: string | null;
   completion_days: number;
+  // Channel flags + AI-design config (a sub-service can be print-only, AI-only, or both).
+  print_enabled?: boolean;
+  ai_enabled?: boolean;
+  ai_fee?: number;
+  ai_canvas?: string | null;
+  ai_size_label?: string | null;
+  ai_option_label?: string | null;
+  ai_options?: unknown;
+  ai_custom_size?: unknown;
+  ai_directives?: string | null;
 }
 
 interface Specialization {
@@ -49,7 +61,7 @@ const AdminServicesSpecs = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'service' | 'specialization'>('service');
   const [editing, setEditing] = useState<Service | Specialization | null>(null);
-  const [form, setForm] = useState({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '', completion_days: 0, min_quantity: 1, cellophane_type: 'none' });
+  const [form, setForm] = useState({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '', completion_days: 0, min_quantity: 1, cellophane_type: 'none', print_enabled: true, ai_enabled: false, ai_fee: 0, aiFields: emptyAiFields() as AiFieldsValue });
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [existingIconUrl, setExistingIconUrl] = useState<string | null>(null);
@@ -167,7 +179,7 @@ const AdminServicesSpecs = () => {
   const openAdd = (type: 'service' | 'specialization') => {
     setDialogType(type);
     setEditing(null);
-    setForm({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '', completion_days: 0, min_quantity: 1, cellophane_type: 'none' });
+    setForm({ id: '', label: '', icon: '', description: '', price: 0, cost: 0, parent_id: '', completion_days: 0, min_quantity: 1, cellophane_type: 'none', print_enabled: true, ai_enabled: false, ai_fee: 0, aiFields: emptyAiFields() });
     setIconFile(null);
     setIconPreview(null);
     setExistingIconUrl(null);
@@ -188,6 +200,10 @@ const AdminServicesSpecs = () => {
       completion_days: 'completion_days' in item ? (item as Service).completion_days : 0,
       min_quantity: 'min_quantity' in item ? ((item as any).min_quantity || 1) : 1,
       cellophane_type: 'cellophane_type' in item ? ((item as any).cellophane_type || 'none') : 'none',
+      print_enabled: 'price' in item ? ((item as Service).print_enabled ?? true) : true,
+      ai_enabled: 'price' in item ? ((item as Service).ai_enabled ?? false) : false,
+      ai_fee: 'price' in item ? ((item as Service).ai_fee ?? 0) : 0,
+      aiFields: aiFieldsFromRow('price' in item ? (item as Service) : null),
     });
     setIconFile(null);
     setIconPreview(null);
@@ -232,15 +248,20 @@ const AdminServicesSpecs = () => {
     if (!form.label.trim()) { toast.error('الاسم مطلوب'); return; }
     if (dialogType === 'service' && !editing && !iconFile) { toast.error('صورة الأيقونة مطلوبة'); return; }
     if (dialogType === 'specialization' && !form.icon.trim() && !iconFile && !existingIconUrl) { toast.error('الأيقونة أو الصورة مطلوبة'); return; }
+    if (dialogType === 'service' && form.parent_id && form.ai_enabled && !aiFieldsValid(form.aiFields)) {
+      toast.error('أضف قياساً واحداً على الأقل لخيارات التصميم بالذكاء الاصطناعي'); return;
+    }
     setSaving(true);
 
     try {
       if (dialogType === 'service') {
+        // Channel flags + AI-design config (written for every service; harmless defaults on parents).
+        const channelCols = { print_enabled: form.print_enabled, ai_enabled: form.ai_enabled, ai_fee: form.ai_fee, ...aiFieldsToRow(form.aiFields) };
         if (editing) {
           const iconUrl = await uploadIcon(editing.id);
           const { error } = await supabase
             .from('services')
-            .update({ label: form.label, icon: form.icon || '📄', description: form.description, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null, completion_days: form.completion_days, min_quantity: form.min_quantity, cellophane_type: form.cellophane_type } as any)
+            .update({ label: form.label, icon: form.icon || '📄', description: form.description, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null, completion_days: form.completion_days, min_quantity: form.min_quantity, cellophane_type: form.cellophane_type, ...channelCols } as any)
             .eq('id', editing.id);
           if (error) throw error;
           toast.success('تم تحديث الخدمة');
@@ -250,7 +271,7 @@ const AdminServicesSpecs = () => {
           const iconUrl = await uploadIcon(id);
           const { error } = await supabase
             .from('services')
-            .insert({ id, label: form.label, icon: form.icon || '📄', description: form.description, sort_order: maxOrder + 1, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null, completion_days: form.completion_days, min_quantity: form.min_quantity, cellophane_type: form.cellophane_type } as any);
+            .insert({ id, label: form.label, icon: form.icon || '📄', description: form.description, sort_order: maxOrder + 1, icon_url: iconUrl, price: form.price, cost: form.cost, parent_id: form.parent_id || null, completion_days: form.completion_days, min_quantity: form.min_quantity, cellophane_type: form.cellophane_type, ...channelCols } as any);
           if (error) throw error;
           toast.success('تمت إضافة الخدمة');
         }
@@ -377,6 +398,14 @@ const AdminServicesSpecs = () => {
                             <h4 className="font-semibold text-foreground text-xs">{child.label}</h4>
                             <div className="flex items-center gap-3 mt-0.5">
                               <span className="text-[10px] text-muted-foreground/60 font-mono">ID: {child.id}</span>
+                              {child.ai_enabled && (
+                                <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5">
+                                  <Sparkles className="w-2.5 h-2.5" /> AI{child.ai_fee ? ` · ${child.ai_fee.toLocaleString('en-US')} د.ع` : ''}
+                                </span>
+                              )}
+                              {child.print_enabled === false && (
+                                <span className="text-[10px] text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded-full">غير مطبوع</span>
+                              )}
                               {child.price > 0 && (
                                 <span className="text-[10px] font-bold text-success">سعر: {child.price.toLocaleString('en-US')} د.ع</span>
                               )}
@@ -543,9 +572,18 @@ const AdminServicesSpecs = () => {
                     ))}
                   </select>
                 </div>
-                {/* Only show price/cost for sub-services */}
+                {/* Channels (print / AI) are only configurable for sub-services */}
                 {form.parent_id && (
                   <>
+                    <div className="flex items-center justify-between bg-muted/30 rounded-xl px-3 py-2.5">
+                      <div>
+                        <span className="text-sm font-medium text-foreground">يظهر في قسم الطباعة</span>
+                        <p className="text-[11px] text-muted-foreground">يطلبه الزبون مطبوعاً بكمية</p>
+                      </div>
+                      <Switch checked={form.print_enabled} onCheckedChange={v => setForm(f => ({ ...f, print_enabled: v }))} />
+                    </div>
+                    {form.print_enabled && (
+                    <>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-sm font-medium text-foreground mb-1 block">السعر (لكل 1000)</label>
@@ -624,6 +662,36 @@ const AdminServicesSpecs = () => {
                         <option value="both">طافي ولمّاع (يختار الزبون)</option>
                       </select>
                     </div>
+                    </>
+                    )}
+
+                    {/* Channel: AI design */}
+                    <div className="flex items-center justify-between bg-primary/5 border border-primary/15 rounded-xl px-3 py-2.5">
+                      <div>
+                        <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-primary" /> متاح للتصميم بالذكاء الاصطناعي
+                        </span>
+                        <p className="text-[11px] text-muted-foreground">يصممه الزبون على صفحة التصميم بالذكاء الاصطناعي</p>
+                      </div>
+                      <Switch checked={form.ai_enabled} onCheckedChange={v => setForm(f => ({ ...f, ai_enabled: v }))} />
+                    </div>
+                    {form.ai_enabled && (
+                      <div className="space-y-4 border border-primary/15 rounded-xl p-3">
+                        <div>
+                          <label className="text-sm font-medium text-foreground mb-1 block">سعر التصميم بالذكاء الاصطناعي (د.ع)</label>
+                          <Input
+                            type="number"
+                            value={form.ai_fee || ''}
+                            onChange={e => setForm(f => ({ ...f, ai_fee: parseInt(e.target.value) || 0 }))}
+                            placeholder="1000"
+                            className="rounded-xl"
+                            dir="ltr"
+                            min="0"
+                          />
+                        </div>
+                        <AiFieldsEditor value={form.aiFields} onChange={af => setForm(f => ({ ...f, aiFields: af }))} />
+                      </div>
+                    )}
                   </>
                 )}
               </>

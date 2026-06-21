@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sizeForProduct, buildAiOrderItemDetails, resolveRequest, dbRowToAiProduct, AiProductRow, AI_PRODUCT_TYPES } from './aiDesign';
+import { sizeForProduct, buildAiOrderItemDetails, resolveRequest, dbRowToAiProduct, dbServiceToAiProduct, AiProductRow, AiServiceRow, AI_PRODUCT_TYPES } from './aiDesign';
 
 const ALLOWED_CANVASES = new Set(['1024x1024', '1536x1024', '1024x1536']);
 
@@ -139,5 +139,38 @@ describe('dbRowToAiProduct', () => {
   it('coerces an unknown canvas to a safe default', () => {
     const p = dbRowToAiProduct({ ...baseRow, canvas: 'weird' as never, options: [] });
     expect(p.canvas).toBe('1024x1024');
+  });
+});
+
+describe('dbServiceToAiProduct', () => {
+  const baseRow: AiServiceRow = {
+    id: 'aip_stamp', label: 'تصميم ختم',
+    ai_enabled: true, ai_fee: 25000, ai_canvas: '1024x1024',
+    ai_size_label: null, ai_option_label: 'قياس الختم',
+    ai_options: [{ id: 'rect_6x4', label: 'مستطيل 6×4', sizeLabel: '6×4 سم', canvas: '1536x1024' }],
+    ai_custom_size: null, ai_directives: 'blue only',
+  };
+
+  it('maps an AI-enabled service with options + fee + directives', () => {
+    const p = dbServiceToAiProduct(baseRow);
+    expect(p.id).toBe('aip_stamp');
+    expect(p.price).toBe(25000);
+    expect(p.optionLabel).toBe('قياس الختم');
+    expect(p.options).toHaveLength(1);
+    expect(p.options![0].canvas).toBe('1536x1024');
+    expect(p.directives).toBe('blue only');
+    expect(p.customSize).toBeUndefined();
+  });
+
+  it('maps a custom-size service and drops empty options', () => {
+    const p = dbServiceToAiProduct({ ...baseRow, id: 'aip_flex', ai_option_label: null, ai_options: [], ai_custom_size: { label: 'القياس', placeholder: '3×2 م' } });
+    expect(p.options).toBeUndefined();
+    expect(p.customSize).toEqual({ label: 'القياس', placeholder: '3×2 م' });
+  });
+
+  it('coerces an unknown ai_canvas and leaves price undefined when ai_fee is missing', () => {
+    const p = dbServiceToAiProduct({ ...baseRow, ai_canvas: 'weird', ai_options: [], ai_fee: null });
+    expect(p.canvas).toBe('1024x1024');
+    expect(p.price).toBeUndefined();
   });
 });

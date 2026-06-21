@@ -11,7 +11,10 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { user, role, loading } = useAuth();
 
-  if (loading) {
+  // Show the spinner while auth is loading, or while a logged-in user's role is
+  // still being fetched (role is briefly null right after sign-in). Evaluating
+  // the role check too early would wrongly redirect away from a protected route.
+  if (loading || (user && requiredRole && role === null)) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />

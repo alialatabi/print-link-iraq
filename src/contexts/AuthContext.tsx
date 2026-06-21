@@ -65,12 +65,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       initialSessionHandled = true;
       setSession(session);
       setUser(session?.user ?? null);
+      // Resolve the role BEFORE clearing loading. Otherwise a direct load /
+      // refresh of a protected route runs the guard while role is still null
+      // and bounces the user to "/".
       if (session?.user) {
-        fetchRole(session.user.id);
+        await fetchRole(session.user.id);
       }
       setLoading(false);
     });

@@ -16,7 +16,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
   const { user, role, signOut, loading } = useAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
-  const { services } = useServices();
+  const { parentServices } = useServices();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
     document.documentElement.classList.remove('dark');
@@ -158,7 +158,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                   تصميم AI
                 </span>
               </Link>
-              {services.filter(s => !s.parent_id).map((service) => {
+              {parentServices.map((service) => {
                 const isActive = pathname.includes(`/sub-services/${service.id}`) || pathname.includes(`/specializations/${service.id}`) || pathname.includes(`/templates/${service.id}`);
                 return (
                   <Link
@@ -234,7 +234,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 {!hideShopChrome && (
                 <div className="pt-3 border-t border-border/30 mt-3">
                   <p className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">خدماتنا</p>
-                  {services.filter(s => !s.parent_id).map(service => (
+                  {parentServices.map(service => (
                     <Link
                       key={service.id}
                       to={`/sub-services/${service.id}`}
@@ -282,6 +282,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
       <main className="flex-1 min-h-[80vh]" role="main">{children}</main>
 
+      {/* Customer shop footer — hidden for staff-only roles (designer/admin/reseller). */}
+      {!hideShopChrome && (
       <footer className="border-t border-border/30 mt-auto bg-card dark:bg-white dark:text-[hsl(222,47%,11%)]">
         <div className="container max-w-5xl py-14">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8 text-center sm:text-right">
@@ -339,6 +341,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 };

@@ -20,11 +20,15 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { getDesignSignedUrl } from '@/lib/storage';
+import {
   Package, Users, BarChart3, ClipboardList,
   Trash2, Palette, User, LayoutGrid,
   ShieldCheck, Search, Calendar, ArrowUpDown,
   TrendingUp, Clock, CheckCircle, Truck, FileText, Download,
-  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp, Crown, Percent, Store, Sparkles
+  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp, Crown, Percent, Store
 } from 'lucide-react';
 import { Activity } from 'lucide-react';
 
@@ -32,7 +36,7 @@ import AdminTemplates from '@/components/admin/AdminTemplates';
 import AdminAccounts from '@/components/admin/AdminAccounts';
 import AdminCustomers from '@/components/admin/AdminCustomers';
 import AdminServicesSpecs from '@/components/admin/AdminServicesSpecs';
-import AdminAiProducts from '@/components/admin/AdminAiProducts';
+import AdminAiUsage from '@/components/admin/AdminAiUsage';
 import AdminActivityLog from '@/components/admin/AdminActivityLog';
 import AdminDiscounts from '@/components/admin/AdminDiscounts';
 import AdminResellers from '@/components/admin/AdminResellers';
@@ -62,6 +66,13 @@ const AdminPanel = () => {
   // Quick stat filter: overrides statusFilter when set
   type QuickFilter = 'all' | 'pending' | 'inprogress' | 'completed' | null;
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
+  // Which order cards have their details (items/delivery) expanded.
+  const [openOrders, setOpenOrders] = useState<Set<string>>(new Set());
+  const toggleOrder = (id: string) => setOpenOrders(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   // Admin management (super admin only)
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
@@ -120,11 +131,25 @@ const AdminPanel = () => {
       list.push(item);
       itemsByOrder.set(item.order_id, list);
     });
-    
+
+    // Fetch designer-produced design files (private 'designs' bucket) so admins can download them.
+    const { data: designsData } = await supabase
+      .from('designs')
+      .select('id, order_id, order_item_id, version, file_url, approved')
+      .in('order_id', orderIds)
+      .order('version', { ascending: false });
+    const designsByOrder = new Map<string, any[]>();
+    (designsData || []).forEach((d: any) => {
+      const list = designsByOrder.get(d.order_id) || [];
+      list.push(d);
+      designsByOrder.set(d.order_id, list);
+    });
+
     const enrichedOrders = ordersData.map(o => ({
       ...o,
       profiles: profileMap.get(o.customer_id) || null,
       _items: itemsByOrder.get(o.id) || [],
+      _designs: designsByOrder.get(o.id) || [],
     }));
     
     setOrders(enrichedOrders);
@@ -206,6 +231,29 @@ const AdminPanel = () => {
       supabase.removeChannel(ordersChannel);
     };
   }, [loadOnlineCount, loadOrders]);
+
+  // Force a file download via a transient anchor (URLs already carry an attachment disposition).
+  const triggerDownload = (href: string) => {
+    const a = document.createElement('a');
+    a.href = href;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  // Designer-produced files live in the private 'designs' bucket → sign with a download disposition.
+  const downloadDesignFromBucket = async (filePath: string, filename: string) => {
+    const url = await getDesignSignedUrl(filePath, filename);
+    if (!url) { toast.error('فشل تجهيز رابط التحميل'); return; }
+    triggerDownload(url);
+  };
+
+  // Uploaded/reseller files are public URLs in 'order-attachments' → add ?download for attachment disposition.
+  const downloadDesignFromUrl = (url: string, filename: string) => {
+    const sep = url.includes('?') ? '&' : '?';
+    triggerDownload(`${url}${sep}download=${encodeURIComponent(filename)}`);
+  };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const { error } = await supabase
@@ -568,10 +616,6 @@ const AdminPanel = () => {
                 <Package className="w-4 h-4 flex-shrink-0" />
                 الخدمات
               </TabsTrigger>
-              <TabsTrigger value="ai-products" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
-                <Sparkles className="w-4 h-4 flex-shrink-0" />
-                تصاميم AI
-              </TabsTrigger>
               <TabsTrigger value="designers" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
                 <Palette className="w-4 h-4 flex-shrink-0" />
                 المصممين
@@ -672,17 +716,30 @@ const AdminPanel = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">عرض {filteredOrders.length} من {orders.length} طلب</span>
-                {quickFilter && (
-                  <button
-                    onClick={() => setQuickFilter(null)}
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
-                    <span>✕</span>
-                    مسح فلتر: {quickFilter === 'pending' ? 'بانتظار التعيين' : quickFilter === 'inprogress' ? 'قيد التنفيذ' : 'مكتملة'}
-                  </button>
-                )}
+              <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground bg-muted/60 rounded-full px-2.5 py-1">
+                  عرض <span className="font-bold text-foreground">{filteredOrders.length}</span> من {orders.length} طلب
+                </span>
+                <div className="flex items-center gap-3">
+                  {filteredOrders.length > 0 && (
+                    <button
+                      onClick={() => setOpenOrders(prev => (prev.size > 0 ? new Set() : new Set(filteredOrders.map(o => o.id))))}
+                      className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                    >
+                      {openOrders.size > 0 ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      {openOrders.size > 0 ? 'طي الكل' : 'توسيع الكل'}
+                    </button>
+                  )}
+                  {quickFilter && (
+                    <button
+                      onClick={() => setQuickFilter(null)}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <span>✕</span>
+                      مسح فلتر: {quickFilter === 'pending' ? 'بانتظار التعيين' : quickFilter === 'inprogress' ? 'قيد التنفيذ' : 'مكتملة'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -715,6 +772,62 @@ const AdminPanel = () => {
                   const deliveryFields = deliveryKeys
                     .filter(k => details[k])
                     .map(k => ({ key: k, label: DETAIL_LABELS[k] || k, value: String(details[k]) }));
+
+                  // Collect every downloadable design file for this order:
+                  //  - order-level uploaded files (reseller ready designs, customer "ready_design" uploads)
+                  //  - item-level uploaded files (AI-design images, per-item customer attachments)
+                  //  - designer-produced designs (latest version per item) from the private bucket
+                  const extOf = (p: string) => (p.split('?')[0].split('.').pop() || 'file').toLowerCase();
+                  const shortId = order.id.slice(0, 8);
+
+                  // Clean customer name: display_name often defaults to the phone (duplicate) or is
+                  // junk ("??????") for test accounts — fall back to a neutral label in those cases.
+                  const custPhone = order.profiles?.phone || '';
+                  const rawName = order.profiles?.display_name || '';
+                  const custName = (!rawName || rawName === custPhone || /^[?\s]+$/.test(rawName)) ? 'زبون' : rawName;
+                  const isOpen = openOrders.has(order.id);
+                  const hasDetails = (order._items?.length ?? 0) > 0 || contentFields.length > 0 || hasDelivery;
+                  const designFiles: { id: string; label: string; download: () => void }[] = [];
+                  const orderAttachments: string[] = Array.isArray(details.attachment_urls) ? details.attachment_urls : [];
+                  orderAttachments.forEach((url, idx) => {
+                    if (!url) return;
+                    designFiles.push({
+                      id: `att-${idx}`,
+                      label: orderAttachments.length > 1 ? `الملف المرفوع ${idx + 1}` : 'الملف المرفوع',
+                      download: () => downloadDesignFromUrl(url, `design-${shortId}-${idx + 1}.${extOf(url)}`),
+                    });
+                  });
+                  // Item-level uploads — this is where AI-design images are stored (order_items.details.attachment_urls).
+                  ((order._items || []) as any[]).forEach((it, itemIdx) => {
+                    const itemD = (it.details || {}) as Record<string, any>;
+                    const urls: string[] = Array.isArray(itemD.attachment_urls) ? itemD.attachment_urls : [];
+                    const itemName = it.templates?.name || itemD.service_label || `عنصر ${itemIdx + 1}`;
+                    const isAi = itemD.is_ai_design === true;
+                    urls.forEach((url, idx) => {
+                      if (!url) return;
+                      const base = isAi ? `تصميم AI: ${itemName}` : `مرفق الزبون: ${itemName}`;
+                      designFiles.push({
+                        id: `item-${it.id}-${idx}`,
+                        label: urls.length > 1 ? `${base} (${idx + 1})` : base,
+                        download: () => downloadDesignFromUrl(url, `design-${shortId}-${isAi ? 'ai' : 'att'}${itemIdx + 1}-${idx + 1}.${extOf(url)}`),
+                      });
+                    });
+                  });
+                  const latestByItem = new Map<string, any>();
+                  ((order._designs || []) as any[]).forEach((d) => {
+                    if (!d.file_url) return;
+                    const k = d.order_item_id || 'legacy';
+                    const cur = latestByItem.get(k);
+                    if (!cur || d.version > cur.version) latestByItem.set(k, d);
+                  });
+                  [...latestByItem.values()].forEach((d) => {
+                    const itemName = order._items?.find((it: any) => it.id === d.order_item_id)?.templates?.name;
+                    designFiles.push({
+                      id: d.id,
+                      label: itemName ? `تصميم: ${itemName}` : `تصميم المصمم (إصدار ${d.version})`,
+                      download: () => downloadDesignFromBucket(d.file_url, `design-${shortId}-v${d.version}.${extOf(String(d.file_url))}`),
+                    });
+                  });
 
                   return (
                     <motion.div
@@ -776,25 +889,36 @@ const AdminPanel = () => {
                           </div>
                         )}
 
-                        {/* Customer info row */}
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
-                          <span className="flex items-center gap-1.5">
+                        {/* Customer info row + details toggle */}
+                        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+                          <span className="flex items-center gap-1.5 font-medium text-foreground/80">
                             <User className="w-3.5 h-3.5" />
-                            {order.profiles?.display_name || '-'}
+                            {custName}
                           </span>
-                          <span className="flex items-center gap-1.5" dir="ltr">
-                            <Phone className="w-3.5 h-3.5" />
-                            {order.profiles?.phone || '-'}
-                          </span>
-                          <span className="flex items-center gap-1.5 mr-auto">
+                          {custPhone && (
+                            <span className="flex items-center gap-1.5" dir="ltr">
+                              <Phone className="w-3.5 h-3.5" />
+                              {custPhone}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1.5">
                             <Calendar className="w-3.5 h-3.5" />
                             {new Date(order.created_at).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric' })}
                           </span>
+                          {hasDetails && (
+                            <button
+                              onClick={() => toggleOrder(order.id)}
+                              className="mr-auto flex items-center gap-1 text-primary hover:underline font-medium"
+                            >
+                              {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                              {isOpen ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
+                            </button>
+                          )}
                         </div>
                       </div>
 
-                      {/* Content Details - show per item if items exist */}
-                      {order._items?.length > 0 ? (
+                      {/* Content Details (collapsible) — per item, or raw fields */}
+                      {isOpen && (order._items?.length > 0 ? (
                         <div className="px-4 pb-3 space-y-2">
                           {order._items.map((item: any, idx: number) => {
                             const itemD = (item.details || {}) as Record<string, any>;
@@ -824,7 +948,7 @@ const AdminPanel = () => {
                             ))}
                           </div>
                         </div>
-                      ) : null}
+                      ) : null)}
 
                       {/* Reseller order: design files + total */}
                       {isReseller && (
@@ -855,8 +979,8 @@ const AdminPanel = () => {
                         </div>
                       )}
 
-                      {/* Delivery Info */}
-                      {hasDelivery && (
+                      {/* Delivery Info (collapsible) */}
+                      {isOpen && hasDelivery && (
                         <div className="mx-4 mb-3 bg-primary/5 border border-primary/10 rounded-lg p-3">
                           <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-2">
                             <MapPin className="w-3.5 h-3.5" />
@@ -920,6 +1044,37 @@ const AdminPanel = () => {
                           </Select>
                         </div>
 
+                        {/* Download design file(s) */}
+                        {designFiles.length === 1 ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs gap-1.5"
+                            onClick={designFiles[0].download}
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            تحميل التصميم
+                          </Button>
+                        ) : designFiles.length > 1 ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                                <Download className="w-3.5 h-3.5" />
+                                تحميل التصميم ({designFiles.length})
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" dir="rtl" className="min-w-48">
+                              {designFiles.map(f => (
+                                <DropdownMenuItem key={f.id} onClick={f.download} className="text-xs gap-2 cursor-pointer">
+                                  <Download className="w-3.5 h-3.5" />
+                                  {f.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
+
                         {order.status !== 'draft' && order.status !== 'delivered' && order.status !== 'cancelled' && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -966,14 +1121,12 @@ const AdminPanel = () => {
             <AdminTemplates />
           </TabsContent>
 
-          {/* SERVICES & SPECIALIZATIONS TAB */}
+          {/* SERVICES & SPECIALIZATIONS TAB (AI-design catalog now lives inside each sub-service) */}
           <TabsContent value="services">
             <AdminServicesSpecs />
-          </TabsContent>
-
-          {/* AI DESIGN PRODUCTS TAB */}
-          <TabsContent value="ai-products">
-            <AdminAiProducts />
+            <div className="mt-10 pt-8 border-t border-border/60">
+              <AdminAiUsage />
+            </div>
           </TabsContent>
 
           {/* DESIGNERS TAB */}

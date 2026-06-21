@@ -103,7 +103,7 @@ export const AI_PRODUCT_TYPES: AiProductType[] = [
     options: [3,4,5,6,7,8,9,10].map((n) => ({
       id: `d${n}`, label: `${n} سم`, sizeLabel: `دائري قطر ${n} سم`, canvas: '1024x1024' as const,
     })),
-    directives: 'لاصق دائري (ستيكر) — تصميم بسيط ونص كبير واضح يملأ الدائرة.',
+    directives: 'لاصق دائري (ستيكر) — تصميم بسيط ونص كبير واضح. اجعل خلفية/لون التصميم يمتد خارج حافة الدائرة بمقدار 0.5 سم (full bleed) ليملأ كامل الصورة المربعة حتى الحواف بلا أي هامش أبيض. لا تُظهر أي خطوط قص أو حدود bleed أو علامات قص (crop/trim marks) أو مساطر أو أرقام أو قيم قياس على التصميم. أبقِ النصوص والشعار ضمن منطقة آمنة بعيداً عن الحافة.',
   },
   // لاصق مستطيل — custom size text
   {
@@ -176,10 +176,10 @@ const AI_CANVASES: AiCanvasSize[] = ['1024x1024', '1536x1024', '1024x1536'];
 const asCanvas = (v: unknown): AiCanvasSize =>
   typeof v === 'string' && (AI_CANVASES as string[]).includes(v) ? (v as AiCanvasSize) : '1024x1024';
 
-/** Map an `ai_products` DB row to the runtime AiProductType used by the page + prompt. Pure. */
-export function dbRowToAiProduct(row: AiProductRow): AiProductType {
-  const rawOptions = Array.isArray(row.options) ? (row.options as Array<Record<string, unknown>>) : [];
-  const options: AiProductOption[] = rawOptions
+/** Parse a jsonb options array into typed AiProductOptions. */
+function parseAiOptions(raw: unknown): AiProductOption[] {
+  const rawOptions = Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : [];
+  return rawOptions
     .filter((o) => o && typeof o.id === 'string' && typeof o.label === 'string')
     .map((o) => ({
       id: String(o.id),
@@ -187,11 +187,19 @@ export function dbRowToAiProduct(row: AiProductRow): AiProductType {
       sizeLabel: String(o.sizeLabel ?? ''),
       canvas: asCanvas(o.canvas),
     }));
-  const cs = row.custom_size as Record<string, unknown> | null;
-  const customSize =
-    cs && typeof cs.label === 'string'
-      ? { label: String(cs.label), placeholder: String(cs.placeholder ?? '') }
-      : undefined;
+}
+
+/** Parse a jsonb custom-size object into the {label,placeholder} shape (or undefined). */
+function parseCustomSize(raw: unknown): { label: string; placeholder: string } | undefined {
+  const cs = raw as Record<string, unknown> | null;
+  return cs && typeof cs.label === 'string'
+    ? { label: String(cs.label), placeholder: String(cs.placeholder ?? '') }
+    : undefined;
+}
+
+/** Map an `ai_products` DB row to the runtime AiProductType used by the page + prompt. Pure. */
+export function dbRowToAiProduct(row: AiProductRow): AiProductType {
+  const options = parseAiOptions(row.options);
   return {
     id: row.id,
     label: row.label,
@@ -199,9 +207,39 @@ export function dbRowToAiProduct(row: AiProductRow): AiProductType {
     sizeLabel: row.size_label || undefined,
     optionLabel: row.option_label || undefined,
     options: options.length ? options : undefined,
-    customSize,
+    customSize: parseCustomSize(row.custom_size),
     directives: row.directives || undefined,
     price: typeof row.price === 'number' ? row.price : undefined,
+  };
+}
+
+/** Shape of the `ai_*` columns read off a `services` row (AI catalog now lives in services). */
+export interface AiServiceRow {
+  id: string;
+  label: string;
+  ai_enabled?: boolean | null;
+  ai_fee?: number | null;
+  ai_canvas?: string | null;
+  ai_size_label?: string | null;
+  ai_option_label?: string | null;
+  ai_options?: unknown;       // jsonb
+  ai_custom_size?: unknown;   // jsonb
+  ai_directives?: string | null;
+}
+
+/** Map a `services` row's `ai_*` fields to the runtime AiProductType. Pure. */
+export function dbServiceToAiProduct(row: AiServiceRow): AiProductType {
+  const options = parseAiOptions(row.ai_options);
+  return {
+    id: row.id,
+    label: row.label,
+    canvas: asCanvas(row.ai_canvas),
+    sizeLabel: row.ai_size_label || undefined,
+    optionLabel: row.ai_option_label || undefined,
+    options: options.length ? options : undefined,
+    customSize: parseCustomSize(row.ai_custom_size),
+    directives: row.ai_directives || undefined,
+    price: typeof row.ai_fee === 'number' ? row.ai_fee : undefined,
   };
 }
 
@@ -243,6 +281,8 @@ export async function generateAiDesign(params: {
   sizeLabel: string;
   canvasSize: AiCanvasSize;
   directives: string;
+  /** optional reference/logo images (base64 data URLs) composited into the design */
+  referenceImages?: string[];
 }): Promise<GenerateResult> {
   const { data, error } = await supabase.functions.invoke('ai-design-generate', {
     body: params,
