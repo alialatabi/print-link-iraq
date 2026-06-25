@@ -30,3 +30,7 @@ supabase/.temp
 # Local secret/credential drops (never commit or deploy)
 TWILIO.TXT
 *.secrets.txt
+
+# Firebase service-account private keys — must NEVER be committed (stored as Supabase secret)
+**/*firebase-adminsdk*.json
+**/*service-account*.json
