@@ -18,6 +18,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- App Links: open matbaty.com links in the app. Auto-verify needs
+                 https://matbaty.com/.well-known/assetlinks.json (see public/.well-known/). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="matbaty.com" />
+                <data android:scheme="https" android:host="www.matbaty.com" />
+            </intent-filter>
         </activity>
 
         <provider

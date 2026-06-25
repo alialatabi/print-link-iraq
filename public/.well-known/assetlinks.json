@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.matbaaty.app",
+      "sha256_cert_fingerprints": [
+        "FC:24:76:59:5E:D3:E2:68:3C:61:BA:3D:DA:1A:DA:F9:F2:61:EB:A3:90:E4:A6:A1:D5:C4:6A:40:10:3D:61:5F"
+      ]
+    }
+  }
+]

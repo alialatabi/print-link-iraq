@@ -58,7 +58,9 @@ const Layout = ({ children }: { children: ReactNode }) => {
       </div>
 
       <header className="sticky top-0 z-50">
-        <div className="bg-card/90 dark:bg-white/90 dark:text-[hsl(222,47%,11%)] backdrop-blur-xl border-b border-border/50 shadow-card">
+        {/* pt-[env(safe-area-inset-top)] lets the header background fill the status-bar/notch area on
+            native (0 on web/non-notch) so its content sits below the status bar. */}
+        <div className="bg-card/90 dark:bg-white/90 dark:text-[hsl(222,47%,11%)] backdrop-blur-xl border-b border-border/50 shadow-card pt-[env(safe-area-inset-top)]">
           <div className="container flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2.5 group" onClick={closeMobile}>
               <img src={logoImg} alt="مطبعتي" width="47" height="56" className="h-14 object-contain drop-shadow-md" style={{ aspectRatio: '47/56' }} />

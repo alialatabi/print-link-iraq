@@ -145,6 +145,8 @@
 
   body {
     @apply bg-background text-foreground;
+    /* Clear the home indicator / nav bar at the bottom on native (0 on web/non-notch). */
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   /* Typography scale - mobile-first, larger for readability */
