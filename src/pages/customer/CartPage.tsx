@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/contexts/CartContext';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Minus, Plus, Trash2, ShoppingCart, Palette, ShieldCheck, Truck, Tag, Loader2, X, Sparkles } from 'lucide-react';
@@ -92,7 +92,6 @@ const CartPage = () => {
             {items.map((item, i) => (
               <motion.div
                 key={item.templateId}
-                layout
                 custom={i}
                 initial="hidden"
                 animate="visible"

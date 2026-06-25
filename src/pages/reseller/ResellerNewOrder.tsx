@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
 import { useResellerPricing } from '@/hooks/useResellerPricing';
+import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
 
 const ACCEPTED = '.png,.jpg,.jpeg,.pdf,.psd';
 const ALLOWED_EXTS = ['png', 'jpg', 'jpeg', 'pdf', 'psd'];
@@ -133,6 +134,13 @@ const ResellerNewOrder = () => {
     if (!selectedServiceData || !hasAttachment || !user) return;
     setSubmitting(true);
 
+    // Standard pricing snapshot so accounting reads every order uniformly. The reseller's
+    // charged unit price (per min_quantity) is `pricing.unitPrice`; line_total is the total.
+    const catalog = buildCatalog(services);
+    const snapshot = buildPricingSnapshot(catalog, selectedServiceData.id, qty, {
+      priceOverride: pricing?.unitPrice,
+    });
+
     const buildDetails = (attachment_urls: string[]) => ({
       order_type: 'reseller',
       service_type: selectedServiceData.id,
@@ -140,13 +148,7 @@ const ResellerNewOrder = () => {
       quantity: qty,
       cellophane: selectedCellophane || null,
       attachment_urls,
-      pricing: {
-        type: pricing?.type ?? null,
-        unit_price: pricing?.unitPrice ?? null,
-        original_unit_price: pricing?.originalUnitPrice ?? null,
-        min_quantity: minQty,
-        total,
-      },
+      pricing: snapshot,
     });
 
     try {

@@ -105,17 +105,21 @@ Deno.serve(async (req) => {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashedPassword = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-    // Check if user already exists
-    const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = userList?.users?.find(u => u.email === syntheticEmail);
+    // Check if the account already exists via the profiles table (a profile is
+    // auto-created by the handle_new_user trigger). This avoids paginating
+    // auth.admin.listUsers(), which only returns the first page of users.
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("user_id")
+      .eq("phone", normalizedPhone)
+      .limit(1)
+      .maybeSingle();
 
-    let userId: string;
     let isNewUser = false;
 
-    if (existingUser) {
-      userId = existingUser.id;
-    } else {
-      // Create new user
+    if (!existingProfile) {
+      // First-time customer: create the auth user. The trigger creates the
+      // matching profile + default customer role.
       const { data: newUser, error: signUpError } =
         await supabaseAdmin.auth.admin.createUser({
           email: syntheticEmail,
@@ -125,15 +129,14 @@ Deno.serve(async (req) => {
           user_metadata: { display_name: normalizedPhone, phone: normalizedPhone },
         });
 
-      if (signUpError || !newUser?.user) {
+      if (signUpError && signUpError.code !== "email_exists") {
         console.error("Sign up error:", signUpError);
         return new Response(
           JSON.stringify({ error: "فشل إنشاء الحساب" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      userId = newUser.user.id;
-      isNewUser = true;
+      isNewUser = !signUpError;
     }
 
     // Generate a session using Admin API (bypasses email provider requirement)
@@ -180,6 +183,13 @@ Deno.serve(async (req) => {
     await supabaseAdmin
       .from("otp_attempts")
       .delete()
+      .eq("phone", normalizedPhone);
+
+    // Stamp the OTP verification time so send-otp can skip OTP (auto-login) for the next 3 weeks
+    // and the client knows when to force a re-verification.
+    await supabaseAdmin
+      .from("profiles")
+      .update({ last_otp_verified_at: new Date().toISOString() })
       .eq("phone", normalizedPhone);
 
     return new Response(

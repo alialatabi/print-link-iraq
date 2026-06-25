@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import {
   ArrowLeft, Sparkles, Upload, Edit3, LayoutGrid, Printer, Truck,
   Check, Star, Clock, Palette, ShoppingBag, PenLine,
@@ -258,26 +258,14 @@ const Index = () => {
                 <div className="num text-[12px] text-white/70 font-semibold">0771 888 2200</div>
               </div>
             </div>
-            {/* front card */}
-            <div className="relative w-[320px] sm:w-[440px] max-w-[90%] aspect-[1.75/1] bg-white rounded-[20px] shadow-[0_40px_70px_-28px_rgba(80,60,40,.6)] overflow-hidden animate-floaty">
-              <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-[#10B0E0]/[0.13] rounded-bl-[100%]" />
-              <div className="absolute -bottom-10 -left-8 w-32 h-32 rounded-full bg-[#D0207F]/[0.08]" />
-              <div className="absolute inset-0 p-6 sm:p-8 flex flex-col justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-[#10B0E0] flex items-center justify-center shrink-0">
-                    <Printer className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="text-2xl sm:text-[28px] font-extrabold text-[#243262] leading-none">مطبعتي</div>
-                    <div className="text-[13px] font-bold mt-1 text-[#10B0E0]">طباعة احترافية في العراق</div>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <div className="num text-[13px] text-[#243262] font-semibold">0770 123 4567</div>
-                  <div className="text-[11px] text-[#6F6657] font-semibold">matbaty.com · بغداد، العراق</div>
-                </div>
-              </div>
-            </div>
+            {/* front card — Matbaaty business card design */}
+            <img
+              src="/hero-card.png"
+              alt="بطاقة عمل مطبعتي"
+              width={440}
+              height={295}
+              className="relative w-[320px] sm:w-[440px] max-w-[90%] rounded-[20px] shadow-[0_40px_70px_-28px_rgba(80,60,40,.6)] animate-floaty"
+            />
             {/* floating badges */}
             <div className="absolute top-4 sm:top-7 right-[4%] bg-white border border-[#EFE7DC] rounded-[14px] px-3 py-2.5 shadow-[0_16px_30px_-14px_rgba(80,60,40,.45)] flex items-center gap-2">
               <span className="w-[30px] h-[30px] rounded-[9px] bg-[#E7F7EE] text-[#1B8A52] flex items-center justify-center">

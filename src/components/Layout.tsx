@@ -7,7 +7,7 @@ import SearchBar from '@/components/SearchBar';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { useServices } from '@/hooks/useServices';
 
 
@@ -304,6 +304,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                   { label: 'طلباتي', path: '/my-orders' },
                   { label: 'خزنة التصاميم', path: '/design-vault' },
                   { label: 'ارفع تصميمك', path: '/upload-design' },
+                  { label: 'سياسة الخصوصية', path: '/privacy' },
                 ].map(link => (
                   <li key={link.path}>
                     <Link to={link.path} className="text-sm text-muted-foreground hover:text-primary transition-colors duration-150">
@@ -329,9 +330,15 @@ const Layout = ({ children }: { children: ReactNode }) => {
         {/* Bottom bar */}
         <div className="border-t border-border/30">
           <div className="container max-w-5xl py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-muted-foreground text-[11px]">
-              © {new Date().getFullYear()} مطبعتي — جميع الحقوق محفوظة
-            </p>
+            <div className="flex items-center gap-3 text-[11px]">
+              <p className="text-muted-foreground">
+                © {new Date().getFullYear()} مطبعتي — جميع الحقوق محفوظة
+              </p>
+              <span className="text-border">•</span>
+              <Link to="/privacy" className="text-muted-foreground hover:text-primary transition-colors duration-150">
+                سياسة الخصوصية
+              </Link>
+            </div>
             <div className="flex h-0.5 w-24 rounded-full overflow-hidden">
               <div className="flex-1 bg-cmyk-cyan" />
               <div className="flex-1 bg-cmyk-magenta" />

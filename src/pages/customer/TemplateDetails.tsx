@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Check, Shield, Truck, Printer, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -8,7 +8,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useServices } from '@/hooks/useServices';
+import { useServices, useSpecializations } from '@/hooks/useServices';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 import { trackView, getPreferredServiceTypes, getRecentlyViewed } from '@/lib/browsingTracker';
@@ -250,6 +250,8 @@ const TemplateDetails = () => {
   const { addItem, items } = useCart();
   const { toast } = useToast();
   const { services } = useServices();
+  const { specializations } = useSpecializations();
+  const specMap = Object.fromEntries(specializations.map(s => [s.id, s]));
 
   const [template, setTemplate] = useState<DbTemplate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -279,6 +281,10 @@ const TemplateDetails = () => {
   const minQty = serviceData?.min_quantity || 1000;
   const cellophaneType: string = serviceData?.cellophane_type || 'none';
   const parentServiceId = serviceData?.parent_id || null;
+  const parentService = parentServiceId ? services.find(s => s.id === parentServiceId) : null;
+  // Description is owned by the sub-service and shared across all its templates;
+  // fall back to the parent category's description when the sub-service has none.
+  const serviceDescription: string = serviceData?.description?.trim() || parentService?.description?.trim() || '';
 
   // Discount
   const { discountPercent, discountLabel } = useActiveDiscount(template?.service_type, parentServiceId);
@@ -362,7 +368,7 @@ const TemplateDetails = () => {
     <div className="section-spacing-sm">
       <SEOHead
         title={`${template.name} — ${serviceLabel}`}
-        description={template.description || `قالب ${serviceLabel} احترافي جاهز للتخصيص والطباعة - مطبعتي`}
+        description={serviceDescription || `قالب ${serviceLabel} احترافي جاهز للتخصيص والطباعة - مطبعتي`}
         canonical={`/template/${template.id}`}
         image={template.preview_url || undefined}
         type="product"
@@ -376,7 +382,7 @@ const TemplateDetails = () => {
         '@context': 'https://schema.org',
         '@type': 'Product',
         name: template.name,
-        description: template.description || `قالب ${serviceLabel} احترافي`,
+        description: serviceDescription || `قالب ${serviceLabel} احترافي`,
         image: template.preview_url || undefined,
         brand: { '@type': 'Brand', name: 'مطبعتي' },
         offers: {
@@ -422,6 +428,23 @@ const TemplateDetails = () => {
               </span>
             </div>
 
+            {/* Specializations */}
+            {template.specializations && template.specializations.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {template.specializations.map(specId => {
+                  const spec = specMap[specId];
+                  return (
+                    <span
+                      key={specId}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-muted text-muted-foreground text-xs font-medium border border-border/50"
+                    >
+                      {spec?.icon} {spec?.label || specId}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Price */}
             <div>
               <p className="text-xs text-muted-foreground mb-1.5">السعر لكل {minQty.toLocaleString('en-US')} نسخة</p>
@@ -443,10 +466,10 @@ const TemplateDetails = () => {
               </div>
             </div>
 
-            {/* Description */}
-            {template.description && (
+            {/* Description (inherited from the sub-service) */}
+            {serviceDescription && (
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line bg-muted/30 rounded-xl p-4 border border-border/40">
-                {template.description}
+                {serviceDescription}
               </p>
             )}
 

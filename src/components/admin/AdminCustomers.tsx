@@ -79,12 +79,18 @@ const AdminCustomers = () => {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   const loadCustomers = useCallback(async () => {
+    // Pull customer + admin roles together so we can keep staff out of the customers list:
+    // a user with the admin role (or the super-admin flag) never shows here even if they also
+    // carry the default 'customer' role.
     const { data: roleData } = await supabase
       .from('user_roles')
-      .select('user_id')
-      .eq('role', 'customer');
+      .select('user_id, role')
+      .in('role', ['customer', 'admin']);
 
-    const customerIds = (roleData || []).map(r => r.user_id);
+    const adminIds = new Set((roleData || []).filter(r => r.role === 'admin').map(r => r.user_id));
+    const customerIds = [...new Set(
+      (roleData || []).filter(r => r.role === 'customer' && !adminIds.has(r.user_id)).map(r => r.user_id)
+    )];
     if (customerIds.length === 0) { setCustomers([]); setLoading(false); return; }
 
     const [{ data: profiles }, { data: orders }] = await Promise.all([
@@ -92,7 +98,10 @@ const AdminCustomers = () => {
       supabase.from('orders').select('customer_id, paid_amount').in('customer_id', customerIds),
     ]);
 
-    const customerMap: CustomerData[] = (profiles || []).map(p => {
+    const customerMap: CustomerData[] = (profiles || [])
+      // Belt-and-braces: also drop any super admin (they should already be excluded by the admin role).
+      .filter(p => (p as { is_super_admin?: boolean }).is_super_admin !== true)
+      .map(p => {
       const customerOrders = (orders || []).filter(o => o.customer_id === p.user_id);
       return {
         user_id: p.user_id,

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { PricingSnapshot } from '@/lib/orderPricing';
 
 /**
  * AI Design feature helpers.
@@ -345,6 +346,8 @@ export interface AiOrderItemDetails {
   size_label?: string;
   /** AI design fee recorded on the item so any order view can show it. */
   unit_price: number;
+  /** Immutable pricing snapshot read by accounting (AI is a flat fee, no catalog cost). */
+  pricing: PricingSnapshot;
   /** set when the customer asked a human designer to edit the AI design */
   needs_human_edit?: boolean;
   edit_request?: string;
@@ -365,20 +368,38 @@ export function buildAiOrderItemDetails(args: {
   sizeLabel?: string;
   /** per-product price (IQD) from the admin catalog; defaults to the legacy flat fee */
   unitPrice?: number;
+  /** coupon/discount percent (0–100) applied to the AI fee, recorded in the snapshot */
+  discountPct?: number;
   /** the customer's requested edits (routes the order to a human designer) */
   editRequest?: string;
 }): AiOrderItemDetails {
   const edit = args.editRequest?.trim();
+  const qty = args.quantity ?? 1;
+  const fee = args.unitPrice ?? AI_DESIGN_FEE;
+  const discountPct = args.discountPct ?? 0;
+  // AI items are a flat fee with no catalog cost; build the snapshot manually.
+  const unitPrice = discountPct > 0 ? Math.round(fee * (1 - discountPct / 100)) : fee;
+  const pricing: PricingSnapshot = {
+    service_type: args.productType || 'ai_design',
+    quantity: qty,
+    min_quantity: 1,
+    unit_price: unitPrice,
+    unit_cost: 0,
+    line_total: unitPrice * qty,
+    line_cost: 0,
+    ...(discountPct > 0 ? { discount_pct: discountPct } : {}),
+  };
   return {
     details: args.brief.trim(),
     attachment_urls: args.imageUrls,
-    quantity: args.quantity ?? 1,
+    quantity: qty,
     is_ai_design: true,
     ai_prompt: args.rewrittenPrompt,
     product_type: args.productType,
     service_label: args.productLabel,
     size_label: args.sizeLabel,
-    unit_price: args.unitPrice ?? AI_DESIGN_FEE,
+    unit_price: fee,
+    pricing,
     ...(edit ? { needs_human_edit: true, edit_request: edit } : {}),
   };
 }
@@ -401,12 +422,23 @@ export async function createAiEditOrder(args: {
 }): Promise<string> {
   const imageUrl = await uploadAiDraftImage(args.userId, args.imageDataUrl);
 
+  // AI edit orders charge the flat AI fee (qty 1, no catalog cost) — record an immutable snapshot.
+  const orderPricing: PricingSnapshot = {
+    service_type: args.productType || 'ai_design',
+    quantity: 1,
+    min_quantity: 1,
+    unit_price: AI_DESIGN_FEE,
+    unit_cost: 0,
+    line_total: AI_DESIGN_FEE,
+    line_cost: 0,
+  };
+
   const { data: order, error: orderErr } = await supabase
     .from('orders')
     .insert({
       customer_id: args.userId,
       status: 'submitted' as never,
-      details: { item_count: 1, order_type: 'ai_design', ai_generated: true, needs_human_edit: true } as never,
+      details: { item_count: 1, order_type: 'ai_design', ai_generated: true, needs_human_edit: true, pricing: orderPricing } as never,
     })
     .select('id')
     .single();

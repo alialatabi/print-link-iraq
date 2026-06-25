@@ -34,6 +34,30 @@ Deno.serve(async (req) => {
     const { userId } = await req.json();
     if (!userId) return new Response(JSON.stringify({ error: 'userId required' }), { status: 400, headers: corsHeaders });
 
+    const fail = (error: string, status = 403) =>
+      new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    // A user must never delete their own account here (covers a super admin deleting themselves).
+    if (userId === caller.id) return fail('لا يمكنك حذف حسابك الخاص');
+
+    // Inspect the target: is it a super admin, and does it hold the admin role?
+    const [{ data: targetProfile }, { data: targetRoles }] = await Promise.all([
+      supabaseAdmin.from('profiles').select('is_super_admin').eq('user_id', userId).maybeSingle(),
+      supabaseAdmin.from('user_roles').select('role').eq('user_id', userId),
+    ]);
+
+    // No one can delete a super admin (each super admin can only ever remove their own super-admin
+    // flag first — and even then self-deletion is blocked above).
+    if (targetProfile?.is_super_admin) return fail('لا يمكن حذف حساب سوبر أدمن');
+
+    // Deleting an admin is reserved for super admins.
+    const targetIsAdmin = (targetRoles || []).some((r: { role: string }) => r.role === 'admin');
+    if (targetIsAdmin) {
+      const { data: callerProfile } = await supabaseAdmin
+        .from('profiles').select('is_super_admin').eq('user_id', caller.id).maybeSingle();
+      if (!callerProfile?.is_super_admin) return fail('فقط السوبر أدمن يمكنه حذف حساب أدمن');
+    }
+
     const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
 

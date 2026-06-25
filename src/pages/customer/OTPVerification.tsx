@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -88,7 +88,7 @@ const OTPVerification = () => {
 
           <p className="text-muted-foreground text-sm mb-6 text-center">
             <Phone className="w-4 h-4 inline-block ml-1" />
-            أدخل الرمز المرسل عبر واتساب
+            أدخل الرمز المرسل إلى هاتفك
           </p>
 
           <div className="space-y-3">

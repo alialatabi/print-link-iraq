@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { CheckCircle, Eye, Home, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 

@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { MapPin, Phone, Building2, Navigation, Landmark, Plus, CheckCircle2, Star, Trash2, ChevronLeft } from 'lucide-react';
+import { MapPin, Phone, Landmark, Plus, CheckCircle2, Star, Trash2, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import LocationSelect, { type LocationValue, emptyLocation } from '@/components/LocationSelect';
 
 interface SavedAddress {
   id: string;
@@ -34,8 +35,7 @@ const DeliveryAddressPage = () => {
   // New address form
   const [label, setLabel] = useState('');
   const [phone, setPhone] = useState('');
-  const [province, setProvince] = useState('');
-  const [area, setArea] = useState('');
+  const [location, setLocation] = useState<LocationValue>(emptyLocation());
   const [landmark, setLandmark] = useState('');
   const [saveAddress, setSaveAddress] = useState(true);
 
@@ -126,7 +126,7 @@ const DeliveryAddressPage = () => {
   };
 
   const handleAddNew = async () => {
-    if (!phone.trim() || !province.trim() || !area.trim()) {
+    if (!phone.trim() || !location.provinceName.trim() || !location.areaName.trim()) {
       toast({ title: 'يرجى تعبئة الحقول المطلوبة', variant: 'destructive' });
       return;
     }
@@ -137,8 +137,10 @@ const DeliveryAddressPage = () => {
       user_id: user.id,
       label: label.trim() || 'عنوان جديد',
       phone: phone.trim(),
-      province: province.trim(),
-      area: area.trim(),
+      province: location.provinceName.trim(),
+      area: location.areaName.trim(),
+      province_id: location.provinceId,
+      area_id: location.areaId,
       landmark: landmark.trim() || null,
       is_default: false,
     };
@@ -146,7 +148,7 @@ const DeliveryAddressPage = () => {
     if (saveAddress) {
       const { data, error } = await supabase
         .from('saved_addresses')
-        .insert(newAddr)
+        .insert(newAddr as never)
         .select()
         .single();
       if (!error && data) {
@@ -163,7 +165,7 @@ const DeliveryAddressPage = () => {
     }
 
     setShowNewForm(false);
-    setLabel(''); setPhone(''); setProvince(''); setArea(''); setLandmark('');
+    setLabel(''); setPhone(''); setLocation(emptyLocation()); setLandmark('');
     setSubmitting(false);
   };
 
@@ -295,20 +297,7 @@ const DeliveryAddressPage = () => {
                   <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07xxxxxxxxx" dir="ltr" maxLength={20} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
-                      <Building2 className="w-3 h-3" /> المحافظة <span className="text-destructive">*</span>
-                    </Label>
-                    <Input value={province} onChange={e => setProvince(e.target.value)} placeholder="بغداد" className="text-right" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
-                      <Navigation className="w-3 h-3" /> المنطقة <span className="text-destructive">*</span>
-                    </Label>
-                    <Input value={area} onChange={e => setArea(e.target.value)} placeholder="الكرادة" className="text-right" maxLength={150} />
-                  </div>
-                </div>
+                <LocationSelect compact value={location} onChange={setLocation} disabled={submitting} className="sm:grid-cols-1" />
 
                 <div>
                   <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">

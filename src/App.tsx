@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { LazyMotion, domAnimation } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -41,10 +42,15 @@ const DeliveryAddressPage = lazy(() => import("./pages/customer/DeliveryAddressP
 const MyCoupons = lazy(() => import("./pages/customer/MyCoupons"));
 const ResellerDashboard = lazy(() => import("./pages/reseller/ResellerDashboard"));
 const ResellerNewOrder = lazy(() => import("./pages/reseller/ResellerNewOrder"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 
 const queryClient = new QueryClient();
 
 const App = () => (
+  // LazyMotion supplies animation features to all `m` (lightweight motion) components below.
+  // `domAnimation` covers everything the app uses — animation, exit (AnimatePresence),
+  // whileInView, hover/tap — while dropping the heavy drag + layout-projection code we don't need.
+  <LazyMotion features={domAnimation}>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
@@ -67,6 +73,7 @@ const App = () => (
                 <Route path="/templates/:serviceType" element={<TemplateSelection />} />
                 <Route path="/template/:templateId" element={<TemplateDetails />} />
                 <Route path="/cart" element={<CartPage />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
 
                 {/* Authenticated customer routes */}
                 <Route path="/order/:templateId" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
@@ -105,6 +112,7 @@ const App = () => (
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
+  </LazyMotion>
 );
 
 export default App;

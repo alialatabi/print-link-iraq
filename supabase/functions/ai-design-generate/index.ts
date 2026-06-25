@@ -162,6 +162,36 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return bytes;
 }
 
+// Persist the generated image so admins can review EVERY design (ordered or not). The result is
+// either a `data:` URL (b64_json) or a hosted OpenAI URL (which expires) — normalise both to raw
+// bytes, then upload to the public `order-attachments` bucket and return the permanent public URL.
+// Best-effort: returns null on any failure so a storage hiccup never blocks the customer's design.
+async function storeGenerationImage(
+  // deno-lint-ignore no-explicit-any
+  supabaseAdmin: any,
+  userId: string,
+  image: string,
+): Promise<string | null> {
+  try {
+    const bytes = image.startsWith("data:")
+      ? dataUrlToBytes(image)
+      : new Uint8Array(await (await fetch(image)).arrayBuffer());
+    const path = `ai-generations/${userId}/${crypto.randomUUID()}.png`;
+    const { error } = await supabaseAdmin.storage
+      .from("order-attachments")
+      .upload(path, bytes, { contentType: "image/png", upsert: false });
+    if (error) {
+      console.error("storeGenerationImage upload error:", error.message);
+      return null;
+    }
+    const { data } = supabaseAdmin.storage.from("order-attachments").getPublicUrl(path);
+    return data?.publicUrl ?? null;
+  } catch (e) {
+    console.error("storeGenerationImage error:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 // Stage 2 (with references): gpt-image-2 EDITS — generates the design while incorporating the
 // customer's uploaded reference/logo image(s). Multipart form-data; mirrors generateImage's output.
 async function generateImageEdit(apiKey: string, prompt: string, size: string, images: Uint8Array[]): Promise<{ image: string | null; usage: Usage }> {
@@ -286,7 +316,11 @@ Deno.serve(async (req) => {
     // Real OpenAI cost for this generation, from the reported token usage.
     const { cost_usd, cost_iqd, usage } = computeCost(textUsage, imageUsage);
 
-    // Log the generation (counts toward the daily limit; image is uploaded only on accept).
+    // Persist the image so the admin "AI Designs" gallery captures every generation (best-effort).
+    const storedImageUrl = await storeGenerationImage(supabaseAdmin, user.id, imageDataUrl);
+
+    // Log the generation (counts toward the daily limit). image_url is the permanent copy stored
+    // above; the customer still receives the original data URL for instant preview.
     const { data: gen } = await supabaseAdmin
       .from("ai_generations")
       .insert({
@@ -296,6 +330,7 @@ Deno.serve(async (req) => {
         size,
         rewritten_prompt: effectivePrompt,
         model: IMAGE_MODEL,
+        image_url: storedImageUrl,
         cost_usd,
         cost_iqd,
         usage,

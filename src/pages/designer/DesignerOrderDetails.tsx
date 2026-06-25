@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -229,6 +229,46 @@ const DesignerOrderDetails = () => {
       toast({ title: '✅ تم إرسال التصميم للطبع' });
       loadDesigns();
       loadItems();
+    } catch (err) {
+      toast({ title: 'فشل الإرسال', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setPrintingItem(null);
+    }
+  };
+
+  // Direct approval: designer approves the design and sends it straight to the print group in one
+  // step — no customer approval round-trip. Sends the latest uploaded file if present, otherwise the
+  // customer's attached AI image(s). Flips the item to print_ready (the edge function flips the order).
+  const handleApproveAndPrint = async (item: OrderItem) => {
+    if (!orderId) return;
+    const latest = getItemDesigns(item.id).find(d => d.file_url);
+    const attachments: string[] = Array.isArray(item.details?.attachment_urls) ? item.details.attachment_urls : [];
+    if (!latest?.file_url && attachments.length === 0) {
+      toast({ title: 'لا يوجد تصميم لإرساله', description: 'ارفع ملف التصميم أو تأكد من وجود صورة مرفقة', variant: 'destructive' });
+      return;
+    }
+    setPrintingItem(item.id);
+    try {
+      const body: Record<string, unknown> = latest?.file_url
+        ? { orderId, orderItemId: item.id, designFilePath: latest.file_url }
+        : { orderId, orderItemId: item.id, designFileUrls: attachments };
+
+      const { error: tgError } = await supabase.functions.invoke('send-to-telegram', { body });
+      if (tgError) {
+        // supabase-js hides the real reason behind a generic FunctionsHttpError — read the function's
+        // own `{ error }` body off error.context (same pattern as sendDesignToPrint).
+        let message = (tgError as { message?: string })?.message || 'تعذّر إرسال التصميم للتلكرام';
+        const ctx = (tgError as { context?: unknown }).context;
+        if (ctx && typeof (ctx as Response).json === 'function') {
+          try { const b = await (ctx as Response).json(); if (b?.error) message = b.error as string; } catch { /* keep fallback */ }
+        }
+        throw new Error(message);
+      }
+      await supabase.from('order_items').update({ status: 'print_ready' as any }).eq('id', item.id);
+      toast({ title: '✅ تمت الموافقة وأُرسل التصميم للطبع' });
+      loadDesigns();
+      loadItems();
+      loadOrder();
     } catch (err) {
       toast({ title: 'فشل الإرسال', description: getUserFriendlyError(err), variant: 'destructive' });
     } finally {
@@ -469,6 +509,11 @@ const DesignerOrderDetails = () => {
                 const canSendApproval = ['submitted', 'assigned', 'design_uploaded'].includes(item.status) && itemDesigns.length > 0;
                 const itemDetails = item.details || {};
                 const revisions: any[] = itemDetails.revisions || [];
+                // Direct approval: designer approves and sends straight to the print group (no customer
+                // round-trip). Uses the latest uploaded file if present, else the customer's attached image.
+                const aiAttachments: string[] = Array.isArray(itemDetails.attachment_urls) ? itemDetails.attachment_urls : [];
+                const hasUploadedDesign = itemDesigns.some(d => d.file_url);
+                const canApproveDirect = ['submitted', 'assigned', 'design_uploaded'].includes(item.status) && (hasUploadedDesign || aiAttachments.length > 0);
 
                 return (
                   <div key={item.id} className="bg-card rounded-xl border border-border overflow-hidden">
@@ -638,6 +683,27 @@ const DesignerOrderDetails = () => {
                                   </div>
                                 </motion.div>
                               )}
+                            </div>
+                          )}
+
+                          {/* Direct approve → send to print (no customer round-trip).
+                              Uses the latest uploaded file if present, else the attached AI image. */}
+                          {canApproveDirect && (
+                            <div className={cn(canSendApproval && 'mt-3 pt-3 border-t border-border/60')}>
+                              <Button
+                                onClick={() => handleApproveAndPrint(item)}
+                                disabled={printingItem === item.id}
+                                size="lg"
+                                className="w-full bg-success hover:bg-success/90 text-success-foreground rounded-xl"
+                              >
+                                <CheckCircle2 className="w-4 h-4 ml-2" />
+                                {printingItem === item.id ? 'جاري الإرسال...' : 'الموافقة على التصميم وإرساله للطبع 🖨'}
+                              </Button>
+                              <p className="text-[11px] text-muted-foreground text-center mt-1.5">
+                                {hasUploadedDesign
+                                  ? 'سيتم إرسال أحدث نسخة مرفوعة للطباعة مباشرة دون مراجعة الزبون'
+                                  : 'سيتم إرسال الصورة المرفقة للطباعة مباشرة دون مراجعة الزبون'}
+                              </p>
                             </div>
                           )}
 

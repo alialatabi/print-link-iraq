@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Upload, X, FileText, Loader2, CheckCircle2, ChevronLeft, ChevronRight, 
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
+import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
 
 type Step = 'service' | 'upload';
 
@@ -165,13 +166,18 @@ const UploadDesignPage = () => {
     setSubmitting(true);
 
     try {
+      // Pricing snapshot: no quantity input here, so order the service min_quantity.
+      const catalog = buildCatalog(services);
+      const quantity = catalog[selectedService]?.min_quantity || 1000;
+      const pricing = buildPricingSnapshot(catalog, selectedService, quantity);
+
       // 1. Create order
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
           customer_id: user.id,
           status: 'submitted' as any,
-          details: { order_type: 'ready_design', service_type: selectedService, attachment_urls: [] } as any,
+          details: { order_type: 'ready_design', service_type: selectedService, attachment_urls: [], quantity, pricing } as any,
         })
         .select('id')
         .single();
@@ -195,7 +201,7 @@ const UploadDesignPage = () => {
 
       // 3. Update order with URLs
       await supabase.from('orders').update({
-        details: { order_type: 'ready_design', service_type: selectedService, attachment_urls: publicUrls } as any,
+        details: { order_type: 'ready_design', service_type: selectedService, attachment_urls: publicUrls, quantity, pricing } as any,
       }).eq('id', orderData.id);
 
       toast({ title: 'تم إرسال طلبك بنجاح ✅' });

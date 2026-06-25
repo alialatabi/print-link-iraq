@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, FileText, Layers, Grid3X3 } from 'lucide-react';
 import { useSearch, SearchResult } from '@/hooks/useSearch';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
 
 const TYPE_CONFIG: Record<string, { icon: typeof Search; color: string }> = {

@@ -1,5 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getDesignSignedUrl } from '@/lib/storage';
+import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
+import type { DbService } from '@/hooks/useServices';
 
 /**
  * Design Vault ("خزنة التصاميم") helpers.
@@ -249,11 +251,22 @@ export async function deleteVaultDesign(vaultRowId: string): Promise<void> {
  * designs the file is copied into the public order-attachments bucket first. Returns the order id.
  */
 export async function reorderVaultItem(userId: string, item: VaultItem): Promise<string> {
+  // Best-effort immutable pricing snapshot. A reorder has no quantity input, so we order the
+  // service's min_quantity at the current catalog price; if the service is unknown the snapshot
+  // resolves to zeros (still a valid, hasSnapshot:true row for accounting).
+  const { data: svcRows } = await supabase.from('services').select('*');
+  const catalog = buildCatalog((svcRows as DbService[] | null) || []);
+  const serviceType = item.serviceType || '';
+  const quantity = catalog[serviceType]?.min_quantity || 1000;
+  const pricing = buildPricingSnapshot(catalog, serviceType, quantity);
+
   const baseDetails = {
     order_type: 'ready_design',
     service_type: item.serviceType,
     reorder: true,
     reorder_source: item.source,
+    quantity,
+    pricing,
   };
 
   // 1. Create the parent order.

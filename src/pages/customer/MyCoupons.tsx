@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { Ticket, Copy, CheckCircle2, Tag } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 

@@ -26,3 +26,7 @@ dist-ssr
 
 # Supabase
 supabase/.temp
+
+# Local secret/credential drops (never commit or deploy)
+TWILIO.TXT
+*.secrets.txt

@@ -1,9 +1,21 @@
 project_id = "pvxgftjfefhtyanthfne"
 
+# 4-week (28d) inactivity window. The hosted project is on the free plan, where
+# server-side session timeouts are unavailable (Pro+ only), so the window is
+# enforced CLIENT-SIDE in src/contexts/AuthContext.tsx. This block documents the
+# intended value and applies if/when the project moves to Pro and config is
+# pushed (or set it in dashboard → Authentication → Sessions → Inactivity timeout).
+[auth.sessions]
+inactivity_timeout = "672h"
+
 [functions.send-otp]
 verify_jwt = false
 
 [functions.verify-otp]
+verify_jwt = false
+
+# Reads Authorization, validates the caller's JWT internally, then OTP-gates a phone change.
+[functions.update-phone]
 verify_jwt = false
 
 [functions.phone-login]
@@ -28,4 +40,12 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.ai-design-generate]
+verify_jwt = false
+
+# Does its own admin-JWT check internally (reads Authorization, verifies user + admin role).
+[functions.sync-alwaseet-locations]
+verify_jwt = false
+
+# Does its own staff-JWT check internally.
+[functions.send-push]
 verify_jwt = false

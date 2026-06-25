@@ -1,5 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { Palette } from 'lucide-react';
 
 const DesignerLogin = () => {

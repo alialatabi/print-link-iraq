@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
@@ -13,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
 import { incrementCouponUsage, Coupon } from '@/hooks/useDiscounts';
 import { buildAiOrderItemDetails } from '@/lib/aiDesign';
+import { useServices } from '@/hooks/useServices';
+import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
 interface TemplateData {
   id: string;
   name: string;
@@ -22,6 +24,7 @@ interface TemplateData {
 
 const CheckoutPage = () => {
   const { items, clearCart } = useCart();
+  const { services } = useServices();
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -140,6 +143,10 @@ const CheckoutPage = () => {
         if (stored) appliedCoupon = JSON.parse(stored);
       } catch {}
 
+      // Build the pricing catalog once for this submit (snapshots are immutable).
+      const catalog = buildCatalog(services);
+      const couponPct = appliedCoupon?.percentage ?? 0;
+
       // 1. Create ONE order for the entire cart
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
@@ -174,6 +181,7 @@ const CheckoutPage = () => {
                 quantity: 1,
                 sizeLabel: item.aiDesign.sizeLabel,
                 unitPrice: item.unitPrice,
+                discountPct: couponPct,
               }),
               status: 'submitted',
             });
@@ -188,7 +196,13 @@ const CheckoutPage = () => {
           .insert({
             order_id: orderData.id,
             template_id: item.templateId,
-            details: { details: itemDetails, attachment_urls: [], quantity: item.quantity, cellophane: item.cellophane || null },
+            details: {
+              details: itemDetails,
+              attachment_urls: [],
+              quantity: item.quantity,
+              cellophane: item.cellophane || null,
+              pricing: buildPricingSnapshot(catalog, item.serviceType, item.quantity, { discountPct: couponPct, priceOverride: item.unitPrice }),
+            },
             status: 'submitted',
           })
           .select('id')
@@ -202,7 +216,13 @@ const CheckoutPage = () => {
           await supabase
             .from('order_items' as any)
             .update({
-              details: { details: itemDetails, attachment_urls: urls, quantity: item.quantity, cellophane: item.cellophane || null },
+              details: {
+                details: itemDetails,
+                attachment_urls: urls,
+                quantity: item.quantity,
+                cellophane: item.cellophane || null,
+                pricing: buildPricingSnapshot(catalog, item.serviceType, item.quantity, { discountPct: couponPct, priceOverride: item.unitPrice }),
+              },
             })
             .eq('id', (itemData as any).id);
         }

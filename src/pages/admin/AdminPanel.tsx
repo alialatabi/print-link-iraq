@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -28,7 +28,7 @@ import {
   Trash2, Palette, User, LayoutGrid,
   ShieldCheck, Search, Calendar, ArrowUpDown,
   TrendingUp, Clock, CheckCircle, Truck, FileText, Download,
-  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp, Crown, Percent, Store
+  WifiOff, XCircle, MapPin, Phone, ChevronDown, ChevronUp, Crown, Percent, Store, Sparkles
 } from 'lucide-react';
 import { Activity } from 'lucide-react';
 
@@ -37,6 +37,8 @@ import AdminAccounts from '@/components/admin/AdminAccounts';
 import AdminCustomers from '@/components/admin/AdminCustomers';
 import AdminServicesSpecs from '@/components/admin/AdminServicesSpecs';
 import AdminAiUsage from '@/components/admin/AdminAiUsage';
+import AdminAiDesigns from '@/components/admin/AdminAiDesigns';
+import AdminLocationsSync from '@/components/admin/AdminLocationsSync';
 import AdminActivityLog from '@/components/admin/AdminActivityLog';
 import AdminDiscounts from '@/components/admin/AdminDiscounts';
 import AdminResellers from '@/components/admin/AdminResellers';
@@ -255,6 +257,25 @@ const AdminPanel = () => {
     triggerDownload(`${url}${sep}download=${encodeURIComponent(filename)}`);
   };
 
+  // Customer-facing push copy per status (only these statuses notify; internal ones stay silent).
+  const STATUS_PUSH: Partial<Record<string, { title: string; body: string }>> = {
+    waiting_approval: { title: 'تصميمك جاهز ✨', body: 'صار تصميم طلبك جاهز للمراجعة — افتح التطبيق للموافقة' },
+    approved: { title: 'تمت الموافقة ✅', body: 'تمت الموافقة على طلبك وراح يدخل مرحلة الطباعة' },
+    print_ready: { title: 'جاهز للطباعة 🖨️', body: 'طلبك جاهز للطباعة' },
+    printed: { title: 'تمت الطباعة 🖨️', body: 'تمت طباعة طلبك ويتم تجهيزه للتوصيل' },
+    delivered: { title: 'تم التسليم 🎉', body: 'تم تسليم طلبك. شكراً لاختيارك مطبعتي' },
+    cancelled: { title: 'تم إلغاء الطلب', body: 'تم إلغاء طلبك. لأي استفسار تواصل معنا' },
+  };
+
+  // Best-effort push to the customer about their order status (never blocks the status update).
+  const notifyCustomer = (customerId: string | null | undefined, orderId: string, status: string) => {
+    const msg = STATUS_PUSH[status];
+    if (!customerId || !msg) return;
+    supabase.functions.invoke('send-push', {
+      body: { userId: customerId, title: msg.title, body: msg.body, data: { orderId, status } },
+    }).catch(() => { /* push is non-critical */ });
+  };
+
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const { error } = await supabase
       .from('orders')
@@ -263,6 +284,7 @@ const AdminPanel = () => {
     if (error) { toast.error('فشل تحديث الحالة'); return; }
     const order = orders.find(o => o.id === orderId);
     logActivity('change_order_status', order?.customer_id, { order_id: orderId, new_status: newStatus, actor_name: 'أدمن' });
+    notifyCustomer(order?.customer_id, orderId, newStatus);
     toast.success('تم تحديث الحالة');
     loadOrders();
   };
@@ -442,6 +464,32 @@ const AdminPanel = () => {
     }
   };
 
+  // Delete an admin account — super admin only. The server (admin-delete-user) enforces the rules
+  // (no self-delete, no deleting a super admin, only a super admin may delete an admin); the UI
+  // mirrors them and surfaces the function's Arabic error (hidden by supabase-js's generic wrapper).
+  const handleDeleteAdmin = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId },
+      });
+      if (error) {
+        let message = (error as { message?: string })?.message || 'فشل حذف الحساب';
+        const ctx = (error as { context?: unknown }).context;
+        if (ctx && typeof (ctx as Response).json === 'function') {
+          try { const b = await (ctx as Response).json(); if (b?.error) message = b.error; } catch { /* keep */ }
+        }
+        throw new Error(message);
+      }
+      if (data?.error) throw new Error(data.error);
+      const deletedUser = allUsers.find(u => u.user_id === userId);
+      logActivity('delete_admin', userId, { target_name: deletedUser?.display_name || deletedUser?.phone || '-', actor_name: 'سوبر أدمن' });
+      toast.success('تم حذف حساب الأدمن');
+      Promise.all([loadAllUsers(), loadDesigners()]);
+    } catch (err: any) {
+      toast.error(err.message || 'فشل حذف الحساب');
+    }
+  };
+
   const handleExportPrintedOrders = () => {
     const printedOrders = orders.filter(o => o.status === 'printed' || o.status === 'delivered');
     if (printedOrders.length === 0) {
@@ -615,6 +663,10 @@ const AdminPanel = () => {
               <TabsTrigger value="services" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
                 <Package className="w-4 h-4 flex-shrink-0" />
                 الخدمات
+              </TabsTrigger>
+              <TabsTrigger value="ai-designs" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
+                <Sparkles className="w-4 h-4 flex-shrink-0" />
+                تصاميم AI
               </TabsTrigger>
               <TabsTrigger value="designers" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
                 <Palette className="w-4 h-4 flex-shrink-0" />
@@ -1124,9 +1176,15 @@ const AdminPanel = () => {
           {/* SERVICES & SPECIALIZATIONS TAB (AI-design catalog now lives inside each sub-service) */}
           <TabsContent value="services">
             <AdminServicesSpecs />
+            <AdminLocationsSync />
             <div className="mt-10 pt-8 border-t border-border/60">
               <AdminAiUsage />
             </div>
+          </TabsContent>
+
+          {/* AI DESIGNS TAB — gallery of every AI design customers generated */}
+          <TabsContent value="ai-designs">
+            <AdminAiDesigns />
           </TabsContent>
 
           {/* DESIGNERS TAB */}
@@ -1540,6 +1598,30 @@ const AdminPanel = () => {
                             )}
                             {isSuperAdminUser && !isMe && (
                               <span className="text-[10px] text-muted-foreground">محمي — فقط هو يمكنه تعديل صلاحياته</span>
+                            )}
+                            {/* Delete admin — super admin only; never for a super admin or yourself (server-enforced too). */}
+                            {!isSuperAdminUser && !isMe && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="sm" variant="outline" className="text-xs h-7 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10 gap-1">
+                                    <Trash2 className="w-3 h-3" /> حذف
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent dir="rtl">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>حذف حساب الأدمن</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      هل أنت متأكد من حذف حساب الأدمن <strong>{u.display_name || u.phone}</strong> نهائياً؟ لا يمكن التراجع عن هذا الإجراء.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter className="flex-row-reverse gap-2">
+                                    <AlertDialogCancel>تراجع</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteAdmin(u.user_id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                      نعم، حذف نهائي
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             )}
                           </div>
                         </div>

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">مطبعتي</string>
+    <string name="title_activity_main">مطبعتي</string>
+    <string name="package_name">com.matbaaty.app</string>
+    <string name="custom_url_scheme">com.matbaaty.app</string>
+</resources>

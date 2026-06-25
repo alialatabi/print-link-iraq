@@ -18,6 +18,31 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+// Keep a customer signed in for 4 weeks after their last activity, then force a
+// logout so they must verify by OTP again. The server-side inactivity timeout
+// is a paid Supabase feature, so we enforce the window on the client instead.
+const LAST_ACTIVITY_KEY = 'mb_last_activity';
+const MAX_INACTIVITY_MS = 28 * 24 * 60 * 60 * 1000; // 4 weeks
+// Customers re-verify by OTP at most once every 3 weeks: once their last OTP is older than this,
+// force a logout so the next sign-in goes through OTP again. Staff (password login) are exempt.
+const OTP_VALIDITY_MS = 21 * 24 * 60 * 60 * 1000; // 3 weeks
+
+const markActivity = () => {
+  try { localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString()); } catch { /* storage unavailable */ }
+};
+
+const isInactivityExpired = () => {
+  try {
+    const raw = localStorage.getItem(LAST_ACTIVITY_KEY);
+    if (!raw) return false; // no record yet → don't punish an existing session
+    const last = parseInt(raw, 10);
+    if (!Number.isFinite(last)) return false;
+    return Date.now() - last > MAX_INACTIVITY_MS;
+  } catch {
+    return false;
+  }
+};
+
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be inside AuthProvider');
@@ -34,14 +59,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchRole = async (userId: string) => {
     const [{ data: roles }, { data: profile }] = await Promise.all([
       supabase.from('user_roles').select('role').eq('user_id', userId),
-      supabase.from('profiles').select('phone, is_super_admin').eq('user_id', userId).single(),
+      supabase.from('profiles').select('*').eq('user_id', userId).single(),
     ]);
     const roleList = (roles || []).map(r => r.role);
+    const isStaff = roleList.includes('admin') || roleList.includes('designer') || roleList.includes('reseller');
+
+    // Customers re-verify by OTP every 3 weeks: if their last OTP is older than the window, sign
+    // them out so the next login goes through OTP again. Staff log in by password and are exempt;
+    // a null stamp (legacy session, never stamped) is left alone to avoid mass-logout.
+    if (!isStaff) {
+      const lastOtp = (profile as { last_otp_verified_at?: string | null })?.last_otp_verified_at;
+      if (lastOtp && Date.now() - new Date(lastOtp).getTime() > OTP_VALIDITY_MS) {
+        await supabase.auth.signOut();
+        try { localStorage.removeItem(LAST_ACTIVITY_KEY); } catch { /* ignore */ }
+        setSession(null);
+        setUser(null);
+        setRole(null);
+        setIsSuperAdmin(false);
+        return;
+      }
+    }
+
     if (roleList.includes('admin')) setRole('admin');
     else if (roleList.includes('designer')) setRole('designer');
     else if (roleList.includes('reseller')) setRole('reseller');
     else setRole('customer');
-    
+
     // Check super admin from database
     setIsSuperAdmin(profile?.is_super_admin === true);
   };
@@ -50,10 +93,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let initialSessionHandled = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
+          // Refresh the activity stamp on genuine post-load events (sign-in,
+          // hourly token refresh). NOT on INITIAL_SESSION — that replays the
+          // persisted session and would overwrite the stamp before the
+          // initial-load expiry check below can read it.
+          if (event !== 'INITIAL_SESSION') markActivity();
           setTimeout(() => fetchRole(session.user.id), 0);
         } else {
           setRole(null);
@@ -67,6 +115,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       initialSessionHandled = true;
+
+      // Enforce the 4-week inactivity window: if the last activity is older
+      // than the limit, sign out so the customer must re-verify by OTP.
+      if (session && isInactivityExpired()) {
+        await supabase.auth.signOut();
+        try { localStorage.removeItem(LAST_ACTIVITY_KEY); } catch { /* ignore */ }
+        setSession(null);
+        setUser(null);
+        setRole(null);
+        setLoading(false);
+        return;
+      }
+
+      if (session) markActivity();
       setSession(session);
       setUser(session?.user ?? null);
       // Resolve the role BEFORE clearing loading. Otherwise a direct load /
@@ -109,8 +171,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setRole(null);
     setIsSuperAdmin(false);
+    try { localStorage.removeItem(LAST_ACTIVITY_KEY); } catch { /* ignore */ }
     await supabase.auth.signOut();
   };
+
+  // Register for native push notifications once the user is known (no-op on web; dynamic import
+  // keeps the push code out of the web bundle).
+  useEffect(() => {
+    if (user?.id) { import('@/lib/push').then(m => m.registerPush(user.id)).catch(() => {}); }
+  }, [user?.id]);
 
   // Heartbeat for all users: updates last_seen every 60s while site is open
   useHeartbeat(user?.id, !!user);

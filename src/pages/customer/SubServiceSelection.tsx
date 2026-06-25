@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { useServices } from '@/hooks/useServices';
 import { ArrowRight } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';

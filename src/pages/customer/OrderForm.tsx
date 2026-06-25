@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,12 +9,15 @@ import { Label } from '@/components/ui/label';
 import { ArrowRight, FileText, Upload, X, Image, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
+import { useServices } from '@/hooks/useServices';
+import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
 
 const OrderForm = () => {
   const { templateId } = useParams<{ templateId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { services } = useServices();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [template, setTemplate] = useState<any>(null);
@@ -96,6 +99,12 @@ const OrderForm = () => {
     setSubmitting(true);
     setUploading(true);
 
+    // Pricing snapshot: this form has no quantity input, so order the service min_quantity.
+    const catalog = buildCatalog(services);
+    const serviceType: string = template?.service_type || '';
+    const quantity = catalog[serviceType]?.min_quantity || 1000;
+    const pricing = buildPricingSnapshot(catalog, serviceType, quantity);
+
     // First create the order to get an ID
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
@@ -105,7 +114,7 @@ const OrderForm = () => {
         status: 'submitted' as any,
         customer_name: user.id,
         customer_phone: '-',
-        details: { details, attachment_urls: [] } as any,
+        details: { details, attachment_urls: [], quantity, pricing } as any,
       })
       .select('id')
       .single();
@@ -128,7 +137,7 @@ const OrderForm = () => {
     if (attachmentUrls.length > 0) {
       await supabase
         .from('orders')
-        .update({ details: { details, attachment_urls: attachmentUrls } as any })
+        .update({ details: { details, attachment_urls: attachmentUrls, quantity, pricing } as any })
         .eq('id', orderData.id);
     }
 

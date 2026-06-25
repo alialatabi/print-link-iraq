@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Phone, MapPin, Save, Building2, Navigation, Landmark, Plus, Trash2, Pencil, Star, CheckCircle2, X } from 'lucide-react';
+import { User, Phone, MapPin, Save, Landmark, Plus, Trash2, Pencil, Star, CheckCircle2, X, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import LocationSelect, { type LocationValue, emptyLocation } from '@/components/LocationSelect';
+import ChangePhoneDialog from '@/components/ChangePhoneDialog';
 
 type Tab = 'profile' | 'addresses';
 
@@ -17,11 +19,13 @@ interface SavedAddress {
   phone: string;
   province: string;
   area: string;
+  province_id?: number | null;
+  area_id?: number | null;
   landmark: string | null;
   is_default: boolean;
 }
 
-const emptyForm = () => ({ label: '', phone: '', province: '', area: '', landmark: '' });
+const emptyForm = () => ({ label: '', phone: '', location: emptyLocation(), landmark: '' });
 
 const ProfilePage = () => {
   const { user } = useAuth();
@@ -33,9 +37,9 @@ const ProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
-  const [province, setProvince] = useState('');
-  const [area, setArea] = useState('');
+  const [location, setLocation] = useState<LocationValue>(emptyLocation());
   const [landmark, setLandmark] = useState('');
+  const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
 
   // ── Saved addresses ──
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -53,8 +57,12 @@ const ProfilePage = () => {
       if (data) {
         setDisplayName(data.display_name || '');
         setPhone(data.phone || '');
-        setProvince(data.province || '');
-        setArea(data.area || '');
+        setLocation({
+          provinceId: (data as { province_id?: number | null }).province_id ?? null,
+          provinceName: data.province || '',
+          areaId: (data as { area_id?: number | null }).area_id ?? null,
+          areaName: data.area || '',
+        });
         setLandmark(data.landmark || '');
       }
       setLoading(false);
@@ -86,8 +94,8 @@ const ProfilePage = () => {
     if (!user) return;
     const trimmedName = displayName.trim();
     const trimmedPhone = phone.trim();
-    const trimmedProvince = province.trim();
-    const trimmedArea = area.trim();
+    const trimmedProvince = location.provinceName.trim();
+    const trimmedArea = location.areaName.trim();
     const trimmedLandmark = landmark.trim();
 
     if (!trimmedName) { toast({ title: 'الاسم مطلوب', variant: 'destructive' }); return; }
@@ -97,10 +105,14 @@ const ProfilePage = () => {
     if (!trimmedLandmark) { toast({ title: 'العلامة الدالة مطلوبة', variant: 'destructive' }); return; }
 
     setSaving(true);
+    // Phone is intentionally excluded — it's the login identity and can only be changed via the
+    // OTP-verified flow (ChangePhoneDialog), never through this general save.
     const { error } = await supabase.from('profiles').update({
-      display_name: trimmedName, phone: trimmedPhone,
-      province: trimmedProvince, area: trimmedArea, landmark: trimmedLandmark,
-    }).eq('user_id', user.id);
+      display_name: trimmedName,
+      province: trimmedProvince, area: trimmedArea,
+      province_id: location.provinceId, area_id: location.areaId,
+      landmark: trimmedLandmark,
+    } as never).eq('user_id', user.id);
     setSaving(false);
     if (error) toast({ title: 'خطأ في الحفظ', description: error.message, variant: 'destructive' });
     else toast({ title: 'تم الحفظ بنجاح', description: 'تم تحديث بياناتك الشخصية' });
@@ -110,13 +122,23 @@ const ProfilePage = () => {
   const openAdd = () => { setEditingId(null); setForm(emptyForm()); setShowForm(true); };
   const openEdit = (addr: SavedAddress) => {
     setEditingId(addr.id);
-    setForm({ label: addr.label, phone: addr.phone, province: addr.province, area: addr.area, landmark: addr.landmark || '' });
+    setForm({
+      label: addr.label,
+      phone: addr.phone,
+      location: {
+        provinceId: addr.province_id ?? null,
+        provinceName: addr.province,
+        areaId: addr.area_id ?? null,
+        areaName: addr.area,
+      },
+      landmark: addr.landmark || '',
+    });
     setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setEditingId(null); setForm(emptyForm()); };
 
   const handleSaveAddress = async () => {
-    if (!form.phone.trim() || !form.province.trim() || !form.area.trim()) {
+    if (!form.phone.trim() || !form.location.provinceName.trim() || !form.location.areaName.trim()) {
       toast({ title: 'يرجى تعبئة الحقول المطلوبة', variant: 'destructive' });
       return;
     }
@@ -127,17 +149,19 @@ const ProfilePage = () => {
       user_id: user.id,
       label: form.label.trim() || 'عنوان جديد',
       phone: form.phone.trim(),
-      province: form.province.trim(),
-      area: form.area.trim(),
+      province: form.location.provinceName.trim(),
+      area: form.location.areaName.trim(),
+      province_id: form.location.provinceId,
+      area_id: form.location.areaId,
       landmark: form.landmark.trim() || null,
     };
 
     if (editingId) {
-      const { error } = await supabase.from('saved_addresses').update(payload).eq('id', editingId);
+      const { error } = await supabase.from('saved_addresses').update(payload as never).eq('id', editingId);
       if (!error) toast({ title: 'تم تعديل العنوان' });
       else toast({ title: 'خطأ في التعديل', variant: 'destructive' });
     } else {
-      const { error } = await supabase.from('saved_addresses').insert({ ...payload, is_default: addresses.length === 0 });
+      const { error } = await supabase.from('saved_addresses').insert({ ...payload, is_default: addresses.length === 0 } as never);
       if (!error) toast({ title: 'تم إضافة العنوان' });
       else toast({ title: 'خطأ في الإضافة', variant: 'destructive' });
     }
@@ -220,24 +244,35 @@ const ProfilePage = () => {
                       <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
                         <Phone className="w-4 h-4 text-muted-foreground" /> رقم الهاتف <span className="text-destructive">*</span>
                       </Label>
-                      <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07xxxxxxxxx" dir="ltr" className="text-left" maxLength={20} required />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="tel"
+                          value={phone}
+                          readOnly
+                          dir="ltr"
+                          className="text-left bg-muted/50 text-muted-foreground cursor-not-allowed flex-1"
+                          tabIndex={-1}
+                          aria-readonly="true"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setPhoneDialogOpen(true)}
+                          className="h-10 shrink-0 gap-1.5 text-primary"
+                        >
+                          <ShieldCheck className="w-4 h-4" />
+                          تغيير
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        تغيير الرقم يتطلب التحقق برمز يُرسل إلى الرقم الجديد.
+                      </p>
                     </div>
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 text-foreground text-sm font-semibold">
                         <MapPin className="w-4 h-4 text-primary" /> العنوان الافتراضي
                       </div>
-                      <div>
-                        <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
-                          <Building2 className="w-4 h-4 text-muted-foreground" /> المحافظة <span className="text-destructive">*</span>
-                        </Label>
-                        <Input value={province} onChange={e => setProvince(e.target.value)} placeholder="مثال: بغداد" className="text-right" maxLength={100} required />
-                      </div>
-                      <div>
-                        <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
-                          <Navigation className="w-4 h-4 text-muted-foreground" /> المنطقة <span className="text-destructive">*</span>
-                        </Label>
-                        <Input value={area} onChange={e => setArea(e.target.value)} placeholder="مثال: الكرادة" className="text-right" maxLength={150} required />
-                      </div>
+                      <LocationSelect value={location} onChange={setLocation} disabled={saving} className="sm:grid-cols-1" />
                       <div>
                         <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
                           <Landmark className="w-4 h-4 text-muted-foreground" /> أقرب علامة دالة <span className="text-destructive">*</span>
@@ -355,20 +390,13 @@ const ProfilePage = () => {
                         <Input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="07xxxxxxxxx" dir="ltr" maxLength={20} />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
-                            <Building2 className="w-3 h-3" /> المحافظة <span className="text-destructive">*</span>
-                          </Label>
-                          <Input value={form.province} onChange={e => setForm(f => ({ ...f, province: e.target.value }))} placeholder="بغداد" className="text-right" maxLength={100} />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
-                            <Navigation className="w-3 h-3" /> المنطقة <span className="text-destructive">*</span>
-                          </Label>
-                          <Input value={form.area} onChange={e => setForm(f => ({ ...f, area: e.target.value }))} placeholder="الكرادة" className="text-right" maxLength={150} />
-                        </div>
-                      </div>
+                      <LocationSelect
+                        compact
+                        value={form.location}
+                        onChange={loc => setForm(f => ({ ...f, location: loc }))}
+                        disabled={formSaving}
+                        className="sm:grid-cols-1"
+                      />
 
                       <div>
                         <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
@@ -403,6 +431,13 @@ const ProfilePage = () => {
           </AnimatePresence>
         </motion.div>
       </div>
+
+      <ChangePhoneDialog
+        open={phoneDialogOpen}
+        onOpenChange={setPhoneDialogOpen}
+        currentPhone={phone}
+        onChanged={setPhone}
+      />
     </div>
   );
 };
