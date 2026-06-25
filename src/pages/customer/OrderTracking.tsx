@@ -13,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { getDesignSignedUrl } from '@/lib/storage';
 import { playNotificationSound } from '@/lib/notificationSound';
 import { cn } from '@/lib/utils';
+import { isNativeApp } from '@/lib/platform';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -207,13 +208,13 @@ const OrderTracking = () => {
     else { toast({ title: 'تم إلغاء الطلب' }); navigate('/my-orders'); }
   };
 
-  if (loading) return <div className="py-24 text-center"><div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" /></div>;
-  if (!order) return <div className="py-24 text-center"><p className="text-muted-foreground text-sm">لم يتم العثور على الطلب</p></div>;
+  if (loading) return <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}><div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" /></div>;
+  if (!order) return <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}><p className="text-muted-foreground text-sm">لم يتم العثور على الطلب</p></div>;
 
   const hasItems = orderItems.length > 0;
 
   return (
-    <div className="section-spacing-sm">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
       <div className="container max-w-3xl">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           {/* Header */}

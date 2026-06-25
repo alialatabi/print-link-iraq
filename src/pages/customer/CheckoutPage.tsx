@@ -15,6 +15,7 @@ import { incrementCouponUsage, Coupon } from '@/hooks/useDiscounts';
 import { buildAiOrderItemDetails } from '@/lib/aiDesign';
 import { useServices } from '@/hooks/useServices';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
+import { isNativeApp } from '@/lib/platform';
 interface TemplateData {
   id: string;
   name: string;
@@ -245,7 +246,7 @@ const CheckoutPage = () => {
 
   if (loading) {
     return (
-      <div className="py-24 text-center">
+      <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}>
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
       </div>
     );
@@ -259,12 +260,14 @@ const CheckoutPage = () => {
   const curAttachments = attachments[tid] || [];
 
   return (
-    <div className="section-spacing-sm">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
       <div className="container max-w-2xl">
-        <Link to="/cart" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
-          <ArrowRight className="w-4 h-4" />
-          العودة للسلة
-        </Link>
+        {!isNativeApp && (
+          <Link to="/cart" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
+            <ArrowRight className="w-4 h-4" />
+            العودة للسلة
+          </Link>
+        )}
 
         {/* Progress */}
         <div className="mb-8">

@@ -1,5 +1,6 @@
 import { m as motion } from 'framer-motion';
 import { ShieldCheck } from 'lucide-react';
+import { isNativeApp } from '@/lib/platform';
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {
@@ -68,10 +69,10 @@ const SECTIONS: { title: string; body: string[] }[] = [
 
 const PrivacyPolicy = () => {
   return (
-    <div className="py-12 sm:py-20">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'py-12 sm:py-20'}>
       <div className="container max-w-3xl">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="text-center mb-10">
+          <div className={isNativeApp ? 'text-center mb-6' : 'text-center mb-10'}>
             <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-5">
               <ShieldCheck className="w-8 h-8 text-primary" />
             </div>

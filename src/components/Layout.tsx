@@ -9,6 +9,8 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { useServices } from '@/hooks/useServices';
+import { isNativeApp } from '@/lib/platform';
+import NativeShell from '@/components/native/NativeShell';
 
 
 const Layout = ({ children }: { children: ReactNode }) => {
@@ -19,9 +21,12 @@ const Layout = ({ children }: { children: ReactNode }) => {
   const { parentServices } = useServices();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
+    if (isNativeApp) return; // the installed app manages its own theme (incl. dark mode)
     document.documentElement.classList.remove('dark');
     localStorage.setItem('theme', 'light');
   }, []);
+
+  if (isNativeApp) return <NativeShell>{children}</NativeShell>;
 
   const isDesignerOnly = role === 'designer';
   const isResellerOnly = role === 'reseller';

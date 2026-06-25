@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { isNativeApp } from '@/lib/platform';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -20,6 +21,11 @@ const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
         <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
       </div>
     );
+  }
+
+  // Admin & designer areas are web-only; the installed app is customer/reseller-only.
+  if (isNativeApp && (requiredRole === 'admin' || requiredRole === 'designer')) {
+    return <Navigate to="/" replace />;
   }
 
   if (!user) {

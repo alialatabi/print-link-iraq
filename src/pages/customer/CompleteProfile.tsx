@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { MapPin, User, Landmark, Phone, ArrowLeft, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import LocationSelect, { type LocationValue } from '@/components/LocationSelect';
+import { isNativeApp } from '@/lib/platform';
 
 const CompleteProfile = () => {
   const { user } = useAuth();
@@ -94,14 +95,14 @@ const CompleteProfile = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
+      <div className={isNativeApp ? 'flex items-center justify-center py-16' : 'flex items-center justify-center min-h-[50vh]'}>
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
 
   return (
-    <div className="py-12 sm:py-20">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'py-12 sm:py-20'}>
       <div className="container max-w-lg">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="text-center mb-8">

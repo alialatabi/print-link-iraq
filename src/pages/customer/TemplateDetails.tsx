@@ -13,6 +13,7 @@ import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 import { trackView, getPreferredServiceTypes, getRecentlyViewed } from '@/lib/browsingTracker';
 import { useActiveDiscount } from '@/hooks/useDiscounts';
+import { isNativeApp } from '@/lib/platform';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -331,7 +332,7 @@ const TemplateDetails = () => {
   // ── Loading skeleton ──
   if (loading) {
     return (
-      <div className="section-spacing-sm">
+      <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
         <div className="container max-w-5xl">
           <Skeleton className="h-5 w-32 mb-8" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -351,7 +352,7 @@ const TemplateDetails = () => {
 
   if (!template) {
     return (
-      <div className="py-24 text-center">
+      <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}>
         <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
           <Palette className="w-8 h-8 text-muted-foreground" />
         </div>
@@ -365,7 +366,7 @@ const TemplateDetails = () => {
   const aspectRatio = TEMPLATE_ASPECT_RATIOS[template.service_type as ServiceType] || '3/4';
 
   return (
-    <div className="section-spacing-sm">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
       <SEOHead
         title={`${template.name} — ${serviceLabel}`}
         description={serviceDescription || `قالب ${serviceLabel} احترافي جاهز للتخصيص والطباعة - مطبعتي`}
@@ -395,15 +396,17 @@ const TemplateDetails = () => {
       }} />
       <div className="container max-w-5xl">
         {/* Breadcrumb */}
-        <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={0}>
-          <Link
-            to={`/templates/${template.service_type}`}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary mb-10 transition-colors duration-200"
-          >
-            <ArrowRight className="w-4 h-4" />
-            {serviceLabel}
-          </Link>
-        </motion.div>
+        {!isNativeApp && (
+          <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={0}>
+            <Link
+              to={`/templates/${template.service_type}`}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary mb-10 transition-colors duration-200"
+            >
+              <ArrowRight className="w-4 h-4" />
+              {serviceLabel}
+            </Link>
+          </motion.div>
+        )}
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-16 items-start">

@@ -2,13 +2,14 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { CheckCircle, Eye, Home, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { isNativeApp } from '@/lib/platform';
 
 const OrderSuccess = () => {
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get('order');
 
   return (
-    <div className="py-24 sm:py-36">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'py-24 sm:py-36'}>
       <div className="container max-w-md text-center">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}

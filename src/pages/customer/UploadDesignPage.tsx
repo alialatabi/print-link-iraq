@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
+import { isNativeApp } from '@/lib/platform';
 
 type Step = 'service' | 'upload';
 
@@ -221,10 +222,10 @@ const UploadDesignPage = () => {
   ];
 
   return (
-    <div className="section-spacing-sm">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
       <div className="container max-w-2xl">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className={isNativeApp ? 'text-center mb-6' : 'text-center mb-10'}>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/8 text-primary text-xs font-semibold mb-4">
             <Upload className="w-3.5 h-3.5" />
             تصميم جاهز للطباعة

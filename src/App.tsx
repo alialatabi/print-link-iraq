@@ -4,13 +4,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { CartProvider } from "@/contexts/CartContext";
 import Layout from "@/components/Layout";
 import ScrollToTop from "@/components/ScrollToTop";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { isNativeApp } from "@/lib/platform";
 const Index = lazy(() => import("./pages/Index"));
 
 // Lazy-loaded routes for code splitting
@@ -91,7 +92,7 @@ const App = () => (
                 <Route path="/my-coupons" element={<ProtectedRoute><MyCoupons /></ProtectedRoute>} />
 
                 {/* Designer routes */}
-                <Route path="/designer/login" element={<DesignerLogin />} />
+                <Route path="/designer/login" element={isNativeApp ? <Navigate to="/" replace /> : <DesignerLogin />} />
                 <Route path="/designer/orders" element={<ProtectedRoute requiredRole="designer"><DesignerOrders /></ProtectedRoute>} />
                 <Route path="/designer/orders/:orderId" element={<ProtectedRoute requiredRole="designer"><DesignerOrderDetails /></ProtectedRoute>} />
 

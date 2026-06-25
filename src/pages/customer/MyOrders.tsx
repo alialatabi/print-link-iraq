@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { playNotificationSound } from '@/lib/notificationSound';
 import SEOHead from '@/components/SEOHead';
+import { isNativeApp } from '@/lib/platform';
 
 const MyOrders = () => {
   const navigate = useNavigate();
@@ -91,22 +92,22 @@ const MyOrders = () => {
   };
 
   if (loading) return (
-    <div className="py-24 text-center">
+    <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}>
       <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
     </div>
   );
 
   return (
-    <div className="section-spacing-sm">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
       <SEOHead title="طلباتي" description="تتبع جميع طلباتك ومعرفة حالتها - مطبعتي" canonical="/my-orders" noindex />
       <div className="container max-w-4xl">
-        <div className="mb-10">
+        <div className={isNativeApp ? 'mb-6' : 'mb-10'}>
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight">طلباتي</h1>
           <p className="text-muted-foreground text-sm mt-1">{orders.length} طلب</p>
         </div>
 
         {orders.length === 0 ? (
-          <div className="text-center py-28">
+          <div className={isNativeApp ? 'text-center py-16' : 'text-center py-28'}>
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
               <ShoppingBag className="w-8 h-8 text-muted-foreground/40" />
             </div>

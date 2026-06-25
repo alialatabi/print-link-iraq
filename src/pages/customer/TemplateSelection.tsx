@@ -16,6 +16,7 @@ import logoImg from '@/assets/logo.png';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 import { useServices, useSpecializations } from '@/hooks/useServices';
+import { isNativeApp } from '@/lib/platform';
 
 interface DbTemplate {
   id: string;
@@ -72,7 +73,7 @@ const TemplateSelection = () => {
     : '';
 
   return (
-    <div className="section-spacing-sm">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
       <SEOHead
         title={selectedSpec
           ? `قوالب ${selectedSpecLabel} — ${serviceLabel}`
@@ -86,13 +87,15 @@ const TemplateSelection = () => {
         { name: serviceLabel, url: `/templates/${serviceType}` },
       ])} />
       <div className="container max-w-5xl">
-        <Link
-          to={parentId ? `/sub-services/${parentId}` : '/'}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150"
-        >
-          <ArrowRight className="w-4 h-4" />
-          العودة
-        </Link>
+        {!isNativeApp && (
+          <Link
+            to={parentId ? `/sub-services/${parentId}` : '/'}
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150"
+          >
+            <ArrowRight className="w-4 h-4" />
+            العودة
+          </Link>
+        )}
 
         <div className="text-center mb-8">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2 tracking-tight">
@@ -132,7 +135,7 @@ const TemplateSelection = () => {
         )}
 
         {loading ? (
-          <div className="text-center py-24">
+          <div className={`text-center ${isNativeApp ? 'py-16' : 'py-24'}`}>
             <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 animate-pulse">
               <Palette className="w-5 h-5 text-muted-foreground" />
             </div>
@@ -168,7 +171,7 @@ const TemplateSelection = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-24">
+          <div className={`text-center ${isNativeApp ? 'py-16' : 'py-24'}`}>
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
               <Palette className="w-8 h-8 text-muted-foreground" />
             </div>

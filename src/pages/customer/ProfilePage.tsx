@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import LocationSelect, { type LocationValue, emptyLocation } from '@/components/LocationSelect';
 import ChangePhoneDialog from '@/components/ChangePhoneDialog';
+import { isNativeApp } from '@/lib/platform';
 
 type Tab = 'profile' | 'addresses';
 
@@ -188,14 +189,14 @@ const ProfilePage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
+      <div className={isNativeApp ? 'flex items-center justify-center py-16' : 'flex items-center justify-center min-h-[50vh]'}>
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
 
   return (
-    <div className="section-spacing-sm">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
       <div className="container max-w-lg">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           {/* Header */}

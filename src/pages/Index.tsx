@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { localBusinessSchema, websiteSchema, organizationSchema } from '@/components/JsonLd';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
+import { isNativeApp } from '@/lib/platform';
+import NativeHome from '@/components/native/NativeHome';
 
 interface PopularTemplate {
   id: string;
@@ -185,6 +187,8 @@ const Index = () => {
 
   if (role === 'designer') return <Navigate to="/designer/orders" replace />;
   if (role === 'admin') return <Navigate to="/admin" replace />;
+  if (isNativeApp && role === 'reseller') return <Navigate to="/reseller" replace />;
+  if (isNativeApp) return <NativeHome />;
 
   return (
     <div className="bg-white text-[#243262] overflow-hidden">

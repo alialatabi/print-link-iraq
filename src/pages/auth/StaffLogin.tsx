@@ -8,12 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Phone, Lock, ArrowRight, Loader2, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { isNativeApp } from '@/lib/platform';
 
 const StaffLogin = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { phoneLogin } = useAuth();
+  const { phoneLogin, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -41,6 +42,13 @@ const StaffLogin = () => {
           .select('role')
           .eq('user_id', user.id);
         const list = (roles || []).map(r => r.role);
+        // The installed app is customer/reseller-only — admins & designers must use the website.
+        if (isNativeApp && (list.includes('admin') || list.includes('designer')) && !list.includes('reseller')) {
+          await signOut();
+          toast({ title: 'لوحة الإدارة متاحة على الموقع فقط', description: 'سجّل الدخول من المتصفح للوحة الإدارة', variant: 'destructive' });
+          setSubmitting(false);
+          return;
+        }
         if (list.includes('admin')) dest = '/admin';
         else if (list.includes('designer')) dest = '/designer/orders';
         else if (list.includes('reseller')) dest = '/reseller';

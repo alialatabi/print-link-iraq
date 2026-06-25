@@ -17,6 +17,7 @@ import { generateAiDesign, resolveRequest, uploadAiDraftImage, createAiEditOrder
 import { useAiProducts } from '@/hooks/useAiProducts';
 import { saveAiDesignToVault } from '@/lib/designVault';
 import { fileToDownscaledDataUrl } from '@/lib/imageUtils';
+import { isNativeApp } from '@/lib/platform';
 
 const MAX_REF_IMAGES = 3;
 
@@ -210,17 +211,19 @@ const AiDesignPage = () => {
   const busy = generating || submitting || saving || sendingEdit;
 
   return (
-    <div className="py-6 sm:py-10 bg-gradient-to-b from-primary/[0.04] to-transparent min-h-screen">
+    <div className={isNativeApp ? 'pt-4 pb-10 bg-gradient-to-b from-primary/[0.04] to-transparent' : 'py-6 sm:py-10 bg-gradient-to-b from-primary/[0.04] to-transparent min-h-screen'}>
       <SEOHead
         title="تصميم بالذكاء الاصطناعي"
         description="أنشئ تصميمك المطبوع بالذكاء الاصطناعي خلال ثوانٍ، ثم يعتمده مصمّمنا للطباعة."
         canonical="/ai-design"
       />
       <div className="container max-w-2xl">
-        <Link to="/services" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-5 transition-colors">
-          <ArrowRight className="w-4 h-4" />
-          العودة للخدمات
-        </Link>
+        {!isNativeApp && (
+          <Link to="/services" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-5 transition-colors">
+            <ArrowRight className="w-4 h-4" />
+            العودة للخدمات
+          </Link>
+        )}
 
         {/* Hero */}
         <motion.div

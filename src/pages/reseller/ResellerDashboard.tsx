@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import ResellerStageTracker from '@/components/ResellerStageTracker';
 import { isCancelled, resellerStageIndex } from '@/lib/resellerStages';
 import { Plus, Package, RotateCcw, Calendar, FileText, Store, Loader2, XCircle, Upload, Clock } from 'lucide-react';
+import { isNativeApp } from '@/lib/platform';
 
 const REUPLOAD_ALLOWED = ['png', 'jpg', 'jpeg', 'pdf', 'psd'];
 
@@ -135,6 +136,168 @@ const ResellerDashboard = () => {
     { key: 'current', label: 'الطلبات الحالية', count: orders.filter(o => !isPast(o)).length },
     { key: 'past', label: 'الطلبات السابقة', count: orders.filter(isPast).length },
   ];
+
+  // ── Native (installed app) layout: full-bleed, segmented control, touch cards + FAB.
+  // Reuses every handler/state above; the shell provides the top bar and bottom tabs.
+  if (isNativeApp) {
+    return (
+      <div className="px-4 pt-4 pb-28 font-tajawal" dir="rtl">
+        {/* Hidden input for re-uploading a corrected design after rejection */}
+        <input
+          ref={reuploadInputRef}
+          type="file"
+          accept=".png,.jpg,.jpeg,.pdf,.psd"
+          className="hidden"
+          onChange={handleReuploadFile}
+        />
+
+        {/* Title */}
+        <div className="mb-4">
+          <h1 className="text-xl font-extrabold text-foreground flex items-center gap-2">
+            <Store className="w-6 h-6 text-primary" />
+            لوحة المطبعة
+          </h1>
+          <p className="text-muted-foreground text-[13px] mt-0.5">إدارة ومتابعة طلبات الطباعة</p>
+        </div>
+
+        {/* Segmented control (current / past) */}
+        <div className="bg-muted/60 p-1 rounded-2xl flex mb-5">
+          {tabs.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 py-2 rounded-xl text-sm font-bold text-center transition-all flex items-center justify-center gap-1.5 ${
+                tab === t.key ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              {t.label}
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${tab === t.key ? 'bg-primary/10 text-primary' : 'bg-background text-muted-foreground'}`}>
+                {t.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-24"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-20">
+            <Package className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-muted-foreground text-base mb-4">
+              {tab === 'current' ? 'لا توجد طلبات حالية' : 'لا توجد طلبات سابقة'}
+            </p>
+            {tab === 'current' && (
+              <Button onClick={() => navigate('/reseller/new')} className="rounded-xl gap-1.5">
+                <Plus className="w-4 h-4" />
+                ابدأ طلبك الأول
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filtered.map((o, i) => {
+              const d = o.details || {};
+              const attachments: string[] = d.attachment_urls || [];
+              return (
+                <motion.div
+                  key={o.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i * 0.04, 0.3) }}
+                  className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden active:scale-[0.99] transition-transform"
+                >
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-foreground text-sm leading-tight truncate">
+                            {d.service_label || 'طلب طباعة'}
+                          </h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            الكمية: {Number(d.quantity || 0).toLocaleString('en-US')}
+                            {d.cellophane ? ` · سلوفان ${d.cellophane === 'glossy' ? 'لامع' : 'مطفي'}` : ''}
+                            {' · '}<span className="font-mono">#{o.id.slice(0, 8)}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-left flex-shrink-0">
+                        <p className="font-extrabold text-primary text-sm">{formatIQD(d.pricing?.total)}</p>
+                      </div>
+                    </div>
+
+                    {/* 3-stage tracker */}
+                    <ResellerStageTracker status={o.status} />
+
+                    {/* Review status */}
+                    {d.review?.result === 'rejected' && (
+                      <div className="mt-4 bg-destructive/5 border border-destructive/20 rounded-xl p-3">
+                        <p className="text-sm font-bold text-destructive flex items-center gap-1.5">
+                          <XCircle className="w-4 h-4" />
+                          تم رفض التصميم من المصمم
+                        </p>
+                        {d.review.note && (
+                          <p className="text-foreground text-sm mt-2 bg-card rounded-lg p-2.5 border border-border/50 whitespace-pre-wrap">
+                            {d.review.note}
+                          </p>
+                        )}
+                        <Button size="sm" className="mt-3 gap-1.5 rounded-lg" disabled={reuploadingId === o.id} onClick={() => triggerReupload(o)}>
+                          {reuploadingId === o.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                          رفع تصميم معدّل
+                        </Button>
+                      </div>
+                    )}
+                    {!isCancelled(o.status) && resellerStageIndex(o.status) === 0 && d.review?.result !== 'rejected' && (
+                      <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 w-fit">
+                        <Clock className="w-3.5 h-3.5" />
+                        قيد مراجعة المصمم
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-border/60">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {new Date(o.created_at).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {attachments.length > 0 && (
+                          <a
+                            href={attachments[0]}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-primary hover:underline flex items-center gap-1"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            التصميم
+                          </a>
+                        )}
+                        <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg gap-1.5" onClick={() => handleReorder(o)}>
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          إعادة الطلب
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* FAB — primary create-order action */}
+        <button
+          onClick={() => navigate('/reseller/new')}
+          aria-label="طلب جديد"
+          className="fixed bottom-24 left-4 z-30 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="py-8">

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import SEOHead from '@/components/SEOHead';
 import { validateCoupon, Coupon } from '@/hooks/useDiscounts';
 import { toast } from 'sonner';
+import { isNativeApp } from '@/lib/platform';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -45,7 +46,7 @@ const CartPage = () => {
 
   if (items.length === 0) {
     return (
-      <div className="py-32 text-center">
+      <div className={isNativeApp ? 'py-16 text-center' : 'py-32 text-center'}>
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -70,18 +71,20 @@ const CartPage = () => {
   }
 
   return (
-    <div className="py-10 sm:py-16">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'py-10 sm:py-16'}>
       <SEOHead title="سلة المشتريات" description="راجع طلباتك وأكمل عملية الشراء - مطبعتي" canonical="/cart" noindex />
       <div className="container max-w-3xl">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-200">
-          <ArrowRight className="w-4 h-4" />
-          متابعة التسوق
-        </Link>
+        {!isNativeApp && (
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-200">
+            <ArrowRight className="w-4 h-4" />
+            متابعة التسوق
+          </Link>
+        )}
 
         <motion.h1
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-2xl font-extrabold text-foreground mb-10 tracking-tight"
+          className={isNativeApp ? 'text-2xl font-extrabold text-foreground mb-6 tracking-tight' : 'text-2xl font-extrabold text-foreground mb-10 tracking-tight'}
         >
           سلة المشتريات
           <span className="text-muted-foreground font-normal text-base mr-3">({items.length})</span>

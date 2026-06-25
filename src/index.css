@@ -249,3 +249,15 @@
     .animate-ticker, .animate-floaty, .animate-blob { animation: none; }
   }
 }
+
+/* Native (Capacitor) app feel — applied within the NativeShell wrapper. */
+.native-app { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
+.native-app, .native-app * { -webkit-user-select: none; user-select: none; }
+.native-app input, .native-app textarea, .native-app select, .native-app [contenteditable="true"] { -webkit-user-select: text; user-select: text; }
+
+/* Slightly smaller base text in the installed app — all rem sizes scale from the root. */
+html.native { font-size: 15.5px; }
+@media (min-width: 640px) { html.native { font-size: 14.5px; } }
+
+/* The installed app uses a pure-white background in light mode; dark mode uses the .dark tokens. */
+html.native:not(.dark) { --background: 0 0% 100%; }

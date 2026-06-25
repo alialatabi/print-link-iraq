@@ -10,6 +10,7 @@ import { toast } from '@/hooks/use-toast';
 import { MapPin, Phone, Landmark, Plus, CheckCircle2, Star, Trash2, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import LocationSelect, { type LocationValue, emptyLocation } from '@/components/LocationSelect';
+import { isNativeApp } from '@/lib/platform';
 
 interface SavedAddress {
   id: string;
@@ -178,7 +179,7 @@ const DeliveryAddressPage = () => {
   };
 
   if (loading) return (
-    <div className="py-24 text-center">
+    <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}>
       <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
     </div>
   );
@@ -186,7 +187,7 @@ const DeliveryAddressPage = () => {
   const selectedAddr = savedAddresses.find(a => a.id === selectedId);
 
   return (
-    <div className="section-spacing-sm">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
       <div className="container max-w-lg">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           {/* Header */}
@@ -345,13 +346,15 @@ const DeliveryAddressPage = () => {
                 <CheckCircle2 className="w-5 h-5 ml-2" />
                 {submitting ? 'جاري التأكيد...' : 'تأكيد الموافقة وتحديد العنوان'}
               </Button>
-              <Button
-                variant="ghost"
-                className="w-full text-muted-foreground"
-                onClick={() => navigate(-1)}
-              >
-                <ChevronLeft className="w-4 h-4 ml-1" /> رجوع
-              </Button>
+              {!isNativeApp && (
+                <Button
+                  variant="ghost"
+                  className="w-full text-muted-foreground"
+                  onClick={() => navigate(-1)}
+                >
+                  <ChevronLeft className="w-4 h-4 ml-1" /> رجوع
+                </Button>
+              )}
             </motion.div>
           )}
         </motion.div>

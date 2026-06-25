@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
+import { isNativeApp } from '@/lib/platform';
 
 const OrderForm = () => {
   const { templateId } = useParams<{ templateId: string }>();
@@ -146,15 +147,17 @@ const OrderForm = () => {
   };
 
   return (
-    <div className="py-12">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'py-12'}>
       <div className="container max-w-2xl">
-        <Link
-          to={`/templates/${template?.service_type || 'business_card'}`}
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
-        >
-          <ArrowRight className="w-4 h-4" />
-          العودة للقوالب
-        </Link>
+        {!isNativeApp && (
+          <Link
+            to={`/templates/${template?.service_type || 'business_card'}`}
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          >
+            <ArrowRight className="w-4 h-4" />
+            العودة للقوالب
+          </Link>
+        )}
 
         {/* Template Preview */}
         {template && (

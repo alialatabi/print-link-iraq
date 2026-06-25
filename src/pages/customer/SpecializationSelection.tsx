@@ -6,6 +6,7 @@ import { useServices, useSpecializations, buildLabelMap } from '@/hooks/useServi
 import { ArrowRight } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
+import { isNativeApp } from '@/lib/platform';
 
 const SpecializationSelection = () => {
   const { serviceType } = useParams<{ serviceType: string }>();
@@ -47,7 +48,7 @@ const SpecializationSelection = () => {
   const specsWithout = specializations.filter(s => !availableSpecs.has(s.id));
 
   return (
-    <div className="section-spacing-sm">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
       <SEOHead
         title={`اختر التخصص — ${serviceLabel}`}
         description={`حدد مجال عملك لعرض قوالب ${serviceLabel} المناسبة - مطبعتي، طباعة احترافية في العراق`}
@@ -59,12 +60,14 @@ const SpecializationSelection = () => {
         { name: serviceLabel, url: `/specializations/${serviceType}` },
       ])} />
       <div className="container max-w-4xl">
-        <Link to={parentId ? `/sub-services/${parentId}` : '/services'} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
-          <ArrowRight className="w-4 h-4" />
-          العودة
-        </Link>
+        {!isNativeApp && (
+          <Link to={parentId ? `/sub-services/${parentId}` : '/services'} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150">
+            <ArrowRight className="w-4 h-4" />
+            العودة
+          </Link>
+        )}
 
-        <div className="text-center mb-12">
+        <div className={`text-center ${isNativeApp ? 'mb-6' : 'mb-12'}`}>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2 tracking-tight">
             اختر التخصص
           </h1>
@@ -74,7 +77,7 @@ const SpecializationSelection = () => {
         </div>
 
         {isLoading ? (
-          <div className="text-center py-24">
+          <div className={`text-center ${isNativeApp ? 'py-16' : 'py-24'}`}>
             <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 animate-pulse">
               <span className="text-xl">📂</span>
             </div>

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { m as motion } from 'framer-motion';
 import { Ticket, Copy, CheckCircle2, Tag } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { isNativeApp } from '@/lib/platform';
 
 interface CouponRow {
   id: string;
@@ -44,14 +45,14 @@ const MyCoupons = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className={isNativeApp ? 'flex items-center justify-center py-16' : 'flex items-center justify-center py-20'}>
         <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
 
   return (
-    <div className="py-10">
+    <div className={isNativeApp ? 'pt-4 pb-10' : 'py-10'}>
       <div className="container max-w-lg">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           <div className="text-center mb-8">
