@@ -72,7 +72,7 @@ const VaultCard = ({ item, onReorder, onDelete, busy }: {
           size="sm"
           className="w-full bg-success hover:bg-success/90 text-success-foreground rounded-xl mt-auto"
         >
-          {busy ? <Loader2 className="w-4 h-4 ml-1.5 animate-spin" /> : <ShoppingBag className="w-4 h-4 ml-1.5" />}
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingBag className="w-4 h-4" />}
           اطلب هذا التصميم
         </Button>
       </div>
