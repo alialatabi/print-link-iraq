@@ -1,0 +1,5 @@
+# Shell scripts and CI YAML run on the macOS/Linux CI runners — keep LF endings so bash
+# never chokes on CR (`bash: $'\r': command not found`), regardless of contributors' OS.
+*.sh text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

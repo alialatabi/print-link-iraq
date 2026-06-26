@@ -24,6 +24,12 @@ dist-ssr
 *.sw?
 .vercel
 
+# iOS native project — generated on the macOS CI runner (Codemagic) each build, NOT committed.
+# This repo is developed on Windows, which cannot run `cap add ios` / CocoaPods / Xcode. The
+# project is rebuilt reproducibly from capacitor.config.ts + scripts/ios-configure.sh in CI.
+# (android/ IS committed because it can be generated on Windows; ios/ cannot.)
+/ios
+
 # Supabase
 supabase/.temp
 

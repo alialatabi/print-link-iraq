@@ -1,0 +1,114 @@
+# Codemagic CI/CD — iOS builds for the Matbaaty Capacitor app.
+# Full runbook: docs/ios/codemagic-setup.md
+#
+# WHY iOS is generated in CI: this repo is developed on Windows, which cannot create the
+# native iOS project (no Xcode / CocoaPods). So `ios/` is NOT committed — it is regenerated
+# from capacitor.config.ts on the macOS VM every build, and all native tweaks (Arabic display
+# name, permission strings, export-compliance flag) are applied by scripts/ios-configure.sh so
+# each build is reproducible. The web build's Supabase vars come from the committed .env.
+#
+# Two workflows:
+#   ios-unsigned   -> compiles the app with NO Apple account. Run this first to prove the
+#                     Capacitor -> Xcode pipeline is green.
+#   ios-testflight -> signed .ipa published to TestFlight. Needs the Apple Developer account,
+#                     an App Store Connect API key added to Codemagic, and the env vars below.
+
+workflows:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 1) UNSIGNED — validates that the iOS app compiles. No Apple credentials needed.
+  # ─────────────────────────────────────────────────────────────────────────────
+  ios-unsigned:
+    name: iOS – build (unsigned, pipeline check)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install JS dependencies
+        script: npm ci
+      - name: Build web app (Vite → dist/)
+        script: npm run build
+      - name: Add iOS platform (generated here) + sync web assets + pods
+        script: |
+          set -e
+          if [ ! -d "ios" ]; then npx cap add ios; fi
+          npx cap sync ios
+      - name: Apply iOS native config (display name, permission strings)
+        script: bash scripts/ios-configure.sh
+      - name: Generate app icons & splash screens
+        script: npx capacitor-assets generate --ios
+      - name: Build (code signing disabled)
+        script: |
+          set -e
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath ios/App/build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+    artifacts:
+      - ios/App/build/Build/Products/Release-iphoneos/App.app
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 2) TESTFLIGHT — signed .ipa, uploaded to TestFlight.
+  #    Prerequisites (see docs/ios/codemagic-setup.md):
+  #      • Apple Developer Program membership ($99/yr)
+  #      • Bundle ID com.matbaaty.app registered + app created in App Store Connect
+  #      • An App Store Connect API key added to Codemagic, named exactly: matbaaty_asc
+  #      • APP_STORE_APPLE_ID set below to the app's numeric Apple ID
+  # ─────────────────────────────────────────────────────────────────────────────
+  ios-testflight:
+    name: iOS – TestFlight (signed)
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    integrations:
+      app_store_connect: matbaaty_asc        # <- name of the ASC API key you add in Codemagic
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.matbaaty.app
+      vars:
+        APP_STORE_APPLE_ID: 0000000000        # <- replace with the numeric App Store Connect app id
+    scripts:
+      - name: Install JS dependencies
+        script: npm ci
+      - name: Build web app (Vite → dist/)
+        script: npm run build
+      - name: Add iOS platform (generated here) + sync web assets + pods
+        script: |
+          set -e
+          if [ ! -d "ios" ]; then npx cap add ios; fi
+          npx cap sync ios
+      - name: Apply iOS native config (display name, permission strings)
+        script: bash scripts/ios-configure.sh
+      - name: Generate app icons & splash screens
+        script: npx capacitor-assets generate --ios
+      - name: Set up code signing (fetch managed provisioning profiles)
+        script: xcode-project use-profiles
+      - name: Set build number from latest TestFlight build
+        script: |
+          set -e
+          cd ios/App
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          agvtool new-version -all $((LATEST + 1))
+      - name: Build signed .ipa
+        script: |
+          set -e
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

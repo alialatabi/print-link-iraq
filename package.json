@@ -14,7 +14,9 @@
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
     "test:watch": "vitest",
     "cap:sync": "npm run build && npx cap sync",
-    "cap:android": "npm run build && npx cap sync android && npx cap open android"
+    "cap:android": "npm run build && npx cap sync android && npx cap open android",
+    "cap:sync:ios": "npm run build && npx cap sync ios",
+    "cap:ios": "npm run build && npx cap sync ios && npx cap open ios"
   },
   "dependencies": {
     "@aparajita/capacitor-biometric-auth": "^10.0.0",
