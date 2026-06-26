@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { TrendingUp, Phone, ArrowRight, Loader2, Shield, RotateCcw, Timer, KeyRound, Fingerprint } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -43,6 +44,7 @@ const AuthPage = () => {
   const [countdown, setCountdown] = useState(0);
   const [bioForPhone, setBioForPhone] = useState(false); // entered phone is biometric-enrolled here
   const [showCodeEntry, setShowCodeEntry] = useState(false); // fall back to typing the PIN
+  const [consent, setConsent] = useState(false); // explicit privacy/data consent (new accounts only)
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -138,6 +140,7 @@ const AuthPage = () => {
   const submitSetPin = async () => {
     if (pin.length < 6) { toast({ title: 'أدخل رمزاً من 6 أرقام', variant: 'destructive' }); return; }
     if (pin !== confirmPin) { toast({ title: 'الرمزان غير متطابقين', variant: 'destructive' }); setConfirmPin(''); return; }
+    if (mode === 'setup' && !consent) { toast({ title: 'يجب الموافقة على سياسة الخصوصية للمتابعة', variant: 'destructive' }); return; }
     setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke('set-pin', { body: { code: pin } });
@@ -166,12 +169,17 @@ const AuthPage = () => {
     const { error } = await phoneLogin(cred.phone, cred.pin);
     setSubmitting(false);
     if (error) {
-      // The stored login no longer works (e.g. the account was deleted) → drop the
-      // biometric credentials and fall back to the PIN.
-      await disableBiometric();
-      setBioForPhone(false);
-      setShowCodeEntry(true);
-      toast({ title: 'تعذّر تسجيل الدخول بالبصمة', description: 'سجّل الدخول بالرمز', variant: 'destructive' });
+      // Show the REAL reason. Only drop the stored credential when the account/PIN is
+      // genuinely invalid (deleted/changed) — NOT on a transient lockout or network error,
+      // which must never silently un-enroll the user's fingerprint.
+      const msg = error.message || '';
+      const invalid = msg.includes('الرمز غير صحيح') || msg.includes('غير صالح');
+      if (invalid) {
+        await disableBiometric();
+        setBioForPhone(false);
+        setShowCodeEntry(true);
+      }
+      toast({ title: 'تعذّر تسجيل الدخول بالبصمة', description: msg || 'سجّل الدخول بالرمز', variant: 'destructive' });
       return;
     }
     toast({ title: 'تم تسجيل الدخول بنجاح!' });
@@ -344,7 +352,17 @@ const AuthPage = () => {
                   <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 leading-relaxed">
                     🔒 ستستخدم هذا الرمز لتسجيل الدخول لاحقاً. تجنّب الأرقام السهلة مثل 123456.
                   </p>
-                  <Button onClick={submitSetPin} disabled={pin.length < 6 || confirmPin.length < 6 || submitting} size="lg" className="h-12 w-full text-base font-bold">
+                  {mode === 'setup' && (
+                    <div className="flex items-start gap-2.5">
+                      <Checkbox id="consent" checked={consent} onCheckedChange={v => setConsent(v === true)} className="mt-0.5 shrink-0" />
+                      <Label htmlFor="consent" className="text-xs text-muted-foreground leading-relaxed font-normal cursor-pointer">
+                        أوافق على{' '}
+                        <Link to="/privacy" target="_blank" onClick={e => e.stopPropagation()} className="text-primary font-medium hover:underline">سياسة الخصوصية</Link>
+                        ، وعلى احتفاظ "مطبعتي" بعنواني ورقم هاتفي وتاريخ طلباتي، وحفظ تصاميمي والمعلومات الواردة فيها ونشرها واستخدامها، واستخدام صوري ومعلوماتي وتصاميمي لتدريب نماذج الذكاء الاصطناعي مستقبلاً.
+                      </Label>
+                    </div>
+                  )}
+                  <Button onClick={submitSetPin} disabled={pin.length < 6 || confirmPin.length < 6 || submitting || (mode === 'setup' && !consent)} size="lg" className="h-12 w-full text-base font-bold">
                     {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'حفظ ومتابعة'}
                   </Button>
                 </div>
