@@ -39,18 +39,28 @@ workflows:
         script: bash scripts/ios-configure.sh
       - name: Generate app icons & splash screens
         script: npx capacitor-assets generate --ios
-      - name: CocoaPods install (creates App.xcworkspace)
+      - name: Show iOS project layout + install pods only if CocoaPods-based
         script: |
           set -e
-          cd ios/App
-          pod install
-          echo "----- ios/App layout -----"
-          ls -la
+          echo "===== ios/ tree (depth 3, Pods excluded) ====="
+          find ios -maxdepth 3 -not -path '*/Pods/*' | sort
+          if [ -f ios/App/Podfile ]; then
+            echo "Podfile found → CocoaPods project; running pod install"
+            cd ios/App && pod install
+          else
+            echo "No Podfile → Swift Package Manager project; no pods needed"
+          fi
       - name: Build (code signing disabled)
         script: |
           set -e
+          if [ -f ios/App/App.xcworkspace/contents.xcworkspacedata ]; then
+            CONTAINER=(-workspace ios/App/App.xcworkspace)
+          else
+            CONTAINER=(-project ios/App/App.xcodeproj)
+          fi
+          echo "Building with: ${CONTAINER[*]}"
           xcodebuild \
-            -workspace ios/App/App.xcworkspace \
+            "${CONTAINER[@]}" \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
@@ -98,11 +108,15 @@ workflows:
         script: bash scripts/ios-configure.sh
       - name: Generate app icons & splash screens
         script: npx capacitor-assets generate --ios
-      - name: CocoaPods install (creates App.xcworkspace)
+      - name: Install pods only if CocoaPods-based
         script: |
           set -e
-          cd ios/App
-          pod install
+          if [ -f ios/App/Podfile ]; then
+            echo "Podfile found → running pod install"
+            cd ios/App && pod install
+          else
+            echo "No Podfile → Swift Package Manager project; no pods needed"
+          fi
       - name: Set up code signing (fetch managed provisioning profiles)
         script: xcode-project use-profiles
       - name: Set build number from latest TestFlight build
@@ -114,9 +128,11 @@ workflows:
       - name: Build signed .ipa
         script: |
           set -e
-          xcode-project build-ipa \
-            --workspace ios/App/App.xcworkspace \
-            --scheme App
+          if [ -f ios/App/App.xcworkspace/contents.xcworkspacedata ]; then
+            xcode-project build-ipa --workspace ios/App/App.xcworkspace --scheme App
+          else
+            xcode-project build-ipa --project ios/App/App.xcodeproj --scheme App
+          fi
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
