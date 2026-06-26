@@ -22,7 +22,7 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
-      node: 20
+      node: 22
       xcode: latest
       cocoapods: default
     scripts:
@@ -69,7 +69,7 @@ workflows:
     integrations:
       app_store_connect: matbaaty_asc        # <- name of the ASC API key you add in Codemagic
     environment:
-      node: 20
+      node: 22
       xcode: latest
       cocoapods: default
       ios_signing:
