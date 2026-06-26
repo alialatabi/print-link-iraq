@@ -39,6 +39,7 @@ const CompleteProfile = lazy(() => import("./pages/customer/CompleteProfile"));
 const UploadDesignPage = lazy(() => import("./pages/customer/UploadDesignPage"));
 const AiDesignPage = lazy(() => import("./pages/customer/AiDesignPage"));
 const DesignVaultPage = lazy(() => import("./pages/customer/DesignVaultPage"));
+const ReorderDesignPage = lazy(() => import("./pages/customer/ReorderDesignPage"));
 const DeliveryAddressPage = lazy(() => import("./pages/customer/DeliveryAddressPage"));
 const MyCoupons = lazy(() => import("./pages/customer/MyCoupons"));
 const ResellerDashboard = lazy(() => import("./pages/reseller/ResellerDashboard"));
@@ -88,6 +89,7 @@ const App = () => (
                 <Route path="/delivery-address/:orderId" element={<ProtectedRoute><DeliveryAddressPage /></ProtectedRoute>} />
                 <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
                 <Route path="/design-vault" element={<ProtectedRoute><DesignVaultPage /></ProtectedRoute>} />
+                <Route path="/reorder-design" element={<ProtectedRoute><ReorderDesignPage /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                 <Route path="/my-coupons" element={<ProtectedRoute><MyCoupons /></ProtectedRoute>} />
 

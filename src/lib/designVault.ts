@@ -210,7 +210,11 @@ export async function resolveVaultDisplayUrl(item: VaultItem): Promise<string | 
   return null;
 }
 
-/** Persist a generated AI design to the customer's vault (without placing an order). */
+/**
+ * Persist a generated AI design to the customer's vault (without placing an order).
+ * Returns the new `vault_designs` row id so callers can replace it later (e.g. the
+ * AI page auto-saves each generation and drops the prior draft on re-generate).
+ */
 export async function saveAiDesignToVault(args: {
   userId: string;
   imageDataUrl: string;
@@ -218,7 +222,7 @@ export async function saveAiDesignToVault(args: {
   label: string;
   brief: string;
   aiPrompt: string;
-}): Promise<void> {
+}): Promise<string> {
   const blob = await (await fetch(args.imageDataUrl)).blob();
   const path = `vault/${args.userId}/${Date.now()}.png`;
   const { error: upErr } = await supabase.storage
@@ -227,7 +231,7 @@ export async function saveAiDesignToVault(args: {
   if (upErr) throw upErr;
   const { data: { publicUrl } } = supabase.storage.from('order-attachments').getPublicUrl(path);
 
-  const { error } = await supabase.from('vault_designs' as never).insert({
+  const { data, error } = await supabase.from('vault_designs' as never).insert({
     user_id: args.userId,
     source: 'ai',
     image_url: publicUrl,
@@ -235,8 +239,9 @@ export async function saveAiDesignToVault(args: {
     label: args.label,
     brief: args.brief,
     ai_prompt: args.aiPrompt,
-  } as never);
+  } as never).select('id').single();
   if (error) throw error;
+  return (data as { id: string }).id;
 }
 
 /** Delete a saved (vault_designs-backed) design. */
@@ -245,28 +250,59 @@ export async function deleteVaultDesign(vaultRowId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Delivery address chosen for a re-order (mirrors the post-approval delivery fields). */
+export interface ReorderAddress {
+  phone: string;
+  province: string;
+  area: string;
+  landmark: string | null;
+  label: string;
+}
+
+export interface ReorderOptions {
+  /** Print service to charge against (defaults to the design's own service). */
+  serviceType?: string | null;
+  /** Quantity to print (defaults to the service min_quantity). */
+  quantity?: number;
+  /** Delivery address; when given its fields are written as the order's `delivery_*`. */
+  address?: ReorderAddress | null;
+}
+
 /**
  * Re-order a vault design: create a normal finished-design order (`order_type='ready_design'`)
  * so it flows to staff for printing — mirrors the upload-design path. For private designer
  * designs the file is copied into the public order-attachments bucket first. Returns the order id.
+ *
+ * `opts` lets the caller specify the print service, quantity, and delivery address (the vault
+ * re-order page collects these); omitted values fall back to the design's service at min_quantity.
  */
-export async function reorderVaultItem(userId: string, item: VaultItem): Promise<string> {
-  // Best-effort immutable pricing snapshot. A reorder has no quantity input, so we order the
-  // service's min_quantity at the current catalog price; if the service is unknown the snapshot
-  // resolves to zeros (still a valid, hasSnapshot:true row for accounting).
+export async function reorderVaultItem(userId: string, item: VaultItem, opts: ReorderOptions = {}): Promise<string> {
+  // Immutable pricing snapshot from the chosen service + quantity; if the service is unknown the
+  // snapshot resolves to zeros (still a valid, hasSnapshot:true row for accounting).
   const { data: svcRows } = await supabase.from('services').select('*');
   const catalog = buildCatalog((svcRows as DbService[] | null) || []);
-  const serviceType = item.serviceType || '';
-  const quantity = catalog[serviceType]?.min_quantity || 1000;
+  const serviceType = opts.serviceType ?? item.serviceType ?? '';
+  const quantity = opts.quantity ?? catalog[serviceType]?.min_quantity ?? 1000;
   const pricing = buildPricingSnapshot(catalog, serviceType, quantity);
+
+  // Delivery fields use the same keys the post-approval delivery step writes, so staff/admin
+  // and the tracking page render them identically.
+  const deliveryDetails = opts.address ? {
+    delivery_phone: opts.address.phone,
+    delivery_province: opts.address.province,
+    delivery_area: opts.address.area,
+    delivery_landmark: opts.address.landmark,
+    delivery_label: opts.address.label,
+  } : {};
 
   const baseDetails = {
     order_type: 'ready_design',
-    service_type: item.serviceType,
+    service_type: serviceType,
     reorder: true,
     reorder_source: item.source,
     quantity,
     pricing,
+    ...deliveryDetails,
   };
 
   // 1. Create the parent order.

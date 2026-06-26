@@ -14,6 +14,8 @@ import { getDesignSignedUrl } from '@/lib/storage';
 import { playNotificationSound } from '@/lib/notificationSound';
 import { cn } from '@/lib/utils';
 import { isNativeApp } from '@/lib/platform';
+import ImageLightbox from '@/components/ImageLightbox';
+import { isImageUrl } from '@/lib/designVault';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -38,7 +40,7 @@ interface OrderItem {
   templates?: { name: string; service_type: string } | null;
 }
 
-const RevisionImages = ({ paths }: { paths: string[] }) => {
+const RevisionImages = ({ paths, onView }: { paths: string[]; onView: (url: string) => void }) => {
   const [urls, setUrls] = useState<string[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -56,7 +58,7 @@ const RevisionImages = ({ paths }: { paths: string[] }) => {
   return (
     <div className="flex gap-2 flex-wrap mt-2">
       {urls.map((url, i) => (
-        <img key={i} src={url} alt={`مرفق ${i + 1}`} className="w-16 h-16 rounded-lg object-cover border border-border/60 cursor-pointer" onClick={() => window.open(url, '_blank')} />
+        <img key={i} src={url} alt={`مرفق ${i + 1}`} draggable={false} onContextMenu={(e) => e.preventDefault()} className="w-16 h-16 rounded-lg object-cover border border-border/60 cursor-pointer select-none" onClick={() => onView(url)} />
       ))}
     </div>
   );
@@ -71,6 +73,20 @@ const ITEM_STEPS = [
   { status: 'delivered', label: 'تم التسليم', icon: Truck },
 ];
 
+// Order-level steps for finished-design orders (uploads / vault re-orders) that have no
+// designer-review loop — the design is already final, so it goes straight to print.
+const ORDER_STEPS = [
+  { status: 'submitted', label: 'تم الإرسال', icon: FileText },
+  { status: 'approved', label: 'قيد التنفيذ', icon: Palette },
+  { status: 'print_ready', label: 'جاهز للطباعة', icon: Printer },
+  { status: 'printed', label: 'تمت الطباعة', icon: Package },
+  { status: 'delivered', label: 'تم التسليم', icon: Truck },
+];
+const ORDER_STEP_RANK: Record<string, number> = {
+  submitted: 0, assigned: 1, design_uploaded: 1, waiting_approval: 1,
+  approved: 1, print_ready: 2, printed: 3, delivered: 4,
+};
+
 const OrderTracking = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -84,6 +100,8 @@ const OrderTracking = () => {
   const [submittingItem, setSubmittingItem] = useState<string | null>(null);
   const [showRevisionItem, setShowRevisionItem] = useState<string | null>(null);
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+  const [orderDesignUrl, setOrderDesignUrl] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [revisionImages, setRevisionImages] = useState<Record<string, File[]>>({});
   const [revisionImagePreviews, setRevisionImagePreviews] = useState<Record<string, string[]>>({});
   const revisionImgRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -114,6 +132,12 @@ const OrderTracking = () => {
         const url = await getDesignSignedUrl(latest.file_url);
         if (url) setPreviewUrls(prev => ({ ...prev, [itemId!]: url, [`${itemId}_selected`]: latest.id, [`${itemId}_inline`]: url }));
       }
+    }
+    // Item-less orders (uploads / single-template orders): resolve the latest order-level design.
+    const orderLevel = d.find(x => !x.order_item_id && x.file_url);
+    if (orderLevel?.file_url) {
+      const url = await getDesignSignedUrl(orderLevel.file_url);
+      if (url) setOrderDesignUrl(url);
     }
   }, [orderId]);
 
@@ -212,6 +236,18 @@ const OrderTracking = () => {
   if (!order) return <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}><p className="text-muted-foreground text-sm">لم يتم العثور على الطلب</p></div>;
 
   const hasItems = orderItems.length > 0;
+
+  // Item-less orders (finished-design uploads, vault re-orders, single-template orders) carry
+  // their design + details on the order row itself. Aggregate everything we can show read-only.
+  const od = (order.details || {}) as Record<string, any>;
+  const orderAttachments: string[] = Array.isArray(od.attachment_urls) ? od.attachment_urls.filter(Boolean) : [];
+  const orderDesignUrls = [orderDesignUrl, ...orderAttachments].filter(Boolean) as string[];
+  const orderServiceLabel = SERVICE_LABELS[od.service_type as ServiceType] || order.templates?.name || '';
+  const orderQuantity = od.quantity as number | undefined;
+  const orderTotal = od.pricing?.line_total as number | undefined;
+  const orderHasDelivery = Boolean(od.delivery_province || od.delivery_phone);
+  const orderCancelled = order.status === 'cancelled';
+  const orderStepRank = ORDER_STEP_RANK[order.status as string] ?? 0;
 
   return (
     <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
@@ -364,7 +400,14 @@ const OrderTracking = () => {
                                       {/* Inline image preview */}
                                       {isSelected && previewUrls[`${item.id}_inline`] && (
                                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-2 rounded-xl overflow-hidden border border-border/50 bg-muted/20">
-                                          <img src={previewUrls[`${item.id}_inline`]} alt={`الإصدار ${design.version}`} className="w-full object-contain" />
+                                          <img
+                                            src={previewUrls[`${item.id}_inline`]}
+                                            alt={`الإصدار ${design.version}`}
+                                            draggable={false}
+                                            onContextMenu={(e) => e.preventDefault()}
+                                            onClick={() => setLightboxUrl(previewUrls[`${item.id}_inline`])}
+                                            className="w-full object-contain cursor-zoom-in select-none"
+                                          />
                                         </motion.div>
                                       )}
                                     </div>
@@ -447,7 +490,7 @@ const OrderTracking = () => {
                                     <div key={i} className="bg-muted/40 rounded-xl p-3 border border-border/50">
                                       <p className="text-[11px] text-muted-foreground mb-1">الإصدار {rev.version} — {new Date(rev.date).toLocaleDateString('ar')}</p>
                                       <p className="text-foreground text-sm">{rev.note}</p>
-                                      {rev.images?.length > 0 && <RevisionImages paths={rev.images} />}
+                                      {rev.images?.length > 0 && <RevisionImages paths={rev.images} onView={setLightboxUrl} />}
                                     </div>
                                   ))}
                                 </div>
@@ -470,12 +513,119 @@ const OrderTracking = () => {
               })}
             </div>
           ) : (
-            <div className="bg-card rounded-2xl p-6 border border-border/60 text-center">
-              <p className="text-muted-foreground">لا توجد عناصر في هذا الطلب</p>
+            <div className="space-y-4">
+              {/* Design preview */}
+              <div className="bg-card rounded-2xl border border-border/60 shadow-card p-5">
+                <h4 className="font-bold text-foreground text-sm mb-4">التصميم</h4>
+                {orderDesignUrls.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {orderDesignUrls.map((url, i) => (
+                      isImageUrl(url) ? (
+                        <img
+                          key={i}
+                          src={url}
+                          alt={`تصميم ${i + 1}`}
+                          draggable={false}
+                          onContextMenu={(e) => e.preventDefault()}
+                          onClick={() => setLightboxUrl(url)}
+                          className="w-full aspect-square object-contain rounded-xl border border-border/50 bg-muted/20 cursor-zoom-in select-none"
+                        />
+                      ) : (
+                        <div key={i} className="aspect-square rounded-xl border border-border/50 bg-muted/20 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                          <FileText className="w-10 h-10" />
+                          <span className="text-xs">ملف التصميم</span>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <RefreshCw className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-muted-foreground text-sm">يتم تجهيز طلبك...</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Summary */}
+              {(orderServiceLabel || orderQuantity || orderTotal) && (
+                <div className="bg-card rounded-2xl border border-border/60 shadow-card p-5 space-y-2 text-sm">
+                  {orderServiceLabel && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">نوع الطباعة</span>
+                      <span className="font-semibold text-foreground">{orderServiceLabel}</span>
+                    </div>
+                  )}
+                  {orderQuantity != null && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">الكمية</span>
+                      <span className="font-semibold text-foreground">{orderQuantity.toLocaleString('en-US')}</span>
+                    </div>
+                  )}
+                  {orderTotal != null && orderTotal > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">الإجمالي</span>
+                      <span className="font-bold text-success">{orderTotal.toLocaleString('en-US')} د.ع</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Status timeline */}
+              {orderCancelled ? (
+                <div className="bg-destructive/8 rounded-2xl p-5 border border-destructive/20 text-center">
+                  <XCircle className="w-6 h-6 text-destructive mx-auto mb-2" />
+                  <p className="font-medium text-foreground text-sm">تم إلغاء هذا الطلب</p>
+                </div>
+              ) : (
+                <div className="bg-card rounded-2xl border border-border/60 shadow-card p-5">
+                  <h4 className="font-bold text-foreground text-sm mb-4">مراحل الطلب</h4>
+                  <div className="space-y-2">
+                    {ORDER_STEPS.map((step, i) => {
+                      const isComplete = i <= orderStepRank;
+                      const isCurrent = i === orderStepRank;
+                      return (
+                        <div key={step.status} className="flex items-center gap-3">
+                          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all',
+                            isComplete ? 'bg-success text-success-foreground' : 'bg-muted text-muted-foreground',
+                            isCurrent && 'ring-2 ring-success/30 ring-offset-1 ring-offset-background'
+                          )}>
+                            <step.icon className="w-3.5 h-3.5" />
+                          </div>
+                          <p className={cn('font-medium text-sm flex-1', isComplete ? 'text-foreground' : 'text-muted-foreground')}>{step.label}</p>
+                          {isComplete && <CheckCircle className="w-3.5 h-3.5 text-success flex-shrink-0" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Delivery address */}
+              {orderHasDelivery && (
+                <div className="bg-card rounded-2xl border border-border/60 shadow-card p-5">
+                  <h4 className="font-bold text-foreground text-sm mb-3 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-primary" /> عنوان التوصيل
+                  </h4>
+                  <div className="space-y-1 text-sm">
+                    {(od.delivery_province || od.delivery_area) && (
+                      <p className="text-foreground/80">
+                        {od.delivery_province}{od.delivery_area ? ` — ${od.delivery_area}` : ''}{od.delivery_landmark ? ` — ${od.delivery_landmark}` : ''}
+                      </p>
+                    )}
+                    {od.delivery_phone && <p className="text-muted-foreground" dir="ltr">{od.delivery_phone}</p>}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </motion.div>
       </div>
+
+      <ImageLightbox
+        src={lightboxUrl}
+        open={!!lightboxUrl}
+        onOpenChange={(o) => { if (!o) setLightboxUrl(null); }}
+      />
     </div>
   );
 };

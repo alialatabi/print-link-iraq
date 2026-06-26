@@ -31,6 +31,7 @@ const TITLES: Record<string, string> = {
   '/services': 'الخدمات',
   '/my-orders': 'طلباتي',
   '/design-vault': 'الخزنة',
+  '/reorder-design': 'طلب تصميم',
   '/profile': 'حسابي',
   '/cart': 'السلة',
   '/reseller': 'الطلبات',

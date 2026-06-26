@@ -10,12 +10,13 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ArrowRight, Sparkles, Loader2, RefreshCw, ShoppingCart, Wand2, Ruler, Archive, Pencil, Send, ImagePlus, X } from 'lucide-react';
+import { ArrowRight, Sparkles, Loader2, RefreshCw, ShoppingCart, Wand2, Ruler, Archive, Pencil, Send, ImagePlus, X, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
+import ImageLightbox from '@/components/ImageLightbox';
 import { generateAiDesign, resolveRequest, uploadAiDraftImage, createAiEditOrder, AI_DESIGN_FEE, GenerateResult } from '@/lib/aiDesign';
 import { useAiProducts } from '@/hooks/useAiProducts';
-import { saveAiDesignToVault } from '@/lib/designVault';
+import { saveAiDesignToVault, deleteVaultDesign } from '@/lib/designVault';
 import { fileToDownscaledDataUrl } from '@/lib/imageUtils';
 import { isNativeApp } from '@/lib/platform';
 
@@ -35,12 +36,16 @@ const AiDesignPage = () => {
   const [refImages, setRefImages] = useState<{ id: string; dataUrl: string }[]>([]);
   const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editText, setEditText] = useState('');
   const [sendingEdit, setSendingEdit] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  // Each generated design is auto-saved to the customer's vault. We track the row so a
+  // re-generate replaces the prior draft instead of piling up throw-away versions.
+  const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'guest'>('idle');
+  const [autoSavedRowId, setAutoSavedRowId] = useState<string | null>(null);
 
   const selected = products.find(p => p.id === productType) || products[0];
 
@@ -98,6 +103,8 @@ const AiDesignPage = () => {
       const res = await generateAiDesign({ brief, ...req, referenceImages: refImages.map(r => r.dataUrl) });
       setResult(res);
       setRemaining(res.remaining);
+      // Automatically keep the design in the customer's vault (best-effort, non-blocking).
+      autoSaveToVault(res, req);
     } catch (e) {
       toast({
         title: 'فشل توليد التصميم',
@@ -109,29 +116,28 @@ const AiDesignPage = () => {
     }
   };
 
-  const handleSaveToVault = async () => {
-    if (!result) return;
-    if (!user) { navigate('/auth'); return; }
-    setSaving(true);
+  // Auto-save the generated design to the vault. Runs in the background so it never
+  // blocks the preview; a re-generate drops the previous auto-saved draft so the vault
+  // keeps the design currently on screen rather than every throw-away attempt. Guests
+  // can't be saved (RLS needs a user) — the cart/save flow still routes them to sign in.
+  const autoSaveToVault = async (res: GenerateResult, req: ReturnType<typeof resolveRequest>) => {
+    if (!user) { setAutoSaveState('guest'); return; }
+    const prevRowId = autoSavedRowId;
+    setAutoSaveState('saving');
     try {
-      const req = resolveRequest(selected, optionId, customSize);
-      await saveAiDesignToVault({
+      const rowId = await saveAiDesignToVault({
         userId: user.id,
-        imageDataUrl: result.imageDataUrl,
+        imageDataUrl: res.imageDataUrl,
         serviceType: req.productType,
         label: req.productLabel,
         brief,
-        aiPrompt: result.rewrittenPrompt,
+        aiPrompt: res.rewrittenPrompt,
       });
-      toast({ title: 'تم الحفظ في الخزنة ✓', description: 'يمكنك طلبه لاحقاً من خزنة التصاميم' });
-    } catch (e) {
-      toast({
-        title: 'تعذّر الحفظ في الخزنة',
-        description: e instanceof Error ? e.message : 'حاول مرة أخرى',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
+      setAutoSavedRowId(rowId);
+      setAutoSaveState('saved');
+      if (prevRowId) deleteVaultDesign(prevRowId).catch(() => { /* best-effort cleanup */ });
+    } catch {
+      setAutoSaveState('idle');
     }
   };
 
@@ -208,7 +214,7 @@ const AiDesignPage = () => {
     }
   };
 
-  const busy = generating || submitting || saving || sendingEdit;
+  const busy = generating || submitting || sendingEdit;
 
   return (
     <div className={isNativeApp ? 'pt-4 pb-10 bg-gradient-to-b from-primary/[0.04] to-transparent' : 'py-6 sm:py-10 bg-gradient-to-b from-primary/[0.04] to-transparent min-h-screen'}>
@@ -431,23 +437,44 @@ const AiDesignPage = () => {
                   تصميمك جاهز
                 </div>
                 <div className="rounded-2xl overflow-hidden border border-border/60 shadow-card bg-muted/20">
-                  <img src={result.imageDataUrl} alt="التصميم المولد" className="w-full object-contain" />
+                  <img
+                    src={result.imageDataUrl}
+                    alt="التصميم المولد"
+                    draggable={false}
+                    onContextMenu={(e) => e.preventDefault()}
+                    onClick={() => setLightboxOpen(true)}
+                    className="w-full object-contain cursor-zoom-in select-none"
+                  />
                 </div>
+
+                {/* Auto-save to vault status */}
+                {autoSaveState === 'saved' && (
+                  <Link to="/design-vault" className="flex items-center justify-center gap-1.5 text-xs font-semibold text-success bg-success/10 border border-success/20 rounded-xl py-2 px-3">
+                    <Check className="w-3.5 h-3.5" />
+                    تم الحفظ تلقائياً في خزنة التصاميم
+                  </Link>
+                )}
+                {autoSaveState === 'saving' && (
+                  <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted/40 border border-border/50 rounded-xl py-2 px-3">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    جاري الحفظ في خزنتك...
+                  </div>
+                )}
+                {autoSaveState === 'guest' && (
+                  <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted/40 border border-border/50 rounded-xl py-2 px-3">
+                    <Archive className="w-3.5 h-3.5" />
+                    سجّل الدخول لحفظ التصميم في خزنتك
+                  </div>
+                )}
 
                 <p className="text-xs text-muted-foreground bg-muted/30 border border-border/50 rounded-xl p-3 leading-relaxed">
                   ℹ️ هذا تصميم أولي. قد تحتاج النصوص العربية إلى تدقيق — سيقوم مصمّمنا بمراجعته وتجهيزه للطباعة بدقة بعد اعتمادك. سعر هذا التصميم ({priceOf(selected).toLocaleString('en-US')} د.ع).
                 </p>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Button onClick={handleGenerate} disabled={busy} variant="outline" className="rounded-xl py-5">
-                    <RefreshCw className="w-4 h-4 ml-2" />
-                    إعادة توليد
-                  </Button>
-                  <Button onClick={handleSaveToVault} disabled={busy} variant="outline" className="rounded-xl py-5">
-                    {saving ? <Loader2 className="w-4 h-4 ml-2 animate-spin" /> : <Archive className="w-4 h-4 ml-2" />}
-                    حفظ في الخزنة
-                  </Button>
-                </div>
+                <Button onClick={handleGenerate} disabled={busy} variant="outline" className="w-full rounded-xl py-5">
+                  <RefreshCw className="w-4 h-4 ml-2" />
+                  إعادة توليد
+                </Button>
 
                 <Button
                   onClick={handleAccept}
@@ -506,6 +533,13 @@ const AiDesignPage = () => {
         </div>
         )}
       </div>
+
+      <ImageLightbox
+        src={result?.imageDataUrl}
+        alt="التصميم المولد"
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+      />
     </div>
   );
 };

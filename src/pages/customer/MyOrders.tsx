@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,31 +6,62 @@ import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { STATUS_LABELS, SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
 import { useServices } from '@/hooks/useServices';
-import { FileText, ShoppingBag, RefreshCw, Package } from 'lucide-react';
+import { ShoppingBag, Package, ChevronLeft, ImageIcon, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { playNotificationSound } from '@/lib/notificationSound';
 import SEOHead from '@/components/SEOHead';
 import { isNativeApp } from '@/lib/platform';
+import { isImageUrl } from '@/lib/designVault';
+import { getDesignSignedUrl } from '@/lib/storage';
+import { getOptimizedImageUrl } from '@/lib/imageUtils';
+import { buildCatalog, computeLine } from '@/lib/orderPricing';
+
+interface OrderRow {
+  id: string;
+  status: OrderStatus;
+  created_at: string;
+  details: Record<string, any> | null;
+  templates?: { name?: string; service_type?: string; preview_url?: string | null } | null;
+  _items: any[];
+  _thumb: string | null;
+  _designPath: string | null;
+}
+
+const firstImage = (urls: unknown): string | null => {
+  if (!Array.isArray(urls)) return null;
+  return urls.find((u): u is string => typeof u === 'string' && isImageUrl(u)) || null;
+};
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 const MyOrders = () => {
   const navigate = useNavigate();
   const { user, role } = useAuth();
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const { services } = useServices();
+
+  const catalog = useMemo(() => buildCatalog(services), [services]);
+
+  // Total charged for an order: sum of per-item snapshots, or the order-level snapshot for
+  // item-less orders (uploads / vault re-orders), falling back to the live catalog for legacy rows.
+  const orderTotal = useCallback((order: OrderRow): number => {
+    if (order._items.length > 0) {
+      return order._items.reduce((sum, it) => sum + computeLine(it.details, catalog, it.templates?.service_type).revenue, 0);
+    }
+    return computeLine(order.details, catalog, order.templates?.service_type).revenue;
+  }, [catalog]);
 
   const loadOrders = useCallback(async () => {
     if (!user) return;
     let query = supabase
       .from('orders')
-      .select('*, templates(name, service_type)')
+      .select('*, templates(name, service_type, preview_url)')
       .order('updated_at', { ascending: false });
-    
-    if (role !== 'admin') {
-      query = query.eq('customer_id', user.id);
-    }
-    
+    if (role !== 'admin') query = query.eq('customer_id', user.id);
+
     const { data: ordersData } = await query;
     if (!ordersData || ordersData.length === 0) {
       setOrders([]);
@@ -38,12 +69,11 @@ const MyOrders = () => {
       return;
     }
 
-    // Fetch order_items for all orders
     const orderIds = ordersData.map(o => o.id);
-    const { data: itemsData } = await supabase
-      .from('order_items' as any)
-      .select('*, templates(name, service_type)')
-      .in('order_id', orderIds);
+    const [{ data: itemsData }, { data: designsData }] = await Promise.all([
+      supabase.from('order_items' as any).select('*, templates(name, service_type, preview_url)').in('order_id', orderIds),
+      supabase.from('designs').select('order_id, file_url, version').in('order_id', orderIds),
+    ]);
 
     const itemsByOrder = new Map<string, any[]>();
     (itemsData || []).forEach((item: any) => {
@@ -52,11 +82,37 @@ const MyOrders = () => {
       itemsByOrder.set(item.order_id, list);
     });
 
-    setOrders(ordersData.map(o => ({
-      ...o,
-      _items: itemsByOrder.get(o.id) || [],
-    })));
+    // Latest designer design (private bucket) per order — signed lazily below for the thumbnail.
+    const designByOrder = new Map<string, { file_url: string; version: number }>();
+    (designsData || []).forEach((d: any) => {
+      if (!d.file_url) return;
+      const cur = designByOrder.get(d.order_id);
+      if (!cur || d.version > cur.version) designByOrder.set(d.order_id, d);
+    });
+
+    const enriched: OrderRow[] = ordersData.map((o: any) => {
+      const items = itemsByOrder.get(o.id) || [];
+      const det = (o.details || {}) as Record<string, any>;
+      // Public thumbnail: order-level upload → per-item AI/upload → template preview.
+      const itemImg = items.map(it => firstImage(it.details?.attachment_urls)).find(Boolean) || null;
+      const tmplPrev = o.templates?.preview_url || items.find(it => it.templates?.preview_url)?.templates?.preview_url || null;
+      return {
+        ...o,
+        _items: items,
+        _thumb: firstImage(det.attachment_urls) || itemImg || tmplPrev || null,
+        _designPath: designByOrder.get(o.id)?.file_url || null,
+      };
+    });
+
+    setOrders(enriched);
     setLoading(false);
+
+    // The designer's finished design is the most representative thumbnail — sign it and swap in.
+    enriched.forEach(async (o) => {
+      if (!o._designPath) return;
+      const url = await getDesignSignedUrl(o._designPath);
+      if (url) setOrders(prev => prev.map(p => (p.id === o.id ? { ...p, _thumb: url } : p)));
+    });
   }, [user, role]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
@@ -79,17 +135,10 @@ const MyOrders = () => {
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => { loadOrders(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'designs' }, () => { loadOrders(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, role, loadOrders]);
-
-  const formatPrice = (serviceType: string | undefined, quantity: number) => {
-    if (!serviceType) return '-';
-    const svc = services.find(s => s.id === serviceType);
-    if (!svc || !svc.price) return '-';
-    const total = (svc.price / 1000) * quantity;
-    return `${total.toLocaleString('en-US')} د.ع`;
-  };
 
   if (loading) return (
     <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}>
@@ -100,10 +149,18 @@ const MyOrders = () => {
   return (
     <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
       <SEOHead title="طلباتي" description="تتبع جميع طلباتك ومعرفة حالتها - مطبعتي" canonical="/my-orders" noindex />
-      <div className="container max-w-4xl">
-        <div className={isNativeApp ? 'mb-6' : 'mb-10'}>
-          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">طلباتي</h1>
-          <p className="text-muted-foreground text-sm mt-1">{orders.length} طلب</p>
+      <div className="container max-w-3xl">
+        {/* Header */}
+        <div className={`flex items-center gap-3 ${isNativeApp ? 'mb-6' : 'mb-8'}`}>
+          <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+            <Package className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-extrabold text-foreground tracking-tight">طلباتي</h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {orders.length > 0 ? `${orders.length} ${orders.length === 1 ? 'طلب' : 'طلبات'}` : 'تتبّع حالة كل طلباتك'}
+            </p>
+          </div>
         </div>
 
         {orders.length === 0 ? (
@@ -113,70 +170,96 @@ const MyOrders = () => {
             </div>
             <p className="text-muted-foreground text-sm mb-6">لا توجد طلبات حتى الآن</p>
             <Link to="/services">
-              <Button className="bg-success hover:bg-success/90 text-success-foreground">
+              <Button className="bg-success hover:bg-success/90 text-success-foreground rounded-xl">
                 ابدأ طلبك الأول
               </Button>
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {orders.map((order, i) => {
-              const hasItems = order._items && order._items.length > 0;
-              const itemCount = hasItems ? order._items.length : 1;
+              const items = order._items;
+              const multi = items.length > 1;
+              const title = multi
+                ? `${items.length} عناصر`
+                : (items[0]?.templates?.name || order.templates?.name || 'تصميم جاهز');
+              const serviceType = (items[0]?.templates?.service_type || order.templates?.service_type || order.details?.service_type) as ServiceType | undefined;
+              const serviceLabel = serviceType ? (SERVICE_LABELS[serviceType] || '') : '';
+              const quantity = (items[0]?.details?.quantity ?? order.details?.quantity) as number | undefined;
+              const total = orderTotal(order);
 
               return (
                 <motion.div
                   key={order.id}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
+                  transition={{ delay: Math.min(i * 0.04, 0.3) }}
                   onClick={() => navigate(`/track-order/${order.id}`)}
-                  className="bg-card rounded-2xl p-5 border border-border/60 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all duration-200 cursor-pointer"
+                  className="group bg-card rounded-2xl border border-border/60 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all duration-200 cursor-pointer overflow-hidden"
                 >
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-4">
-                      <div className="w-11 h-11 rounded-xl bg-primary/8 flex items-center justify-center text-primary flex-shrink-0">
-                        {itemCount > 1 ? <Package className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
-                      </div>
-                      <div>
-                        {hasItems ? (
-                          <>
-                            <h3 className="font-bold text-foreground text-sm">
-                              {itemCount > 1 ? `${itemCount} عناصر` : (order._items[0] as any)?.templates?.name || '-'}
-                            </h3>
-                            {itemCount > 1 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {order._items.slice(0, 3).map((item: any, idx: number) => (
-                                  <span key={idx} className="text-[11px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
-                                    {item.templates?.name || SERVICE_LABELS[item.templates?.service_type as ServiceType] || '-'}
-                                  </span>
-                                ))}
-                                {itemCount > 3 && <span className="text-[11px] text-muted-foreground">+{itemCount - 3}</span>}
-                              </div>
-                            )}
-                            {itemCount === 1 && (
-                              <p className="text-muted-foreground text-xs mt-0.5">
-                                {SERVICE_LABELS[(order._items[0] as any)?.templates?.service_type as ServiceType] || ''}
-                                {' · '}
-                                الكمية: {((order._items[0] as any)?.details as any)?.quantity?.toLocaleString('en-US') || '-'}
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <h3 className="font-bold text-foreground text-sm">{order.templates?.name || '-'}</h3>
-                            <p className="text-muted-foreground text-xs mt-0.5">
-                              {SERVICE_LABELS[order.templates?.service_type as ServiceType] || ''}
-                              {' · '}
-                              الكمية: {(order.details as any)?.quantity?.toLocaleString('en-US') || '-'}
-                            </p>
-                          </>
-                        )}
-                        <p className="text-muted-foreground text-[11px] mt-1">{new Date(order.created_at).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
-                      </div>
+                  <div className="flex items-stretch gap-3.5 p-3.5">
+                    {/* Design thumbnail */}
+                    <div className="w-[88px] h-[88px] rounded-xl overflow-hidden bg-gradient-to-br from-muted/60 to-muted/30 flex-shrink-0 flex items-center justify-center relative">
+                      {order._thumb ? (
+                        <img
+                          src={getOptimizedImageUrl(order._thumb, { width: 220, height: 220 })}
+                          alt={title}
+                          loading="lazy"
+                          draggable={false}
+                          onContextMenu={(e) => e.preventDefault()}
+                          className="w-full h-full object-cover select-none"
+                        />
+                      ) : (
+                        multi
+                          ? <Layers className="w-8 h-8 text-muted-foreground/40" />
+                          : <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
+                      )}
+                      {multi && order._thumb && (
+                        <span className="absolute bottom-1 left-1 text-[10px] font-bold bg-foreground/70 text-background px-1.5 py-0.5 rounded-md backdrop-blur-sm">
+                          +{items.length}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <StatusBadge status={order.status as OrderStatus} />
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0 flex flex-col">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-foreground text-sm leading-tight truncate">{title}</h3>
+                          {(serviceLabel || quantity != null) && (
+                            <p className="text-muted-foreground text-xs mt-1 truncate">
+                              {serviceLabel}
+                              {serviceLabel && quantity != null ? ' · ' : ''}
+                              {quantity != null ? `الكمية: ${quantity.toLocaleString('en-US')}` : ''}
+                            </p>
+                          )}
+                          {multi && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {items.slice(0, 2).map((it: any, idx: number) => (
+                                <span key={idx} className="text-[10px] bg-muted px-1.5 py-0.5 rounded-md text-muted-foreground truncate max-w-[90px]">
+                                  {it.templates?.name || SERVICE_LABELS[it.templates?.service_type as ServiceType] || 'عنصر'}
+                                </span>
+                              ))}
+                              {items.length > 2 && <span className="text-[10px] text-muted-foreground">+{items.length - 2}</span>}
+                            </div>
+                          )}
+                        </div>
+                        <StatusBadge status={order.status} />
+                      </div>
+
+                      {/* Footer: date + price */}
+                      <div className="flex items-end justify-between gap-2 mt-auto pt-2">
+                        <span className="text-[11px] text-muted-foreground tabular-nums" dir="ltr">{fmtDate(order.created_at)}</span>
+                        <div className="flex items-center gap-1">
+                          {total > 0 && (
+                            <span className="font-extrabold text-success text-sm tabular-nums">
+                              {total.toLocaleString('en-US')}
+                              <span className="text-[10px] font-semibold text-success/70 mr-0.5">د.ع</span>
+                            </span>
+                          )}
+                          <ChevronLeft className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary group-hover:-translate-x-0.5 transition-all" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </motion.div>

@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Archive, Sparkles, Upload, Palette, FileText, ShoppingBag, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
+import ImageLightbox from '@/components/ImageLightbox';
 import { isNativeApp } from '@/lib/platform';
 import {
   VaultItem, VaultSource, loadVault, resolveVaultDisplayUrl,
-  reorderVaultItem, deleteVaultDesign, isImageUrl,
+  deleteVaultDesign, isImageUrl,
 } from '@/lib/designVault';
 
 const SECTIONS: { source: VaultSource; title: string; icon: typeof Sparkles }[] = [
@@ -18,10 +19,11 @@ const SECTIONS: { source: VaultSource; title: string; icon: typeof Sparkles }[] 
   { source: 'designer', title: 'تصاميم صمّمناها لك', icon: Palette },
 ];
 
-const VaultCard = ({ item, onReorder, onDelete, busy }: {
+const VaultCard = ({ item, onReorder, onDelete, onView, busy }: {
   item: VaultItem;
   onReorder: (item: VaultItem) => void;
   onDelete: (item: VaultItem) => void;
+  onView: (url: string) => void;
   busy: boolean;
 }) => {
   const showImage = item.displayUrl && isImageUrl(item.displayUrl);
@@ -37,8 +39,10 @@ const VaultCard = ({ item, onReorder, onDelete, busy }: {
             src={item.displayUrl}
             alt={item.label}
             loading="lazy"
-            className="w-full h-full object-contain cursor-pointer"
-            onClick={() => window.open(item.displayUrl, '_blank')}
+            draggable={false}
+            onContextMenu={(e) => e.preventDefault()}
+            className="w-full h-full object-contain cursor-pointer select-none"
+            onClick={() => item.displayUrl && onView(item.displayUrl)}
           />
         ) : item.displayUrl ? (
           <a href={item.displayUrl} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-2 text-muted-foreground hover:text-primary">
@@ -87,6 +91,7 @@ const DesignVaultPage = () => {
   const [items, setItems] = useState<VaultItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -108,18 +113,11 @@ const DesignVaultPage = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleReorder = async (item: VaultItem) => {
+  // Re-ordering now collects print service / quantity / delivery address on a dedicated
+  // page; pass the chosen design along via navigation state.
+  const handleReorder = (item: VaultItem) => {
     if (!user) { navigate('/auth'); return; }
-    setBusyId(item.id);
-    try {
-      const orderId = await reorderVaultItem(user.id, item);
-      toast({ title: 'تم إنشاء الطلب ✅' });
-      navigate(`/order-success?order=${orderId}`);
-    } catch (e) {
-      toast({ title: 'فشل إنشاء الطلب', description: e instanceof Error ? e.message : 'حاول مرة أخرى', variant: 'destructive' });
-    } finally {
-      setBusyId(null);
-    }
+    navigate('/reorder-design', { state: { item } });
   };
 
   const handleDelete = async (item: VaultItem) => {
@@ -186,6 +184,7 @@ const DesignVaultPage = () => {
                         item={item}
                         onReorder={handleReorder}
                         onDelete={handleDelete}
+                        onView={setLightboxUrl}
                         busy={busyId === item.id}
                       />
                     ))}
@@ -196,6 +195,12 @@ const DesignVaultPage = () => {
           </div>
         )}
       </div>
+
+      <ImageLightbox
+        src={lightboxUrl}
+        open={!!lightboxUrl}
+        onOpenChange={(o) => { if (!o) setLightboxUrl(null); }}
+      />
     </div>
   );
 };

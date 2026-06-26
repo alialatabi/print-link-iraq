@@ -19,6 +19,13 @@ export default {
       },
     },
     extend: {
+      // 3.25rem (52px) — the `h-13` touch-target height used by primary CTAs on
+      // mobile. Without this, `h-13` is a dead class: `size="lg"` only sets height
+      // via `h-14`/`sm:h-12`, twMerge drops `h-14` in favour of `h-13`, and the
+      // base (mobile) button collapses to content height.
+      spacing: {
+        13: "3.25rem",
+      },
       fontFamily: {
         sans: ["'Tajawal'", "'Cairo'", "sans-serif"],
         tajawal: ["'Tajawal'", "'Cairo'", "sans-serif"],
