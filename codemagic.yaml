@@ -39,6 +39,13 @@ workflows:
         script: bash scripts/ios-configure.sh
       - name: Generate app icons & splash screens
         script: npx capacitor-assets generate --ios
+      - name: CocoaPods install (creates App.xcworkspace)
+        script: |
+          set -e
+          cd ios/App
+          pod install
+          echo "----- ios/App layout -----"
+          ls -la
       - name: Build (code signing disabled)
         script: |
           set -e
@@ -91,6 +98,11 @@ workflows:
         script: bash scripts/ios-configure.sh
       - name: Generate app icons & splash screens
         script: npx capacitor-assets generate --ios
+      - name: CocoaPods install (creates App.xcworkspace)
+        script: |
+          set -e
+          cd ios/App
+          pod install
       - name: Set up code signing (fetch managed provisioning profiles)
         script: xcode-project use-profiles
       - name: Set build number from latest TestFlight build
