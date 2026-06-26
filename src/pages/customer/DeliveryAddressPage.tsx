@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { MapPin, CheckCircle2, ChevronLeft } from 'lucide-react';
 import AddressPicker, { type SavedAddress } from '@/components/AddressPicker';
 import { isNativeApp } from '@/lib/platform';
+import { getOrderDetailsOnly, approveOrderWithDelivery } from '@/services/orders';
+import type { OrderDetailsJson } from '@/types/db';
 
 const DeliveryAddressPage = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -22,26 +23,19 @@ const DeliveryAddressPage = () => {
     setSubmitting(true);
 
     // Fetch current order details to merge (pricing/attachments must be preserved).
-    const { data: currentOrder } = await supabase
-      .from('orders')
-      .select('details')
-      .eq('id', orderId)
-      .single();
+    const { data: currentOrder } = await getOrderDetailsOnly(orderId);
 
-    const currentDetails = (currentOrder?.details || {}) as Record<string, any>;
+    const currentDetails = (currentOrder?.details || {}) as OrderDetailsJson;
 
-    const { error } = await supabase.from('orders').update({
-      status: 'approved' as any,
-      details: {
-        ...currentDetails,
-        delivery_phone: selected.phone,
-        delivery_province: selected.province,
-        delivery_area: selected.area,
-        delivery_landmark: selected.landmark,
-        delivery_label: selected.label,
-        approved_at: new Date().toISOString(),
-      },
-    }).eq('id', orderId);
+    const { error } = await approveOrderWithDelivery(orderId, {
+      ...currentDetails,
+      delivery_phone: selected.phone,
+      delivery_province: selected.province,
+      delivery_area: selected.area,
+      delivery_landmark: selected.landmark,
+      delivery_label: selected.label,
+      approved_at: new Date().toISOString(),
+    });
 
     if (error) {
       toast({ title: 'حدث خطأ', variant: 'destructive' });

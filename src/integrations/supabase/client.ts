@@ -15,8 +15,8 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // UserDefaults) instead. The web build is unchanged — it keeps using localStorage.
 const nativeStorage = {
   getItem: (key: string) => Preferences.get({ key }).then(({ value }) => value),
-  setItem: (key: string, value: string) => Preferences.set({ key, value }).then(() => undefined),
-  removeItem: (key: string) => Preferences.remove({ key }).then(() => undefined),
+  setItem: (key: string, value: string) => Preferences.set({ key, value }).then((): void => undefined),
+  removeItem: (key: string) => Preferences.remove({ key }).then((): void => undefined),
 };
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {

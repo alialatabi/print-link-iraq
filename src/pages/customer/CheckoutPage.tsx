@@ -17,6 +17,7 @@ import { buildAiOrderItemDetails } from '@/lib/aiDesign';
 import { useServices } from '@/hooks/useServices';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
 import { isNativeApp } from '@/lib/platform';
+import type { Json } from '@/integrations/supabase/types';
 interface TemplateData {
   id: string;
   name: string;
@@ -33,7 +34,7 @@ const CheckoutPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [templates, setTemplates] = useState<Record<string, TemplateData>>({});
+  const [_templates, setTemplates] = useState<Record<string, TemplateData>>({});
   const [details, setDetails] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<Record<string, File[]>>({});
   const [previews, setPreviews] = useState<Record<string, string[]>>({});
@@ -57,10 +58,9 @@ const CheckoutPage = () => {
       setLoading(false);
     };
     load();
-  }, [items]);
+  }, [items, navigate]);
 
   const currentItem = items[currentStep];
-  const currentTemplate = currentItem ? templates[currentItem.templateId] : null;
   const totalSteps = items.length;
   const shortId = (id: string) => id.slice(0, 8).toUpperCase();
 
@@ -147,7 +147,7 @@ const CheckoutPage = () => {
       try {
         const stored = sessionStorage.getItem('matbaty_coupon');
         if (stored) appliedCoupon = JSON.parse(stored);
-      } catch {}
+      } catch { /* sessionStorage.getItem can throw if storage is blocked; silently skip coupon */ }
 
       // Build the pricing catalog once for this submit (snapshots are immutable).
       const catalog = buildCatalog(services);
@@ -158,11 +158,11 @@ const CheckoutPage = () => {
         .from('orders')
         .insert({
           customer_id: user.id,
-          status: 'submitted' as any,
+          status: 'submitted',
           details: {
             item_count: items.length,
             ...(appliedCoupon ? { coupon_code: appliedCoupon.code, coupon_percentage: appliedCoupon.percentage } : {}),
-          } as any,
+          },
         })
         .select('id')
         .single();
@@ -190,7 +190,7 @@ const CheckoutPage = () => {
                 discountPct: couponPct,
               }),
               status: 'submitted',
-            });
+            } as never);
           continue;
         }
 
@@ -198,7 +198,7 @@ const CheckoutPage = () => {
         const itemFiles = attachments[item.templateId] || [];
 
         const { data: itemData, error: itemError } = await supabase
-          .from('order_items' as any)
+          .from('order_items')
           .insert({
             order_id: orderData.id,
             template_id: item.templateId,
@@ -208,7 +208,7 @@ const CheckoutPage = () => {
               quantity: item.quantity,
               cellophane: item.cellophane || null,
               pricing: buildPricingSnapshot(catalog, item.serviceType, item.quantity, { discountPct: couponPct, priceOverride: item.unitPrice }),
-            },
+            } as unknown as Json,
             status: 'submitted',
           })
           .select('id')
@@ -218,9 +218,9 @@ const CheckoutPage = () => {
 
         // Upload attachments per item
         if (itemFiles.length > 0) {
-          const urls = await uploadAttachments(orderData.id, (itemData as any).id, itemFiles);
+          const urls = await uploadAttachments(orderData.id, itemData.id, itemFiles);
           await supabase
-            .from('order_items' as any)
+            .from('order_items')
             .update({
               details: {
                 details: itemDetails,
@@ -228,9 +228,9 @@ const CheckoutPage = () => {
                 quantity: item.quantity,
                 cellophane: item.cellophane || null,
                 pricing: buildPricingSnapshot(catalog, item.serviceType, item.quantity, { discountPct: couponPct, priceOverride: item.unitPrice }),
-              },
+              } as unknown as Json,
             })
-            .eq('id', (itemData as any).id);
+            .eq('id', itemData.id);
         }
       }
 
@@ -242,8 +242,8 @@ const CheckoutPage = () => {
 
       clearCart();
       navigate(`/order-success?order=${orderData.id}`);
-    } catch (err: any) {
-      toast({ title: 'حدث خطأ', description: getUserFriendlyError(err), variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'حدث خطأ', description: getUserFriendlyError(e), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }

@@ -1,17 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { CORS_HEADERS, json, getServiceClient } from "../_shared/helpers.ts";
 
 // Sends push notifications via Firebase Cloud Messaging (HTTP v1). Auth: an authenticated STAFF
 // member (admin/designer/reseller) — e.g. the admin changing an order's status. Input:
 //   { userId?: string, userIds?: string[], title: string, body: string, data?: Record<string,string> }
 // Looks up the targets' device tokens, sends one message per token, and prunes tokens FCM reports
 // as unregistered. Needs the FCM_SERVICE_ACCOUNT secret (the full Firebase service-account JSON).
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 // --- Service-account → OAuth2 access token (RS256-signed JWT, exchanged at Google's token endpoint) ---
 const b64url = (bytes: Uint8Array) => {
@@ -29,8 +23,13 @@ function pemToPkcs8(pem: string): ArrayBuffer {
   return buf.buffer;
 }
 
-// deno-lint-ignore no-explicit-any
-async function getAccessToken(sa: any): Promise<string> {
+interface FirebaseServiceAccount {
+  client_email: string;
+  private_key: string;
+  project_id: string;
+}
+
+async function getAccessToken(sa: FirebaseServiceAccount): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = b64urlStr(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const claim = b64urlStr(JSON.stringify({
@@ -59,7 +58,7 @@ async function getAccessToken(sa: any): Promise<string> {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
     const authHeader = req.headers.get("authorization");
@@ -72,10 +71,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userErr } = await supabaseUser.auth.getUser(authHeader.replace(/^Bearer\s+/i, ""));
     if (userErr || !user) return json({ error: "غير مصرح" }, 401);
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    );
+    const supabaseAdmin = getServiceClient();
 
     // Only staff may send notifications.
     const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", user.id);

@@ -1,12 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Progress } from '@/components/ui/progress';
 import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useServices, useSpecializations } from '@/hooks/useServices';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -19,9 +17,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Upload, Image, Palette, X, Type, CheckSquare, Tags, Images, Search } from 'lucide-react';
-import TemplateFieldEditor, { type TextField } from './TemplateFieldEditor';
+import { Plus, Pencil, Trash2, Image, Palette, X, Type, CheckSquare, Tags, Images, Search } from 'lucide-react';
+import { type TextField } from './TemplateFieldEditor';
 import { getUserFriendlyError } from '@/lib/errors';
+import { TemplateEditDialog } from './TemplateEditDialog';
+import { BulkSpecsDialog } from './BulkSpecsDialog';
+import { BulkUploadDialog } from './BulkUploadDialog';
 
 interface Template {
   id: string;
@@ -233,12 +234,12 @@ const AdminTemplates = () => {
           .from('templates')
           .update({
             name: editingTemplate.id.slice(0, 8).toUpperCase(),
-            service_type: form.service_type as any,
+            service_type: form.service_type,
             preview_url: urls[0] || null,
             preview_urls: urls,
-            text_fields: textFields as any,
+            text_fields: textFields,
             specializations: form.specializations,
-          } as any)
+          } as never)
           .eq('id', editingTemplate.id);
         if (error) throw error;
         toast.success('تم تحديث القالب');
@@ -247,30 +248,30 @@ const AdminTemplates = () => {
           .from('templates')
           .insert({
             name: 'template',
-            service_type: form.service_type as any,
-            text_fields: textFields as any,
+            service_type: form.service_type,
+            text_fields: textFields,
             specializations: form.specializations,
-          } as any)
+          } as never)
           .select()
           .single();
         if (error) throw error;
 
         if (newTemplate) {
-          const shortId = newTemplate.id.slice(0, 8).toUpperCase();
-          const urls = previewFiles.length ? await uploadPreviewImages(newTemplate.id) : [];
-          await supabase.from('templates').update({ 
-            name: shortId, 
+          const shortId = (newTemplate as { id: string }).id.slice(0, 8).toUpperCase();
+          const urls = previewFiles.length ? await uploadPreviewImages((newTemplate as { id: string }).id) : [];
+          await supabase.from('templates').update({
+            name: shortId,
             preview_url: urls[0] || null,
             preview_urls: urls,
-          } as any).eq('id', newTemplate.id);
+          } as never).eq('id', (newTemplate as { id: string }).id);
         }
         toast.success('تم إضافة القالب');
       }
 
       setDialogOpen(false);
       loadTemplates();
-    } catch (err: any) {
-      toast.error(getUserFriendlyError(err));
+    } catch (e: unknown) {
+      toast.error(getUserFriendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -370,8 +371,8 @@ const AdminTemplates = () => {
       });
       setDeleteTarget(null);
       loadTemplates();
-    } catch (err: any) {
-      toast.error(getUserFriendlyError(err));
+    } catch (e: unknown) {
+      toast.error(getUserFriendlyError(e));
     } finally {
       setDeleting(false);
     }
@@ -401,7 +402,7 @@ const AdminTemplates = () => {
         // Same array for everyone → a single query.
         const { error } = await supabase
           .from('templates')
-          .update({ specializations: bulkSpecs } as any)
+          .update({ specializations: bulkSpecs })
           .in('id', targets.map(t => t.id));
         if (error) throw error;
       } else {
@@ -411,7 +412,7 @@ const AdminTemplates = () => {
           const next = bulkSpecMode === 'add'
             ? Array.from(new Set([...current, ...bulkSpecs]))
             : current.filter(s => !bulkSpecs.includes(s));
-          return supabase.from('templates').update({ specializations: next } as any).eq('id', t.id);
+          return supabase.from('templates').update({ specializations: next }).eq('id', t.id);
         }));
         const failed = results.find(r => r.error);
         if (failed?.error) throw failed.error;
@@ -419,8 +420,8 @@ const AdminTemplates = () => {
       toast.success(`تم تحديث تخصصات ${targets.length} قالب`);
       setSpecDialogOpen(false);
       loadTemplates();
-    } catch (err: any) {
-      toast.error(getUserFriendlyError(err));
+    } catch (e: unknown) {
+      toast.error(getUserFriendlyError(e));
     } finally {
       setApplyingSpecs(false);
     }
@@ -480,16 +481,17 @@ const AdminTemplates = () => {
             .from('templates')
             .insert({
               name: 'template',
-              service_type: bulkServiceType as any,
-              text_fields: [] as any,
+              service_type: bulkServiceType,
+              text_fields: [],
               specializations: bulkUploadSpecs,
-            } as any)
+            } as never)
             .select()
             .single();
           if (error || !newTemplate) throw error || new Error('insert failed');
 
+          const tmplId = (newTemplate as { id: string }).id;
           const ext = file.name.split('.').pop();
-          const filePath = `${newTemplate.id}_${Date.now()}_0.${ext}`;
+          const filePath = `${tmplId}_${Date.now()}_0.${ext}`;
           const { error: upErr } = await supabase.storage
             .from('template-previews')
             .upload(filePath, file, { upsert: true });
@@ -497,10 +499,10 @@ const AdminTemplates = () => {
 
           const { data: pub } = supabase.storage.from('template-previews').getPublicUrl(filePath);
           await supabase.from('templates').update({
-            name: newTemplate.id.slice(0, 8).toUpperCase(),
+            name: tmplId.slice(0, 8).toUpperCase(),
             preview_url: pub.publicUrl,
             preview_urls: [pub.publicUrl],
-          } as any).eq('id', newTemplate.id);
+          } as never).eq('id', tmplId);
 
           setBulkDone(d => d + 1);
         } catch (err) {
@@ -515,8 +517,8 @@ const AdminTemplates = () => {
       if (failures > 0) toast.error(`فشل رفع ${failures} صورة`);
       setBulkUploadOpen(false);
       loadTemplates();
-    } catch (err: any) {
-      toast.error(getUserFriendlyError(err));
+    } catch (e: unknown) {
+      toast.error(getUserFriendlyError(e));
     } finally {
       setBulkUploading(false);
     }
@@ -735,175 +737,28 @@ const AdminTemplates = () => {
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
-          <DialogHeader>
-            <DialogTitle>{editingTemplate ? 'تعديل القالب' : 'إضافة قالب جديد'}</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 mt-2">
-            {/* Preview Images Upload */}
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">صور القالب</label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              {previewLocalUrls.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 mb-2">
-                  {previewLocalUrls.map((url, idx) => (
-                    <div key={idx} className="relative rounded-xl overflow-hidden border border-border aspect-square">
-                      <img src={url} alt="preview" className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => {
-                          setPreviewLocalUrls(prev => prev.filter((_, i) => i !== idx));
-                          // If it's a new file (not existing), remove from previewFiles too
-                          const existingCount = existingUrls.filter(u => previewLocalUrls.includes(u)).length;
-                          if (idx >= existingCount) {
-                            setPreviewFiles(prev => prev.filter((_, i) => i !== (idx - existingCount)));
-                          } else {
-                            setExistingUrls(prev => prev.filter((_, i) => i !== idx));
-                          }
-                        }}
-                        className="absolute top-1 left-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {uploading ? (
-                <div className="border-2 border-dashed border-primary/40 rounded-xl p-6 text-center bg-primary/5">
-                  <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">جاري تجهيز الصور...</p>
-                </div>
-              ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
-                >
-                  <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">اضغط لرفع صور (يمكنك اختيار أكثر من صورة)</p>
-                  <p className="text-xs text-muted-foreground mt-1">PNG, JPG — حتى 20MB لكل صورة</p>
-                </div>
-              )}
-            </div>
-
-
-
-
-            {/* Service Type */}
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">القسم *</label>
-              <Select value={form.service_type} onValueChange={v => setForm(f => ({ ...f, service_type: v }))}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {services.filter(s => s.parent_id).map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Specializations (multi-select) */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium text-foreground">التخصصات</label>
-                {specializations.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const allSelected = form.specializations.length === specializations.length;
-                      setForm(f => ({ ...f, specializations: allSelected ? [] : specializations.map(s => s.id) }));
-                    }}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    {form.specializations.length === specializations.length ? 'إلغاء الكل' : 'تحديد الكل'}
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-border bg-background min-h-[44px]">
-                {specializations.map(s => {
-                  const selected = form.specializations.includes(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => setForm(f => ({
-                        ...f,
-                        specializations: selected
-                          ? f.specializations.filter(id => id !== s.id)
-                          : [...f.specializations, s.id]
-                      }))}
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        selected
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      {s.icon} {s.label}
-                    </button>
-                  );
-                })}
-                {specializations.length === 0 && (
-                  <span className="text-xs text-muted-foreground">لا توجد تخصصات</span>
-                )}
-              </div>
-              {form.specializations.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">{form.specializations.length} تخصص محدد</p>
-              )}
-            </div>
-
-            {/* Description (inherited from the sub-service, shared by all its templates) */}
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">وصف القسم</label>
-              {(() => {
-                const svcDescription = services.find(s => s.id === form.service_type)?.description?.trim();
-                return svcDescription ? (
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line bg-muted/30 rounded-xl p-3 border border-border/40">
-                    {svcDescription}
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground bg-muted/30 rounded-xl p-3 border border-border/40">
-                    لا يوجد وصف لهذا القسم بعد.
-                  </p>
-                );
-              })()}
-              <p className="text-[11px] text-muted-foreground mt-1">
-                الوصف تابع للقسم (الخدمة الفرعية) ويظهر في جميع قوالبه. عدّله من قسم «الخدمات».
-              </p>
-            </div>
-
-            {/* Upload Progress */}
-            {saving && previewFiles.length > 0 && (
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{uploadStage}</span>
-                  <span>{uploadProgress}%</span>
-                </div>
-                <Progress value={uploadProgress} className="h-2" />
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl">
-                {saving ? (previewFiles.length ? `جاري الرفع... ${uploadProgress}%` : 'جاري الحفظ...') : editingTemplate ? 'حفظ التغييرات' : 'إضافة القالب'}
-              </Button>
-              <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving} className="rounded-xl">
-                إلغاء
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <TemplateEditDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editingTemplate={editingTemplate}
+        form={form}
+        setForm={setForm}
+        previewLocalUrls={previewLocalUrls}
+        setPreviewLocalUrls={setPreviewLocalUrls}
+        previewFiles={previewFiles}
+        setPreviewFiles={setPreviewFiles}
+        existingUrls={existingUrls}
+        setExistingUrls={setExistingUrls}
+        uploading={uploading}
+        saving={saving}
+        uploadProgress={uploadProgress}
+        uploadStage={uploadStage}
+        fileInputRef={fileInputRef}
+        handleFileChange={handleFileChange}
+        handleSave={handleSave}
+        services={services}
+        specializations={specializations}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deleting) setDeleteTarget(null); }}>
@@ -930,239 +785,41 @@ const AdminTemplates = () => {
       </AlertDialog>
 
       {/* Bulk Change Specializations Dialog */}
-      <Dialog open={specDialogOpen} onOpenChange={(open) => { if (!applyingSpecs) setSpecDialogOpen(open); }}>
-        <DialogContent className="max-w-md" dir="rtl">
-          <DialogHeader>
-            <DialogTitle>تغيير تخصصات {selectedIds.size} قالب</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 mt-2">
-            {/* Mode selector */}
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">طريقة التغيير</label>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { key: 'replace', label: 'استبدال' },
-                  { key: 'add', label: 'إضافة' },
-                  { key: 'remove', label: 'إزالة' },
-                ] as const).map(m => (
-                  <button
-                    key={m.key}
-                    type="button"
-                    onClick={() => setBulkSpecMode(m.key)}
-                    className={`px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                      bulkSpecMode === m.key
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1.5">
-                {bulkSpecMode === 'replace' && 'يستبدل تخصصات كل القوالب المحددة بالمختار (اترك الكل فارغاً لمسح التخصصات).'}
-                {bulkSpecMode === 'add' && 'يضيف التخصصات المختارة دون حذف الحالية.'}
-                {bulkSpecMode === 'remove' && 'يزيل التخصصات المختارة من القوالب المحددة.'}
-              </p>
-            </div>
-
-            {/* Specializations multi-select */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium text-foreground">التخصصات</label>
-                {specializations.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const allSelected = bulkSpecs.length === specializations.length;
-                      setBulkSpecs(allSelected ? [] : specializations.map(s => s.id));
-                    }}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    {bulkSpecs.length === specializations.length ? 'إلغاء الكل' : 'تحديد الكل'}
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-border bg-background min-h-[44px]">
-                {specializations.map(s => {
-                  const selected = bulkSpecs.includes(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => toggleBulkSpec(s.id)}
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        selected
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      {s.icon} {s.label}
-                    </button>
-                  );
-                })}
-                {specializations.length === 0 && (
-                  <span className="text-xs text-muted-foreground">لا توجد تخصصات</span>
-                )}
-              </div>
-              {bulkSpecs.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">{bulkSpecs.length} تخصص محدد</p>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-2">
-              <Button onClick={applyBulkSpecs} disabled={applyingSpecs} className="flex-1 rounded-xl">
-                {applyingSpecs ? 'جاري التطبيق...' : 'تطبيق'}
-              </Button>
-              <Button variant="outline" onClick={() => setSpecDialogOpen(false)} disabled={applyingSpecs} className="rounded-xl">
-                إلغاء
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <BulkSpecsDialog
+        open={specDialogOpen}
+        onOpenChange={(open) => { if (!applyingSpecs) setSpecDialogOpen(open); }}
+        selectedCount={selectedIds.size}
+        applyingSpecs={applyingSpecs}
+        specializations={specializations}
+        bulkSpecMode={bulkSpecMode}
+        setBulkSpecMode={setBulkSpecMode}
+        bulkSpecs={bulkSpecs}
+        toggleBulkSpec={toggleBulkSpec}
+        setBulkSpecs={setBulkSpecs}
+        applyBulkSpecs={applyBulkSpecs}
+      />
 
       {/* Bulk Upload Dialog (one image → one template) */}
-      <Dialog open={bulkUploadOpen} onOpenChange={(open) => { if (!bulkUploading) setBulkUploadOpen(open); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
-          <DialogHeader>
-            <DialogTitle>رفع قوالب بالجملة</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 mt-2">
-            <p className="text-xs text-muted-foreground">
-              كل صورة تُنشئ قالباً مستقلاً ضمن القسم والتخصصات المختارة.
-            </p>
-
-            {/* Service Type */}
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">القسم *</label>
-              <Select value={bulkServiceType} onValueChange={setBulkServiceType}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {services.filter(s => s.parent_id).map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Specializations */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium text-foreground">التخصصات</label>
-                {specializations.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const allSelected = bulkUploadSpecs.length === specializations.length;
-                      setBulkUploadSpecs(allSelected ? [] : specializations.map(s => s.id));
-                    }}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    {bulkUploadSpecs.length === specializations.length ? 'إلغاء الكل' : 'تحديد الكل'}
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-border bg-background min-h-[44px]">
-                {specializations.map(s => {
-                  const selected = bulkUploadSpecs.includes(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => setBulkUploadSpecs(prev => selected ? prev.filter(id => id !== s.id) : [...prev, s.id])}
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        selected
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      {s.icon} {s.label}
-                    </button>
-                  );
-                })}
-                {specializations.length === 0 && (
-                  <span className="text-xs text-muted-foreground">لا توجد تخصصات</span>
-                )}
-              </div>
-            </div>
-
-            {/* Images */}
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">الصور</label>
-              <input
-                ref={bulkFileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleBulkFileChange}
-                className="hidden"
-              />
-              {bulkPreviews.length > 0 && (
-                <div className="grid grid-cols-4 gap-2 mb-2">
-                  {bulkPreviews.map((url, idx) => (
-                    <div key={idx} className="relative rounded-lg overflow-hidden border border-border aspect-square">
-                      <img src={url} alt="preview" className="w-full h-full object-cover" />
-                      {!bulkUploading && (
-                        <button
-                          onClick={() => removeBulkFile(idx)}
-                          className="absolute top-1 left-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {bulkPreparing ? (
-                <div className="border-2 border-dashed border-primary/40 rounded-xl p-6 text-center bg-primary/5">
-                  <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">جاري تجهيز الصور...</p>
-                </div>
-              ) : (
-                <div
-                  onClick={() => bulkFileInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
-                >
-                  <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">اضغط لاختيار عدة صور</p>
-                  <p className="text-xs text-muted-foreground mt-1">كل صورة = قالب — PNG, JPG حتى 20MB</p>
-                </div>
-              )}
-              {bulkFiles.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">{bulkFiles.length} صورة محددة</p>
-              )}
-            </div>
-
-            {/* Upload Progress */}
-            {bulkUploading && (
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>جاري إنشاء القوالب... ({bulkDone}/{bulkFiles.length})</span>
-                  <span>{bulkProgress}%</span>
-                </div>
-                <Progress value={bulkProgress} className="h-2" />
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleBulkUpload} disabled={bulkUploading || bulkPreparing || bulkFiles.length === 0} className="flex-1 rounded-xl">
-                {bulkUploading ? `جاري الرفع... ${bulkProgress}%` : `إنشاء ${bulkFiles.length || ''} قالب`}
-              </Button>
-              <Button variant="outline" onClick={() => setBulkUploadOpen(false)} disabled={bulkUploading} className="rounded-xl">
-                إلغاء
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <BulkUploadDialog
+        open={bulkUploadOpen}
+        onOpenChange={(open) => { if (!bulkUploading) setBulkUploadOpen(open); }}
+        services={services}
+        specializations={specializations}
+        bulkServiceType={bulkServiceType}
+        setBulkServiceType={setBulkServiceType}
+        bulkUploadSpecs={bulkUploadSpecs}
+        setBulkUploadSpecs={setBulkUploadSpecs}
+        bulkFiles={bulkFiles}
+        bulkPreviews={bulkPreviews}
+        bulkUploading={bulkUploading}
+        bulkPreparing={bulkPreparing}
+        bulkProgress={bulkProgress}
+        bulkDone={bulkDone}
+        bulkFileInputRef={bulkFileInputRef}
+        handleBulkFileChange={handleBulkFileChange}
+        removeBulkFile={removeBulkFile}
+        handleBulkUpload={handleBulkUpload}
+      />
     </div>
   );
 };

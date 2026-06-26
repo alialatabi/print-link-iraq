@@ -1,121 +1,36 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { m as motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { STATUS_LABELS, OrderStatus } from '@/data/mockData';
+import { STATUS_LABELS, type OrderStatus } from '@/data/mockData';
 import { useServices, buildLabelMap } from '@/hooks/useServices';
 import { useAuth } from '@/contexts/AuthContext';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
-  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
-} from '@/components/ui/alert-dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { buildCatalog, computeLine } from '@/lib/orderPricing';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import {
-  DollarSign, TrendingUp,
-  Search, CheckCircle, Clock, AlertCircle,
-  Receipt, Calendar, CreditCard, X, Download,
-  Users, ArrowUpRight, ArrowDownRight, Wallet,
-  BarChart3, PieChart, Target, Banknote, Percent,
-  CalendarDays, Plus, Trash2, Pencil, Minus,
-  TrendingDown, PackageCheck, CircleDollarSign, Sparkles, Megaphone
-} from 'lucide-react';
-
-// ─── Types ───
-interface OrderRow {
-  id: string;
-  customer_id: string;
-  designer_id: string | null;
-  status: string;
-  paid_amount: number;
-  payment_status: string;
-  created_at: string;
-  details: Record<string, any> | null;
-  templates: {
-    name: string;
-    service_type: string;
-  } | null;
-  customer_name?: string;
-  customer_phone?: string;
-}
-
-interface OrderItemRow {
-  id: string;
-  order_id: string;
-  status: string | null;
-  details: Record<string, any> | null;
-  template_id: string | null;
-  templates: { service_type: string } | null;
-}
-
-interface Expense {
-  id: string;
-  title: string;
-  amount: number;
-  category: string;
-  notes: string | null;
-  expense_date: string;
-  created_at: string;
-  created_by: string;
-}
-
-// A fixed monthly commitment (rent, salaries…). Counted per-month in the P&L.
-interface RecurringExpense {
-  id: string;
-  title: string;
-  amount: number;
-  category: string;
-  notes: string | null;
-  active: boolean;
-  created_at: string;
-  created_by: string;
-}
+import { PAYMENT_LABELS, DATE_RANGE_LABELS } from '@/lib/constants';
+import type { DateRange } from '@/lib/constants';
+import { handleSupabaseError } from '@/lib/errors';
+import type { OrderDetailsJson } from '@/types/db';
+import { CalendarDays, Receipt, Minus } from 'lucide-react';
+import type {
+  OrderRow, OrderItemRow, Expense, RecurringExpense,
+  ExpenseForm, RecurringForm,
+} from './accounts/types';
+import { AccountsPLSummary } from './accounts/AccountsPLSummary';
+import { AccountsOrdersTab } from './accounts/AccountsOrdersTab';
+import { AccountsExpensesTab } from './accounts/AccountsExpensesTab';
+import { ExpenseDialogs } from './accounts/ExpenseDialogs';
+import { RecurringExpenseDialogs } from './accounts/RecurringExpenseDialogs';
 
 // ─── Constants ───
-const PAYMENT_LABELS: Record<string, string> = {
-  unpaid: 'غير مدفوع',
-  partial: 'جزئي',
-  paid: 'مدفوع',
-};
-
-const PAYMENT_COLORS: Record<string, string> = {
-  unpaid: 'bg-destructive/10 text-destructive border-destructive/20',
-  partial: 'bg-accent/15 text-accent-foreground border-accent/30',
-  paid: 'bg-success/10 text-success border-success/20',
-};
-
-type DateRange = 'today' | 'week' | 'month' | 'quarter' | 'year' | 'all';
-
-const DATE_RANGE_LABELS: Record<DateRange, string> = {
-  today: 'اليوم',
-  week: 'هذا الأسبوع',
-  month: 'هذا الشهر',
-  quarter: 'آخر 3 أشهر',
-  year: 'هذه السنة',
-  all: 'الكل',
-};
 
 // NOTE: 'مواد خام' (raw materials / production cost) is intentionally NOT suggested here.
 // Production cost is now counted automatically per order via per-line cost snapshots.
 // Expenses recorded here are OPERATING expenses only (rent, salaries, marketing…).
-const EXPENSE_CATEGORIES = ['إيجار', 'رواتب', 'صيانة', 'مصاريف تشغيلية', 'تسويق', 'نقل وتوصيل', 'عام'];
 
 // The category that counts as marketing spend (drives the marketing section).
 const MARKETING_CATEGORY = 'تسويق';
 
 // ─── Helpers ───
-const fmt = (n: number) => n.toLocaleString('en-US');
-
 const getDateStart = (range: DateRange): Date | null => {
   const now = new Date();
   switch (range) {
@@ -160,7 +75,7 @@ const AdminAccounts = () => {
   // Expense dialog
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [expenseForm, setExpenseForm] = useState({ title: '', amount: 0, category: 'عام', notes: '', expense_date: new Date().toISOString().slice(0, 10) });
+  const [expenseForm, setExpenseForm] = useState<ExpenseForm>({ title: '', amount: 0, category: 'عام', notes: '', expense_date: new Date().toISOString().slice(0, 10) });
   const [savingExpense, setSavingExpense] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [deletingExpense, setDeletingExpense] = useState(false);
@@ -169,7 +84,7 @@ const AdminAccounts = () => {
   const [recurring, setRecurring] = useState<RecurringExpense[]>([]);
   const [recurringDialogOpen, setRecurringDialogOpen] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState<RecurringExpense | null>(null);
-  const [recurringForm, setRecurringForm] = useState({ title: '', amount: 0, category: 'إيجار', notes: '', active: true });
+  const [recurringForm, setRecurringForm] = useState<RecurringForm>({ title: '', amount: 0, category: 'إيجار', notes: '', active: true });
   const [savingRecurring, setSavingRecurring] = useState(false);
   const [recurringToDelete, setRecurringToDelete] = useState<RecurringExpense | null>(null);
   const [deletingRecurring, setDeletingRecurring] = useState(false);
@@ -224,12 +139,12 @@ const AdminAccounts = () => {
       .in('order_id', orderIds);
 
     const itemsMap = new Map<string, OrderItemRow[]>();
-    (itemsData || []).forEach((raw: any) => {
+    (itemsData || []).forEach((raw) => {
       const item: OrderItemRow = {
         id: raw.id,
         order_id: raw.order_id,
         status: raw.status ?? null,
-        details: (raw.details || {}) as Record<string, any>,
+        details: (raw.details || {}) as OrderDetailsJson,
         template_id: raw.template_id ?? null,
         templates: (raw.templates || null) as OrderItemRow['templates'],
       };
@@ -251,7 +166,7 @@ const AdminAccounts = () => {
       const profile = profileMap.get(o.customer_id);
       return {
         ...o,
-        details: (o.details || {}) as Record<string, any>,
+        details: (o.details || {}) as OrderDetailsJson,
         templates: o.templates as OrderRow['templates'],
         customer_name: profile?.display_name || null,
         customer_phone: profile?.phone || null,
@@ -266,18 +181,18 @@ const AdminAccounts = () => {
     const { data } = await supabase
       .from('expenses')
       .select('*')
-      .order('expense_date', { ascending: false }) as any;
-    setExpenses(data || []);
+      .order('expense_date', { ascending: false });
+    setExpenses((data as Expense[]) || []);
   }, []);
 
   const loadRecurring = useCallback(async () => {
     // Table may not exist yet on environments where the migration hasn't run; degrade gracefully.
     const { data, error } = await supabase
-      .from('recurring_expenses' as any)
+      .from('recurring_expenses' as never)
       .select('*')
-      .order('created_at', { ascending: false }) as any;
+      .order('created_at', { ascending: false });
     if (error) { setRecurring([]); return; }
-    setRecurring((data as RecurringExpense[]) || []);
+    setRecurring((data as unknown as RecurringExpense[]) || []);
   }, []);
 
   // Real AI generation cost for the selected period (sum of platform cost in IQD
@@ -287,7 +202,7 @@ const AdminAccounts = () => {
     const p_from = start ? start.toISOString() : null;
     const { data, error } = await supabase.rpc('ai_usage_by_customer' as never, { p_from, p_to: null } as never);
     if (error || !data) { setAiCost(0); return; }
-    const total = (data as any[]).reduce((s, r) => s + Number(r.total_cost_iqd || 0), 0);
+    const total = (data as { total_cost_iqd?: number | string }[]).reduce((s, r) => s + Number(r.total_cost_iqd || 0), 0);
     setAiCost(Math.round(total));
   }, [dateRange]);
 
@@ -516,7 +431,7 @@ const AdminAccounts = () => {
 
     const { error } = await supabase
       .from('orders')
-      .update({ paid_amount: paidAmount, payment_status: paymentStatus } as any)
+      .update({ paid_amount: paidAmount, payment_status: paymentStatus })
       .eq('id', orderId);
 
     if (error) { toast.error('فشل تحديث الدفع'); return; }
@@ -554,7 +469,7 @@ const AdminAccounts = () => {
           category: expenseForm.category,
           notes: expenseForm.notes || null,
           expense_date: expenseForm.expense_date,
-        } as any).eq('id', editingExpense.id);
+        }).eq('id', editingExpense.id);
         if (error) throw error;
         toast.success('تم تحديث المصروف');
       } else {
@@ -564,15 +479,15 @@ const AdminAccounts = () => {
           category: expenseForm.category,
           notes: expenseForm.notes || null,
           expense_date: expenseForm.expense_date,
-          created_by: user?.id,
-        } as any);
+          created_by: user!.id,
+        });
         if (error) throw error;
         toast.success('تمت إضافة المصروف');
       }
       setExpenseDialogOpen(false);
       loadExpenses();
-    } catch (err: any) {
-      toast.error(err.message || 'حدث خطأ');
+    } catch (e: unknown) {
+      toast.error(handleSupabaseError(e));
     } finally {
       setSavingExpense(false);
     }
@@ -608,38 +523,38 @@ const AdminAccounts = () => {
     setSavingRecurring(true);
     try {
       if (editingRecurring) {
-        const { error } = await supabase.from('recurring_expenses' as any).update({
+        const { error } = await supabase.from('recurring_expenses' as never).update({
           title: recurringForm.title,
           amount: recurringForm.amount,
           category: recurringForm.category,
           notes: recurringForm.notes || null,
           active: recurringForm.active,
-        } as any).eq('id', editingRecurring.id);
+        } as never).eq('id', editingRecurring.id);
         if (error) throw error;
         toast.success('تم تحديث المصروف الشهري');
       } else {
-        const { error } = await supabase.from('recurring_expenses' as any).insert({
+        const { error } = await supabase.from('recurring_expenses' as never).insert({
           title: recurringForm.title,
           amount: recurringForm.amount,
           category: recurringForm.category,
           notes: recurringForm.notes || null,
           active: recurringForm.active,
-          created_by: user?.id,
-        } as any);
+          created_by: user!.id,
+        } as never);
         if (error) throw error;
         toast.success('تمت إضافة المصروف الشهري');
       }
       setRecurringDialogOpen(false);
       loadRecurring();
-    } catch (err: any) {
-      toast.error(err.message || 'حدث خطأ');
+    } catch (e: unknown) {
+      toast.error(handleSupabaseError(e));
     } finally {
       setSavingRecurring(false);
     }
   };
 
   const toggleRecurringActive = async (r: RecurringExpense) => {
-    const { error } = await supabase.from('recurring_expenses' as any).update({ active: !r.active } as any).eq('id', r.id);
+    const { error } = await supabase.from('recurring_expenses' as never).update({ active: !r.active } as never).eq('id', r.id);
     if (error) { toast.error('فشل التحديث'); return; }
     loadRecurring();
   };
@@ -647,7 +562,7 @@ const AdminAccounts = () => {
   const confirmDeleteRecurring = async () => {
     if (!recurringToDelete) return;
     setDeletingRecurring(true);
-    const { error } = await supabase.from('recurring_expenses' as any).delete().eq('id', recurringToDelete.id);
+    const { error } = await supabase.from('recurring_expenses' as never).delete().eq('id', recurringToDelete.id);
     setDeletingRecurring(false);
     if (error) { toast.error('فشل الحذف'); return; }
     toast.success('تم الحذف');
@@ -684,9 +599,9 @@ const AdminAccounts = () => {
     const headers = Object.keys(rows[0]);
     const csv = [
       headers.join(','),
-      ...rows.map(r => headers.map(h => `"${String((r as any)[h] ?? '').replace(/"/g, '""')}"`).join(','))
+      ...rows.map(r => headers.map(h => `"${String((r as Record<string, unknown>)[h] ?? '').replace(/"/g, '""')}"`).join(','))
     ];
-    const blob = new Blob(['\uFEFF' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['﻿' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -730,188 +645,30 @@ const AdminAccounts = () => {
         </div>
       </div>
 
-      {/* ═══ P&L KPI Cards ═══ */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        {[
-          {
-            label: 'إجمالي المبيعات',
-            value: fmt(totalSales),
-            sub: `${completedOrders.length} طلب مكتمل`,
-            icon: DollarSign,
-            iconBg: 'bg-primary/10',
-            iconColor: 'text-primary',
-          },
-          {
-            label: 'تكلفة الإنتاج',
-            value: fmt(totalProductionCost),
-            sub: `تكلفة الطلبات المكتملة`,
-            icon: PackageCheck,
-            iconBg: 'bg-destructive/10',
-            iconColor: 'text-destructive',
-            valueColor: 'text-destructive',
-          },
-          {
-            label: 'الربح الإجمالي',
-            value: fmt(grossProfit),
-            sub: `هامش الربح: ${grossMargin}%`,
-            icon: TrendingUp,
-            iconBg: 'bg-success/10',
-            iconColor: 'text-success',
-            valueColor: grossProfit > 0 ? 'text-success' : 'text-destructive',
-          },
-          {
-            label: 'المصروفات',
-            value: fmt(totalExpenses),
-            sub: recurringForPeriod > 0 ? `${fmt(recurringForPeriod)} متكرر + ${fmt(manualExpenses)} متفرق` : `${dateFilteredExpenses.length} مصروف`,
-            icon: Minus,
-            iconBg: 'bg-destructive/10',
-            iconColor: 'text-destructive',
-            valueColor: 'text-destructive',
-          },
-          {
-            label: 'تكلفة الذكاء الاصطناعي',
-            value: fmt(aiCost),
-            sub: 'تكلفة التوليد الفعلية',
-            icon: Sparkles,
-            iconBg: 'bg-amber-500/10',
-            iconColor: 'text-amber-600',
-            valueColor: 'text-amber-600',
-          },
-          {
-            label: 'صافي الربح',
-            value: fmt(netProfit),
-            sub: `صافي الهامش: ${netMargin}%`,
-            icon: CircleDollarSign,
-            iconBg: netProfit >= 0 ? 'bg-success/10' : 'bg-destructive/10',
-            iconColor: netProfit >= 0 ? 'text-success' : 'text-destructive',
-            valueColor: netProfit >= 0 ? 'text-success' : 'text-destructive',
-          },
-        ].map((stat, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-          >
-            <Card className="border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <span className="text-[11px] font-medium text-muted-foreground leading-tight">{stat.label}</span>
-                  <div className={`w-8 h-8 rounded-lg ${stat.iconBg} flex items-center justify-center shrink-0`}>
-                    <stat.icon className={`w-4 h-4 ${stat.iconColor}`} />
-                  </div>
-                </div>
-                <p className={`text-xl font-extrabold ${stat.valueColor || 'text-foreground'} leading-none`}>
-                  {stat.value} <span className="text-[10px] font-normal text-muted-foreground">د.ع</span>
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-1.5">{stat.sub}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* ═══ Secondary KPIs ═══ */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'المبالغ المستلمة', value: fmt(confirmedPaid), sub: `نقد مستلم (شامل العرابين): ${fmt(totalCashReceived)} د.ع`, icon: Wallet, iconBg: 'bg-success/10', iconColor: 'text-success', valueColor: 'text-success' },
-          { label: 'الطلبات المعلقة', value: fmt(pendingValue), sub: `${pendingOrders.length} طلب قيد المعالجة`, icon: Clock, iconBg: 'bg-accent/10', iconColor: 'text-accent-foreground' },
-          { label: 'متوسط قيمة الطلب', value: fmt(completedOrders.length > 0 ? Math.round(totalSales / completedOrders.length) : 0), sub: `نسبة التحصيل: ${collectionRate}%`, icon: Target, iconBg: 'bg-primary/10', iconColor: 'text-primary' },
-          { label: 'متوسط الربح / طلب', value: fmt(completedOrders.length > 0 ? Math.round(grossProfit / completedOrders.length) : 0), sub: `صافي ربح لكل طلب`, icon: BarChart3, iconBg: 'bg-success/10', iconColor: 'text-success', valueColor: 'text-success' },
-        ].map((stat, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.05 }}>
-            <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <span className="text-[11px] font-medium text-muted-foreground leading-tight">{stat.label}</span>
-                  <div className={`w-8 h-8 rounded-lg ${stat.iconBg} flex items-center justify-center shrink-0`}>
-                    <stat.icon className={`w-4 h-4 ${stat.iconColor}`} />
-                  </div>
-                </div>
-                <p className={`text-xl font-extrabold ${stat.valueColor || 'text-foreground'} leading-none`}>
-                  {stat.value} <span className="text-[10px] font-normal text-muted-foreground">د.ع</span>
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-1.5">{stat.sub}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* ═══ Monthly Trend + Collection Rate ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-primary" />
-              الأداء الشهري
-            </h4>
-            {monthGrowth !== 0 && (
-              <div className={`flex items-center gap-1 text-xs font-semibold ${monthGrowth > 0 ? 'text-success' : 'text-destructive'}`}>
-                {monthGrowth > 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                {Math.abs(monthGrowth)}% عن الشهر السابق
-              </div>
-            )}
-          </div>
-          <div className="flex items-end gap-2 h-32">
-            {monthlyTrend.map((m, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-[9px] font-bold text-foreground">{m.revenue > 0 ? fmt(m.revenue) : ''}</span>
-                <div className="w-full relative">
-                  <div
-                    className="w-full bg-primary/15 rounded-t-md transition-all duration-500 relative overflow-hidden"
-                    style={{ height: `${Math.max((m.revenue / maxMonthRevenue) * 80, 4)}px` }}
-                  >
-                    <div
-                      className="absolute bottom-0 w-full bg-success rounded-t-md transition-all duration-500"
-                      style={{ height: m.revenue > 0 ? `${(m.profit / m.revenue) * 100}%` : '0%' }}
-                    />
-                  </div>
-                </div>
-                <span className="text-[10px] text-muted-foreground">{m.label}</span>
-                <span className="text-[9px] text-success font-bold">{m.profit > 0 ? fmt(m.profit) : ''}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-2 rounded-sm bg-success" />
-              <span className="text-[10px] text-muted-foreground">صافي الربح</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-2 rounded-sm bg-primary/15" />
-              <span className="text-[10px] text-muted-foreground">المبيعات</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Collection Rate Donut */}
-        <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 p-5 flex flex-col items-center justify-center">
-          <h4 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
-            <Percent className="w-4 h-4 text-success" />
-            نسبة التحصيل
-          </h4>
-          <div className="relative w-28 h-28">
-            <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-              <path d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
-              <path d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="hsl(var(--success))" strokeWidth="3" strokeDasharray={`${collectionRate}, 100`} className="transition-all duration-1000" />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-extrabold text-success">{collectionRate}%</span>
-            </div>
-          </div>
-          <div className="mt-4 space-y-1.5 w-full">
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">مستلم</span>
-              <span className="font-bold text-success">{fmt(confirmedPaid)}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">متبقي</span>
-              <span className="font-bold text-destructive">{fmt(confirmedRemaining)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ═══ P&L Summary (KPI cards + trend + collection) ═══ */}
+      <AccountsPLSummary
+        totalSales={totalSales}
+        completedOrdersCount={completedOrders.length}
+        totalProductionCost={totalProductionCost}
+        grossProfit={grossProfit}
+        grossMargin={grossMargin}
+        totalExpenses={totalExpenses}
+        recurringForPeriod={recurringForPeriod}
+        manualExpenses={manualExpenses}
+        dateFilteredExpensesCount={dateFilteredExpenses.length}
+        aiCost={aiCost}
+        netProfit={netProfit}
+        netMargin={netMargin}
+        confirmedPaid={confirmedPaid}
+        totalCashReceived={totalCashReceived}
+        pendingValue={pendingValue}
+        pendingOrdersCount={pendingOrders.length}
+        collectionRate={collectionRate}
+        confirmedRemaining={confirmedRemaining}
+        monthlyTrend={monthlyTrend}
+        maxMonthRevenue={maxMonthRevenue}
+        monthGrowth={monthGrowth}
+      />
 
       {/* ═══ Tabs: الطلبات / المصروفات ═══ */}
       <Tabs defaultValue="orders" dir="rtl">
@@ -926,645 +683,88 @@ const AdminAccounts = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* ═══ Orders Tab ═══ */}
-        <TabsContent value="orders">
-          {/* Service Breakdown + Top Customers + Payment Status */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            {/* Service Revenue with cost */}
-            <div className="lg:col-span-1">
-              <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                <Receipt className="w-3.5 h-3.5" />
-                الأداء حسب الخدمة
-              </h4>
-              {serviceRevenue.length > 0 ? (
-                <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border/50 divide-y divide-border/50">
-                  {serviceRevenue.map(s => (
-                    <div key={s.key} className="px-4 py-3">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-medium text-foreground">{s.label}</span>
-                        <Badge variant="secondary" className="text-[10px]">{s.count}</Badge>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 mt-1">
-                        <div>
-                          <p className="text-[9px] text-muted-foreground">مبيعات</p>
-                          <p className="text-[10px] font-bold text-foreground">{fmt(s.revenue)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] text-muted-foreground">تكلفة</p>
-                          <p className="text-[10px] font-bold text-destructive">{fmt(s.cost)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] text-muted-foreground">ربح</p>
-                          <p className="text-[10px] font-bold text-success">{fmt(s.profit)}</p>
-                        </div>
-                      </div>
-                      {s.pending > 0 && (
-                        <p className="text-[10px] text-muted-foreground mt-1">معلق: {fmt(s.pending)} د.ع</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-card/80 rounded-xl border border-border/50 p-8 text-center text-muted-foreground text-sm">لا توجد بيانات</div>
-              )}
-            </div>
+        <AccountsOrdersTab
+          filtered={filtered}
+          services={services}
+          paymentFilter={paymentFilter}
+          setPaymentFilter={setPaymentFilter}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          serviceFilter={serviceFilter}
+          setServiceFilter={setServiceFilter}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          paidCount={paidCount}
+          unpaidCount={unpaidCount}
+          partialCount={partialCount}
+          serviceRevenue={serviceRevenue}
+          topCustomers={topCustomers}
+          editingPayment={editingPayment}
+          setEditingPayment={setEditingPayment}
+          editAmount={editAmount}
+          setEditAmount={setEditAmount}
+          revenueOf={revenueOf}
+          costOf={costOf}
+          quantityOf={quantityOf}
+          serviceTypesOf={serviceTypesOf}
+          SERVICE_LABELS={SERVICE_LABELS}
+          onUpdatePayment={handleUpdatePayment}
+          onMarkPaid={handleMarkPaid}
+          onExportCSV={handleExportCSV}
+        />
 
-            {/* Top Customers */}
-            <div className="lg:col-span-1">
-              <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5" />
-                أكثر الزبائن إنفاقاً
-              </h4>
-              {topCustomers.length > 0 ? (
-                <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border/50 divide-y divide-border/50">
-                  {topCustomers.map((c, i) => (
-                    <div key={i} className="flex items-center gap-3 px-4 py-3">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">{i + 1}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">{c.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{c.count} طلب</p>
-                      </div>
-                      <div className="text-left shrink-0">
-                        <p className="text-xs font-bold text-foreground">{fmt(c.total)}</p>
-                        <p className="text-[10px] text-success">{fmt(c.paid)} مستلم</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-card/80 rounded-xl border border-border/50 p-8 text-center text-muted-foreground text-sm">لا توجد بيانات</div>
-              )}
-            </div>
-
-            {/* Payment Status */}
-            <div className="lg:col-span-1">
-              <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                <CreditCard className="w-3.5 h-3.5" />
-                حالة الدفع
-              </h4>
-              <div className="space-y-2">
-                {[
-                  { key: 'paid', label: 'مدفوع بالكامل', count: paidCount, color: 'border-success/30 bg-success/5', dotColor: 'bg-success' },
-                  { key: 'partial', label: 'مدفوع جزئياً', count: partialCount, color: 'border-accent/30 bg-accent/5', dotColor: 'bg-accent' },
-                  { key: 'unpaid', label: 'غير مدفوع', count: unpaidCount, color: 'border-destructive/30 bg-destructive/5', dotColor: 'bg-destructive' },
-                ].map(s => (
-                  <button
-                    key={s.key}
-                    onClick={() => setPaymentFilter(paymentFilter === s.key ? 'all' : s.key)}
-                    className={`w-full flex items-center justify-between rounded-xl border p-3.5 transition-all ${
-                      paymentFilter === s.key ? s.color + ' ring-1 ring-ring' : 'border-border/50 bg-card/80 hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-2.5 h-2.5 rounded-full ${s.dotColor}`} />
-                      <span className="text-sm text-foreground">{s.label}</span>
-                    </div>
-                    <span className="text-lg font-bold text-foreground">{s.count}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Orders Table */}
-          <div>
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Banknote className="w-4 h-4 text-primary" />
-                تفاصيل الطلبات
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{filtered.length} سجل</span>
-                <Button onClick={handleExportCSV} variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-lg">
-                  <Download className="w-3.5 h-3.5" />
-                  تصدير CSV
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-3">
-              <div className="relative flex-1 min-w-[180px] max-w-xs">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث بالاسم أو الهاتف أو رقم الطلب..." className="pr-9 h-9 text-xs rounded-lg" />
-              </div>
-              <Select value={serviceFilter} onValueChange={setServiceFilter}>
-                <SelectTrigger className="w-[130px] h-9 text-xs rounded-lg"><SelectValue placeholder="الخدمة" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الخدمات</SelectItem>
-                  {services.map(s => (<SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>))}
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[130px] h-9 text-xs rounded-lg"><SelectValue placeholder="حالة الطلب" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الحالات</SelectItem>
-                  {Object.entries(STATUS_LABELS).filter(([k]) => k !== 'draft').map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[140px] h-9 text-xs rounded-lg"><SelectValue placeholder="ترتيب" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">الأحدث</SelectItem>
-                  <SelectItem value="oldest">الأقدم</SelectItem>
-                  <SelectItem value="highest">الأعلى قيمة</SelectItem>
-                  <SelectItem value="lowest">الأقل قيمة</SelectItem>
-                  <SelectItem value="unpaid_first">غير المدفوع أولاً</SelectItem>
-                </SelectContent>
-              </Select>
-              {(paymentFilter !== 'all' || searchQuery || serviceFilter !== 'all' || statusFilter !== 'all') && (
-                <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setPaymentFilter('all'); setSearchQuery(''); setServiceFilter('all'); setStatusFilter('all'); }}>
-                  <X className="w-3 h-3 ml-1" /> مسح الفلاتر
-                </Button>
-              )}
-            </div>
-
-            {filtered.length === 0 ? (
-              <div className="text-center py-16 bg-card/80 rounded-2xl border border-border/50">
-                <DollarSign className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">لا توجد سجلات مطابقة</p>
-              </div>
-            ) : (
-              <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/30 hover:bg-muted/30">
-                        <TableHead className="text-right text-[11px] font-semibold w-[140px]">الزبون</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold">القالب</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[60px]">الكمية</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[80px]">المبيعات</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[70px]">التكلفة</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[70px]">الربح</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[80px]">المدفوع</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[70px]">الدفع</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[110px]">إجراء</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filtered.map((order) => {
-                        const orderTotal = revenueOf(order);
-                        const orderCost = costOf(order);
-                        const orderProfit = orderTotal - orderCost;
-                        const remaining = orderTotal - order.paid_amount;
-                        const isEditing = editingPayment === order.id;
-                        const qty = quantityOf(order);
-                        const svcTypes = serviceTypesOf(order);
-                        const svcLabel = svcTypes.length > 1
-                          ? 'متعدد'
-                          : (SERVICE_LABELS[svcTypes[0] || order.templates?.service_type || ''] || '');
-
-                        return (
-                          <TableRow key={order.id} className="group">
-                            <TableCell>
-                              <div>
-                                <p className="text-sm font-medium text-foreground leading-tight">{order.customer_name || '-'}</p>
-                                <p className="text-[10px] text-muted-foreground font-mono">#{order.id.slice(0, 8)}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <p className="text-xs text-foreground">{order.templates?.name || '-'}</p>
-                              <p className="text-[10px] text-muted-foreground">{svcLabel}</p>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-xs text-foreground">{fmt(qty)}</span>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-xs font-bold text-foreground">{orderTotal > 0 ? fmt(orderTotal) : '-'}</span>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-xs text-destructive">{orderCost > 0 ? fmt(orderCost) : '-'}</span>
-                            </TableCell>
-                            <TableCell>
-                              <span className={`text-xs font-bold ${orderProfit > 0 ? 'text-success' : 'text-destructive'}`}>
-                                {orderTotal > 0 ? fmt(orderProfit) : '-'}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <span className="text-xs font-bold text-success">{fmt(order.paid_amount)}</span>
-                                {remaining > 0 && order.payment_status !== 'paid' && (
-                                  <p className="text-[10px] text-destructive">-{fmt(remaining)}</p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 gap-1 ${PAYMENT_COLORS[order.payment_status]}`}>
-                                {PAYMENT_LABELS[order.payment_status]}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {isEditing ? (
-                                <div className="flex items-center gap-1">
-                                  <Input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="w-20 h-7 text-[11px] rounded" placeholder="المبلغ" min="0" autoFocus />
-                                  <Button size="sm" className="h-7 text-[10px] px-2 rounded" onClick={() => handleUpdatePayment(order.id, parseInt(editAmount) || 0, orderTotal)}>✓</Button>
-                                  <Button size="sm" variant="ghost" className="h-7 text-[10px] px-1.5 rounded" onClick={() => setEditingPayment(null)}>✗</Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                                  {order.payment_status !== 'paid' && orderTotal > 0 && (
-                                    <Button size="sm" variant="outline" className="h-7 text-[10px] px-2 rounded" onClick={() => handleMarkPaid(order.id, orderTotal)}>
-                                      <CheckCircle className="w-3 h-3 ml-0.5" />
-                                      دفع
-                                    </Button>
-                                  )}
-                                  <Button size="sm" variant="ghost" className="h-7 text-[10px] px-2 rounded" onClick={() => { setEditingPayment(order.id); setEditAmount(order.paid_amount.toString()); }}>
-                                    تعديل
-                                  </Button>
-                                </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* ═══ Expenses Tab ═══ */}
-        <TabsContent value="expenses">
-          <div className="space-y-4">
-            {/* Operating-expenses clarification */}
-            <div className="flex items-start gap-2 rounded-xl border border-border/50 bg-muted/30 px-4 py-3 text-[11px] text-muted-foreground">
-              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" />
-              <span>تُحتسب تكلفة الإنتاج تلقائياً لكل طلب. المصروفات هنا هي مصاريف تشغيلية فقط (إيجار، رواتب، تسويق…).</span>
-            </div>
-
-            {/* ═══ Marketing ═══ */}
-            <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <Megaphone className="w-4 h-4 text-primary" /> التسويق
-                </h4>
-                <span className="text-[11px] text-muted-foreground">فئة «{MARKETING_CATEGORY}»</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-0.5">إنفاق التسويق</p>
-                  <p className="text-lg font-bold text-foreground leading-none">{fmt(marketingSpend)} <span className="text-[10px] font-normal text-muted-foreground">د.ع</span></p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-0.5">نسبة من المبيعات</p>
-                  <p className="text-lg font-bold text-foreground leading-none">{marketingPctOfSales}%</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-0.5">العائد (مبيعات لكل 1 د.ع)</p>
-                  <p className={`text-lg font-bold leading-none ${marketingRoi >= 1 ? 'text-success' : 'text-destructive'}`}>
-                    {marketingRoi > 0 ? `${marketingRoi.toFixed(1)}×` : '—'}
-                  </p>
-                </div>
-              </div>
-              {marketingMonthlyRecurring > 0 && (
-                <p className="text-[10px] text-muted-foreground mt-3 pt-3 border-t border-border/50">
-                  يشمل {fmt(marketingMonthlyRecurring)} د.ع تسويق شهري متكرر × {monthsInRange} شهر
-                </p>
-              )}
-            </div>
-
-            {/* ═══ Monthly recurring expenses ═══ */}
-            <div>
-              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                <div>
-                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                    <CalendarDays className="w-4 h-4 text-primary" /> المصروفات الشهرية المتكررة
-                  </h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    التزامات ثابتة تُحتسب تلقائياً كل شهر — {fmt(recurringMonthly)} د.ع/شهر
-                    {recurringForPeriod !== recurringMonthly && <> (≈ {fmt(recurringForPeriod)} د.ع لهذه الفترة × {monthsInRange} شهر)</>}
-                  </p>
-                </div>
-                <Button onClick={openAddRecurring} size="sm" variant="outline" className="rounded-xl gap-1.5">
-                  <Plus className="w-3.5 h-3.5" /> إضافة مصروف شهري
-                </Button>
-              </div>
-              {recurring.length === 0 ? (
-                <div className="text-center py-8 bg-card/80 rounded-2xl border border-border/50 text-muted-foreground text-sm">
-                  لا توجد مصروفات شهرية متكررة
-                </div>
-              ) : (
-                <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/30 hover:bg-muted/30">
-                          <TableHead className="text-right text-[11px] font-semibold">العنوان</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold w-[100px]">الفئة</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold w-[110px]">المبلغ/شهر</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold w-[80px]">الحالة</TableHead>
-                          <TableHead className="text-right text-[11px] font-semibold w-[80px]">إجراء</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {recurring.map(r => (
-                          <TableRow key={r.id} className={`group ${!r.active ? 'opacity-50' : ''}`}>
-                            <TableCell>
-                              <p className="text-xs font-medium text-foreground">{r.title}</p>
-                              {r.notes && <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{r.notes}</p>}
-                            </TableCell>
-                            <TableCell><Badge variant="outline" className="text-[10px]">{r.category}</Badge></TableCell>
-                            <TableCell><span className="text-xs font-bold text-destructive">{fmt(r.amount)} د.ع</span></TableCell>
-                            <TableCell>
-                              <button
-                                onClick={() => toggleRecurringActive(r)}
-                                className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${r.active ? 'bg-success/10 text-success border-success/20' : 'bg-muted text-muted-foreground border-border'}`}
-                              >
-                                {r.active ? 'نشط' : 'متوقف'}
-                              </button>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEditRecurring(r)}><Pencil className="w-3 h-3" /></Button>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => setRecurringToDelete(r)}><Trash2 className="w-3 h-3" /></Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Expense category breakdown */}
-            {expenseByCategory.length > 0 && (
-              <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 p-5">
-                <h4 className="text-sm font-bold text-foreground mb-4">توزيع المصروفات حسب الفئة</h4>
-                <div className="space-y-2">
-                  {expenseByCategory.map(([cat, amount]) => {
-                    const pct = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0;
-                    return (
-                      <div key={cat}>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-foreground font-medium">{cat}</span>
-                          <span className="text-muted-foreground">{fmt(amount)} د.ع ({Math.round(pct)}%)</span>
-                        </div>
-                        <div className="bg-muted rounded-full h-1.5 overflow-hidden">
-                          <div className="bg-destructive h-full rounded-full transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Add expense button */}
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-foreground">مصروفات لمرة واحدة</h3>
-              <Button onClick={openAddExpense} size="sm" className="rounded-xl gap-1.5">
-                <Plus className="w-3.5 h-3.5" />
-                إضافة مصروف
-              </Button>
-            </div>
-
-            {/* Expenses list */}
-            {dateFilteredExpenses.length === 0 ? (
-              <div className="text-center py-16 bg-card/80 rounded-2xl border border-border/50">
-                <Minus className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">لا توجد مصروفات في هذه الفترة</p>
-              </div>
-            ) : (
-              <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/30 hover:bg-muted/30">
-                        <TableHead className="text-right text-[11px] font-semibold">العنوان</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[100px]">الفئة</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[100px]">المبلغ</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[100px]">التاريخ</TableHead>
-                        <TableHead className="text-right text-[11px] font-semibold w-[80px]">إجراء</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {dateFilteredExpenses.map(exp => (
-                        <TableRow key={exp.id} className="group">
-                          <TableCell>
-                            <p className="text-xs font-medium text-foreground">{exp.title}</p>
-                            {exp.notes && <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{exp.notes}</p>}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-[10px]">{exp.category}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-xs font-bold text-destructive">{fmt(exp.amount)} د.ع</span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-[11px] text-muted-foreground">{new Date(exp.expense_date).toLocaleDateString('ar-IQ')}</span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEditExpense(exp)}>
-                                <Pencil className="w-3 h-3" />
-                              </Button>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => setExpenseToDelete(exp)}>
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            )}
-          </div>
-        </TabsContent>
+        <AccountsExpensesTab
+          dateFilteredExpenses={dateFilteredExpenses}
+          marketingSpend={marketingSpend}
+          marketingPctOfSales={marketingPctOfSales}
+          marketingRoi={marketingRoi}
+          marketingMonthlyRecurring={marketingMonthlyRecurring}
+          monthsInRange={monthsInRange}
+          recurring={recurring}
+          recurringMonthly={recurringMonthly}
+          recurringForPeriod={recurringForPeriod}
+          expenseByCategory={expenseByCategory}
+          totalExpenses={totalExpenses}
+          onAddRecurring={openAddRecurring}
+          onEditRecurring={openEditRecurring}
+          onToggleRecurringActive={toggleRecurringActive}
+          onDeleteRecurring={setRecurringToDelete}
+          onAddExpense={openAddExpense}
+          onEditExpense={openEditExpense}
+          onDeleteExpense={setExpenseToDelete}
+        />
       </Tabs>
 
-      {/* ═══ Expense Dialog ═══ */}
-      <Dialog open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen}>
-        <DialogContent className="max-w-md" dir="rtl">
-          <DialogHeader>
-            <DialogTitle>{editingExpense ? 'تعديل مصروف' : 'إضافة مصروف'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">العنوان *</label>
-              <Input
-                value={expenseForm.title}
-                onChange={e => setExpenseForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="مثال: إيجار المحل"
-                className="rounded-xl"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">المبلغ (د.ع) *</label>
-                <Input
-                  type="number"
-                  value={expenseForm.amount || ''}
-                  onChange={e => setExpenseForm(f => ({ ...f, amount: parseInt(e.target.value) || 0 }))}
-                  placeholder="500000"
-                  className="rounded-xl"
-                  dir="ltr"
-                  min="0"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">التاريخ</label>
-                <Input
-                  type="date"
-                  value={expenseForm.expense_date}
-                  onChange={e => setExpenseForm(f => ({ ...f, expense_date: e.target.value }))}
-                  className="rounded-xl"
-                  dir="ltr"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">الفئة</label>
-              <Select value={expenseForm.category} onValueChange={v => setExpenseForm(f => ({ ...f, category: v }))}>
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {EXPENSE_CATEGORIES.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">ملاحظات</label>
-              <Textarea
-                value={expenseForm.notes}
-                onChange={e => setExpenseForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="ملاحظات إضافية..."
-                className="rounded-xl min-h-[60px]"
-              />
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleSaveExpense} disabled={savingExpense} className="flex-1 rounded-xl">
-                {savingExpense ? 'جاري الحفظ...' : editingExpense ? 'حفظ التغييرات' : 'إضافة'}
-              </Button>
-              <Button variant="outline" onClick={() => setExpenseDialogOpen(false)} disabled={savingExpense} className="rounded-xl">
-                إلغاء
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* ═══ Dialogs ═══ */}
+      <ExpenseDialogs
+        expenseDialogOpen={expenseDialogOpen}
+        setExpenseDialogOpen={setExpenseDialogOpen}
+        editingExpense={editingExpense}
+        expenseForm={expenseForm}
+        setExpenseForm={setExpenseForm}
+        savingExpense={savingExpense}
+        handleSaveExpense={handleSaveExpense}
+        expenseToDelete={expenseToDelete}
+        setExpenseToDelete={setExpenseToDelete}
+        deletingExpense={deletingExpense}
+        confirmDeleteExpense={confirmDeleteExpense}
+      />
 
-      {/* ═══ Delete Expense Confirmation ═══ */}
-      <AlertDialog open={!!expenseToDelete} onOpenChange={(open) => { if (!open && !deletingExpense) setExpenseToDelete(null); }}>
-        <AlertDialogContent dir="rtl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-            <AlertDialogDescription>
-              هل أنت متأكد من حذف المصروف "{expenseToDelete?.title ?? ''}"؟ لا يمكن التراجع عن هذا الإجراء.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel disabled={deletingExpense} className="rounded-xl">إلغاء</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); confirmDeleteExpense(); }}
-              disabled={deletingExpense}
-              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deletingExpense ? 'جاري الحذف...' : 'حذف'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* ═══ Recurring Expense Dialog ═══ */}
-      <Dialog open={recurringDialogOpen} onOpenChange={setRecurringDialogOpen}>
-        <DialogContent className="max-w-md" dir="rtl">
-          <DialogHeader>
-            <DialogTitle>{editingRecurring ? 'تعديل مصروف شهري' : 'إضافة مصروف شهري متكرر'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">العنوان *</label>
-              <Input
-                value={recurringForm.title}
-                onChange={e => setRecurringForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="مثال: إيجار المحل، راتب موظف..."
-                className="rounded-xl"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">المبلغ شهرياً (د.ع) *</label>
-                <Input
-                  type="number"
-                  value={recurringForm.amount || ''}
-                  onChange={e => setRecurringForm(f => ({ ...f, amount: parseInt(e.target.value) || 0 }))}
-                  placeholder="500000"
-                  className="rounded-xl"
-                  dir="ltr"
-                  min="0"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">الفئة</label>
-                <Select value={recurringForm.category} onValueChange={v => setRecurringForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {EXPENSE_CATEGORIES.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">ملاحظات</label>
-              <Textarea
-                value={recurringForm.notes}
-                onChange={e => setRecurringForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="ملاحظات إضافية..."
-                className="rounded-xl min-h-[60px]"
-              />
-            </div>
-            <label className="flex items-center justify-between rounded-xl border border-border/50 px-4 py-3 cursor-pointer">
-              <span className="text-sm font-medium text-foreground">نشط (يُحتسب شهرياً)</span>
-              <input
-                type="checkbox"
-                checked={recurringForm.active}
-                onChange={e => setRecurringForm(f => ({ ...f, active: e.target.checked }))}
-                className="w-4 h-4 accent-primary"
-              />
-            </label>
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleSaveRecurring} disabled={savingRecurring} className="flex-1 rounded-xl">
-                {savingRecurring ? 'جاري الحفظ...' : editingRecurring ? 'حفظ التغييرات' : 'إضافة'}
-              </Button>
-              <Button variant="outline" onClick={() => setRecurringDialogOpen(false)} disabled={savingRecurring} className="rounded-xl">
-                إلغاء
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ═══ Delete Recurring Confirmation ═══ */}
-      <AlertDialog open={!!recurringToDelete} onOpenChange={(open) => { if (!open && !deletingRecurring) setRecurringToDelete(null); }}>
-        <AlertDialogContent dir="rtl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-            <AlertDialogDescription>
-              هل أنت متأكد من حذف المصروف الشهري "{recurringToDelete?.title ?? ''}"؟ لا يمكن التراجع عن هذا الإجراء.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel disabled={deletingRecurring} className="rounded-xl">إلغاء</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); confirmDeleteRecurring(); }}
-              disabled={deletingRecurring}
-              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deletingRecurring ? 'جاري الحذف...' : 'حذف'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RecurringExpenseDialogs
+        recurringDialogOpen={recurringDialogOpen}
+        setRecurringDialogOpen={setRecurringDialogOpen}
+        editingRecurring={editingRecurring}
+        recurringForm={recurringForm}
+        setRecurringForm={setRecurringForm}
+        savingRecurring={savingRecurring}
+        handleSaveRecurring={handleSaveRecurring}
+        recurringToDelete={recurringToDelete}
+        setRecurringToDelete={setRecurringToDelete}
+        deletingRecurring={deletingRecurring}
+        confirmDeleteRecurring={confirmDeleteRecurring}
+      />
     </div>
   );
 };

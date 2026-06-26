@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,6 +11,13 @@ import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
 import { useResellerPricing } from '@/hooks/useResellerPricing';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
+import {
+  insertOrder,
+  uploadOrderAttachment,
+  getOrderAttachmentPublicUrl,
+  patchOrderDetails,
+} from '@/services/orders';
+import type { Json } from '@/integrations/supabase/types';
 
 const ACCEPTED = '.png,.jpg,.jpeg,.pdf,.psd';
 const ALLOWED_EXTS = ['png', 'jpg', 'jpeg', 'pdf', 'psd'];
@@ -153,15 +159,10 @@ const ResellerNewOrder = () => {
 
     try {
       // 1. Create the order
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          customer_id: user.id,
-          status: 'submitted',
-          details: buildDetails([]),
-        })
-        .select('id')
-        .single();
+      const { data: orderData, error: orderError } = await insertOrder(
+        user.id,
+        buildDetails([]) as unknown as Json,
+      );
 
       if (orderError || !orderData) throw orderError;
 
@@ -174,23 +175,20 @@ const ResellerNewOrder = () => {
       const uploadedUrls: string[] = [];
       for (const { file, name } of newFiles) {
         const path = `${orderData.id}/${name}`;
-        const { error: uploadError } = await supabase.storage.from('order-attachments').upload(path, file);
+        const { error: uploadError } = await uploadOrderAttachment(path, file);
         if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('order-attachments').getPublicUrl(path);
-        uploadedUrls.push(publicUrl);
+        uploadedUrls.push(getOrderAttachmentPublicUrl(path));
       }
 
       const attachment_urls = [...existingAttachments, ...uploadedUrls];
 
       // 3. Save attachment urls
-      await supabase.from('orders')
-        .update({ details: buildDetails(attachment_urls) })
-        .eq('id', orderData.id);
+      await patchOrderDetails(orderData.id, buildDetails(attachment_urls) as unknown as Json);
 
       toast({ title: 'تم إرسال طلبك بنجاح ✅' });
       navigate('/reseller');
-    } catch (err: any) {
-      toast({ title: 'حدث خطأ', description: getUserFriendlyError(err), variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'حدث خطأ', description: getUserFriendlyError(e), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }

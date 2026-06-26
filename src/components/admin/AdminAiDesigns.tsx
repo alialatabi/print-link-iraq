@@ -45,7 +45,6 @@ const PRESETS: { id: string; label: string; days: number | null }[] = [
   { id: '30', label: '30 يوم', days: 30 },
 ];
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
-const iqd = (n: number) => `${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })} د.ع`;
 
 // Extract the storage object path from a public order-attachments URL so the file can be removed.
 // e.g. https://…/object/public/order-attachments/ai-generations/<uid>/<id>.png → ai-generations/<uid>/<id>.png

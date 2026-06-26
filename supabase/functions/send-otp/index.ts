@@ -1,16 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-const json = (body: unknown, status: number) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+import { CORS_HEADERS, json, normalizePhone, getServiceClient } from "../_shared/helpers.ts";
 
 // OTP send rate limit: at most this many sends per phone inside the rolling window.
 const SEND_LIMIT = 5;
@@ -28,20 +16,16 @@ const SEND_WINDOW_MS = 15 * 60 * 1000;
  * Response: { route: 'staff' | 'code' | 'otp', isNewUser? }
  */
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
     const { phone, force } = await req.json();
     if (!phone || typeof phone !== "string" || phone.length < 10) {
       return json({ error: "رقم هاتف غير صالح" }, 400);
     }
-    const normalizedPhone = phone.replace(/\s+/g, "").replace(/^0/, "964");
+    const normalizedPhone = normalizePhone(phone);
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    );
+    const supabaseAdmin = getServiceClient();
 
     // Resolve account state: staff vs customer, and whether a PIN is set.
     const { data: profileData } = await supabaseAdmin

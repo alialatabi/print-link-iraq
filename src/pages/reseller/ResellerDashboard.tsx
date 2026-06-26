@@ -224,7 +224,7 @@ const ResellerDashboard = () => {
                         </div>
                       </div>
                       <div className="text-left flex-shrink-0">
-                        <p className="font-extrabold text-primary text-sm">{formatIQD(d.pricing?.total)}</p>
+                        <p className="font-extrabold text-primary text-sm">{formatIQD(d.pricing?.total ?? 0)}</p>
                       </div>
                     </div>
 
@@ -390,7 +390,7 @@ const ResellerDashboard = () => {
                         </div>
                       </div>
                       <div className="text-left flex-shrink-0">
-                        <p className="font-extrabold text-primary text-sm">{formatIQD(d.pricing?.total)}</p>
+                        <p className="font-extrabold text-primary text-sm">{formatIQD(d.pricing?.total ?? 0)}</p>
                       </div>
                     </div>
 

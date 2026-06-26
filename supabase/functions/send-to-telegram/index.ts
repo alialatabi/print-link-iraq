@@ -1,11 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import UTIF from 'https://esm.sh/utif2@4.1.0'
 import UPNG from 'https://esm.sh/upng-js@2.1.0'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-}
+import { CORS_HEADERS_PLATFORM } from '../_shared/helpers.ts'
 
 // Flat delivery fee (IQD) added to every customer order total.
 const DELIVERY_FEE = 5000
@@ -40,7 +36,7 @@ type DesignFile = { buffer: ArrayBuffer; ext: string }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: CORS_HEADERS_PLATFORM })
   }
 
   try {
@@ -57,17 +53,18 @@ Deno.serve(async (req) => {
     // member — this endpoint pushes orders to print and fetches design files server-side.
     const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
     if (!jwt) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...CORS_HEADERS_PLATFORM, 'Content-Type': 'application/json' } })
     }
+    // send-to-telegram's admin client omits auth options — preserved as-is.
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     const userClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } })
     const { data: { user }, error: authErr } = await userClient.auth.getUser(jwt)
     if (authErr || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...CORS_HEADERS_PLATFORM, 'Content-Type': 'application/json' } })
     }
     const { data: roleRows } = await supabase.from('user_roles').select('role').eq('user_id', user.id)
     if (!(roleRows || []).some((r: { role: string }) => ['admin', 'designer', 'reseller'].includes(r.role))) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...CORS_HEADERS_PLATFORM, 'Content-Type': 'application/json' } })
     }
 
     // SSRF guard: design URLs may ONLY point at this project's own Supabase storage host.
@@ -82,7 +79,7 @@ Deno.serve(async (req) => {
     const { orderId, orderItemId, designFilePath, designFileUrls } = await req.json()
     const fileUrls: string[] = Array.isArray(designFileUrls) ? designFileUrls.filter(Boolean) : []
     if (!orderId || (!designFilePath && fileUrls.length === 0)) {
-      return new Response(JSON.stringify({ error: 'orderId and a design file (designFilePath or designFileUrls) are required' }), { status: 400, headers: corsHeaders })
+      return new Response(JSON.stringify({ error: 'orderId and a design file (designFilePath or designFileUrls) are required' }), { status: 400, headers: CORS_HEADERS_PLATFORM })
     }
 
     // Fetch order with template info
@@ -93,7 +90,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (orderErr || !order) {
-      return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404, headers: corsHeaders })
+      return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404, headers: CORS_HEADERS_PLATFORM })
     }
 
     const details = order.details || {}
@@ -121,18 +118,18 @@ ${cellophane ? `✨ *السلوفان:* ${cellophane}\n` : ''}💰 *الكلفة
         .select('*, templates(name, service_type)')
         .eq('order_id', orderId)
         .order('created_at', { ascending: true })
-      const items = (itemsData || []) as Array<Record<string, any>>
+      const items = (itemsData || []) as Array<Record<string, unknown>>
 
       // Look up service prices for non-AI items (service price is per `min_quantity`, default 1000).
       const svcTypes = [...new Set(items.map((i) => i.templates?.service_type).filter(Boolean))]
       const svcMap = new Map<string, { price: number; min_quantity: number }>()
       if (svcTypes.length > 0) {
         const { data: svcs } = await supabase.from('services').select('id, price, min_quantity').in('id', svcTypes)
-        for (const s of (svcs || []) as Array<Record<string, any>>) {
+        for (const s of (svcs || []) as Array<Record<string, unknown>>) {
           svcMap.set(s.id, { price: Number(s.price) || 0, min_quantity: Number(s.min_quantity) || 1000 })
         }
       }
-      const priceOfItem = (it: Record<string, any>): number => {
+      const priceOfItem = (it: Record<string, unknown>): number => {
         const d = it.details || {}
         const qty = Number(d.quantity) || 1
         if (d.is_ai_design) return (Number(d.unit_price) || 0) * qty
@@ -262,13 +259,13 @@ ${address}
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...CORS_HEADERS_PLATFORM, 'Content-Type': 'application/json' },
     })
   } catch (error: unknown) {
     console.error('Error in send-to-telegram:', error)
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...CORS_HEADERS_PLATFORM, 'Content-Type': 'application/json' },
     })
   }
 })

@@ -4,16 +4,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  Crown, ShieldCheck, Palette, User, Trash2,
+  Crown, ShieldCheck, Palette, Trash2,
   UserPlus, UserMinus, ToggleLeft, Clock, Activity
 } from 'lucide-react';
+
+interface ActivityLogDetails {
+  actor_name?: string;
+  target_name?: string;
+  role?: string;
+  new_status?: string;
+  order_id?: string;
+  designer_name?: string;
+}
 
 interface ActivityLog {
   id: string;
   actor_id: string;
   action: string;
   target_user_id: string | null;
-  details: Record<string, any>;
+  details: ActivityLogDetails;
   created_at: string;
 }
 
@@ -39,11 +48,11 @@ const AdminActivityLog = () => {
 
   const loadLogs = useCallback(async () => {
     const { data } = await supabase
-      .from('activity_logs' as any)
+      .from('activity_logs')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(100);
-    setLogs((data as any[]) || []);
+    setLogs((data as ActivityLog[]) || []);
     setLoading(false);
   }, []);
 

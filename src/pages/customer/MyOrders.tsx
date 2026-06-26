@@ -1,37 +1,24 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import StatusBadge from '@/components/StatusBadge';
 import { STATUS_LABELS, SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
 import { useServices } from '@/hooks/useServices';
+import { useMyOrdersQuery, ordersKeys } from '@/hooks/queries/useOrdersQuery';
+import type { OrderRow } from '@/hooks/queries/useOrdersQuery';
 import { ShoppingBag, Package, ChevronLeft, ImageIcon, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { playNotificationSound } from '@/lib/notificationSound';
 import SEOHead from '@/components/SEOHead';
 import { isNativeApp } from '@/lib/platform';
-import { isImageUrl } from '@/lib/designVault';
 import { getDesignSignedUrl } from '@/lib/storage';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
 import { buildCatalog, computeLine } from '@/lib/orderPricing';
-
-interface OrderRow {
-  id: string;
-  status: OrderStatus;
-  created_at: string;
-  details: Record<string, any> | null;
-  templates?: { name?: string; service_type?: string; preview_url?: string | null } | null;
-  _items: any[];
-  _thumb: string | null;
-  _designPath: string | null;
-}
-
-const firstImage = (urls: unknown): string | null => {
-  if (!Array.isArray(urls)) return null;
-  return urls.find((u): u is string => typeof u === 'string' && isImageUrl(u)) || null;
-};
+import type { OrderItemListRow } from '@/services/orders';
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -39,106 +26,75 @@ const fmtDate = (iso: string) =>
 const MyOrders = () => {
   const navigate = useNavigate();
   const { user, role } = useAuth();
-  const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const { services } = useServices();
 
   const catalog = useMemo(() => buildCatalog(services), [services]);
 
-  // Total charged for an order: sum of per-item snapshots, or the order-level snapshot for
-  // item-less orders (uploads / vault re-orders), falling back to the live catalog for legacy rows.
+  // React Query — base order list (no signed URLs)
+  const { data: ordersBase, isLoading: loading } = useMyOrdersQuery(user?.id, role === 'admin');
+
+  // Signed-URL overrides for designer thumbnails — resolved progressively
+  // after the query data arrives, exactly as the original loadOrders did.
+  const [thumbOverrides, setThumbOverrides] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!ordersBase) return;
+    setThumbOverrides({});
+    ordersBase.forEach(async (o) => {
+      if (!o._designPath) return;
+      const url = await getDesignSignedUrl(o._designPath);
+      if (url) setThumbOverrides(prev => ({ ...prev, [o.id]: url }));
+    });
+  }, [ordersBase]);
+
+  // Merge public thumbnails with signed-URL overrides
+  const orders: OrderRow[] = (ordersBase ?? []).map(o => ({
+    ...o,
+    _thumb: thumbOverrides[o.id] || o._thumb,
+  }));
+
+  // Total charged for an order: sum of per-item snapshots, or the order-level
+  // snapshot for item-less orders (uploads / vault re-orders), falling back
+  // to the live catalog for legacy rows.
   const orderTotal = useCallback((order: OrderRow): number => {
     if (order._items.length > 0) {
-      return order._items.reduce((sum, it) => sum + computeLine(it.details, catalog, it.templates?.service_type).revenue, 0);
+      return order._items.reduce(
+        (sum, it) =>
+          sum + computeLine(it.details, catalog, it.templates?.service_type).revenue,
+        0,
+      );
     }
     return computeLine(order.details, catalog, order.templates?.service_type).revenue;
   }, [catalog]);
 
-  const loadOrders = useCallback(async () => {
-    if (!user) return;
-    let query = supabase
-      .from('orders')
-      .select('*, templates(name, service_type, preview_url)')
-      .order('updated_at', { ascending: false });
-    if (role !== 'admin') query = query.eq('customer_id', user.id);
-
-    const { data: ordersData } = await query;
-    if (!ordersData || ordersData.length === 0) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-
-    const orderIds = ordersData.map(o => o.id);
-    const [{ data: itemsData }, { data: designsData }] = await Promise.all([
-      supabase.from('order_items' as any).select('*, templates(name, service_type, preview_url)').in('order_id', orderIds),
-      supabase.from('designs').select('order_id, file_url, version').in('order_id', orderIds),
-    ]);
-
-    const itemsByOrder = new Map<string, any[]>();
-    (itemsData || []).forEach((item: any) => {
-      const list = itemsByOrder.get(item.order_id) || [];
-      list.push(item);
-      itemsByOrder.set(item.order_id, list);
-    });
-
-    // Latest designer design (private bucket) per order — signed lazily below for the thumbnail.
-    const designByOrder = new Map<string, { file_url: string; version: number }>();
-    (designsData || []).forEach((d: any) => {
-      if (!d.file_url) return;
-      const cur = designByOrder.get(d.order_id);
-      if (!cur || d.version > cur.version) designByOrder.set(d.order_id, d);
-    });
-
-    const enriched: OrderRow[] = ordersData.map((o: any) => {
-      const items = itemsByOrder.get(o.id) || [];
-      const det = (o.details || {}) as Record<string, any>;
-      // Public thumbnail: order-level upload → per-item AI/upload → template preview.
-      const itemImg = items.map(it => firstImage(it.details?.attachment_urls)).find(Boolean) || null;
-      const tmplPrev = o.templates?.preview_url || items.find(it => it.templates?.preview_url)?.templates?.preview_url || null;
-      return {
-        ...o,
-        _items: items,
-        _thumb: firstImage(det.attachment_urls) || itemImg || tmplPrev || null,
-        _designPath: designByOrder.get(o.id)?.file_url || null,
-      };
-    });
-
-    setOrders(enriched);
-    setLoading(false);
-
-    // The designer's finished design is the most representative thumbnail — sign it and swap in.
-    enriched.forEach(async (o) => {
-      if (!o._designPath) return;
-      const url = await getDesignSignedUrl(o._designPath);
-      if (url) setOrders(prev => prev.map(p => (p.id === o.id ? { ...p, _thumb: url } : p)));
-    });
-  }, [user, role]);
-
-  useEffect(() => { loadOrders(); }, [loadOrders]);
-
-  // Realtime
+  // Realtime — invalidate the query on any relevant table change
   useEffect(() => {
     if (!user) return;
+    const isAdmin = role === 'admin';
     const channel = supabase
       .channel('my-orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        const row = payload.new as any;
-        const old = payload.old as any;
-        if (role === 'admin' || row?.customer_id === user.id || old?.customer_id === user.id) {
+        const row = payload.new as { customer_id?: string; status?: string };
+        const old = payload.old as { customer_id?: string; status?: string };
+        if (isAdmin || row?.customer_id === user.id || old?.customer_id === user.id) {
           if (payload.eventType === 'UPDATE' && row?.status !== old?.status) {
             const label = STATUS_LABELS[row.status as OrderStatus] || row.status;
             playNotificationSound();
             toast({ title: `🔔 تحديث على طلبك`, description: label });
           }
-          loadOrders();
+          queryClient.invalidateQueries({ queryKey: ordersKeys.myOrders(user.id, isAdmin) });
         }
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => { loadOrders(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'designs' }, () => { loadOrders(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
+        queryClient.invalidateQueries({ queryKey: ordersKeys.myOrders(user.id, isAdmin) });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'designs' }, () => {
+        queryClient.invalidateQueries({ queryKey: ordersKeys.myOrders(user.id, isAdmin) });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, role, loadOrders]);
+  }, [user, role, queryClient]);
 
   if (loading) return (
     <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}>
@@ -235,7 +191,7 @@ const MyOrders = () => {
                           )}
                           {multi && (
                             <div className="flex flex-wrap gap-1 mt-1.5">
-                              {items.slice(0, 2).map((it: any, idx: number) => (
+                              {items.slice(0, 2).map((it: OrderItemListRow, idx: number) => (
                                 <span key={idx} className="text-[10px] bg-muted px-1.5 py-0.5 rounded-md text-muted-foreground truncate max-w-[90px]">
                                   {it.templates?.name || SERVICE_LABELS[it.templates?.service_type as ServiceType] || 'عنصر'}
                                 </span>

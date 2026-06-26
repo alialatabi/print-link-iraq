@@ -1,10 +1,8 @@
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { Palette } from 'lucide-react';
 
 const DesignerLogin = () => {
-  const navigate = useNavigate();
-
   return (
     <div className="py-20">
       <div className="container max-w-md">

@@ -1,20 +1,11 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { m as motion } from 'framer-motion';
 import { Ticket, Copy, CheckCircle2, Tag } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { isNativeApp } from '@/lib/platform';
-
-interface CouponRow {
-  id: string;
-  code: string;
-  percentage: number;
-  expires_at: string | null;
-}
+import { listCoupons, type CouponRow } from '@/services/coupons';
 
 const MyCoupons = () => {
-  const { user } = useAuth();
   const [coupons, setCoupons] = useState<CouponRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -22,11 +13,9 @@ const MyCoupons = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('validate-coupon', {
-          body: { action: 'list' },
-        });
+        const { data, error } = await listCoupons();
         if (!error && data?.coupons) {
-          setCoupons(data.coupons);
+          setCoupons(data.coupons as CouponRow[]);
         }
       } catch (e) {
         console.error('Failed to load coupons', e);

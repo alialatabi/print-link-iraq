@@ -47,6 +47,7 @@ const CANVAS_LABELS: Record<Canvas, string> = {
 };
 
 // Built-in orientation choices shown to the customer when the admin enables orientations.
+// eslint-disable-next-line react-refresh/only-export-components -- utility constants co-located with this editor component
 export const ORIENTATION_OPTIONS: AiOptionRow[] = [
   { id: 'landscape', label: 'بالعرض', sizeLabel: 'أفقي (عرضي)', canvas: '1536x1024' },
   { id: 'portrait', label: 'بالطول', sizeLabel: 'عمودي (طولي)', canvas: '1024x1536' },
@@ -62,6 +63,7 @@ const asCanvas = (v: unknown): Canvas =>
   typeof v === 'string' && (CANVASES as string[]).includes(v) ? (v as Canvas) : '1024x1024';
 
 /** Default (empty) AI-fields form state. */
+// eslint-disable-next-line react-refresh/only-export-components
 export const emptyAiFields = (): AiFieldsValue => ({
   canvas: '1024x1024',
   sizeMode: 'fixed',
@@ -75,8 +77,9 @@ export const emptyAiFields = (): AiFieldsValue => ({
 });
 
 /** Load a `services` row's `ai_*` columns into the editor form. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function aiFieldsFromRow(row: Partial<AiFieldsRow> | null | undefined): AiFieldsValue {
-  const rawOpts = Array.isArray(row?.ai_options) ? (row!.ai_options as Array<Record<string, unknown>>) : [];
+  const rawOpts = Array.isArray(row?.ai_options) ? (row!.ai_options as unknown as Array<Record<string, unknown>>) : [];
   const options: AiOptionRow[] = rawOpts
     .filter((o) => o && typeof o.id === 'string')
     .map((o) => ({
@@ -110,6 +113,7 @@ export function aiFieldsFromRow(row: Partial<AiFieldsRow> | null | undefined): A
 }
 
 /** Derive the `ai_*` columns from the editor form, ready to persist on a `services` row. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function aiFieldsToRow(v: AiFieldsValue): AiFieldsRow {
   const useSizeOptions = v.sizeMode === 'options';
   // Orientation choice only applies when the size isn't a per-size list (those carry their own orientation).
@@ -129,6 +133,7 @@ export function aiFieldsToRow(v: AiFieldsValue): AiFieldsRow {
 }
 
 /** True when the current form has at least one valid size option (for save-time validation). */
+// eslint-disable-next-line react-refresh/only-export-components
 export const aiFieldsValid = (v: AiFieldsValue) => v.sizeMode !== 'options' || v.options.length > 0;
 
 interface Props {

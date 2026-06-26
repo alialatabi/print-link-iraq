@@ -1,16 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-const json = (body: unknown, status: number) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+import { CORS_HEADERS, json, normalizePhone, getServiceClient } from "../_shared/helpers.ts";
 
 const LOCK_THRESHOLD = 5;
 const LOCK_MS = 15 * 60 * 1000;
@@ -24,18 +12,14 @@ const LOCK_MS = 15 * 60 * 1000;
  * password — the customer cannot PIN-login until they set one.
  */
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
     const { phone, code } = await req.json();
     if (!phone || !code) return json({ error: "رقم الهاتف والرمز مطلوبان" }, 400);
 
-    const normalizedPhone = phone.replace(/\s+/g, "").replace(/^0/, "964");
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    );
+    const normalizedPhone = normalizePhone(phone);
+    const supabaseAdmin = getServiceClient();
 
     // ── Brute-force lockout for OTP verification (otp_attempts). Reset a stale lock. ──
     const { data: attempts } = await supabaseAdmin

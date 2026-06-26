@@ -1,19 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { CORS_HEADERS, json, getServiceClient } from "../_shared/helpers.ts";
 
 // Admin-triggered sync of Al-Waseet (alwaseet-iq.net merchant API) location reference data into
 // public.alwaseet_cities (محافظات) + public.alwaseet_regions (مناطق). One-time / occasional run —
 // re-runnable; upserts so existing rows are updated and new areas are added.
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 
 const ALWASEET_API = "https://api.alwaseet-iq.net/v1/merchant";
 
@@ -48,7 +38,7 @@ async function getRegions(token: string, cityId: string): Promise<Array<{ id: st
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
     // Only admins may trigger a sync (it calls an external API + writes reference data).
@@ -64,11 +54,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userErr } = await supabaseUser.auth.getUser(jwt);
     if (userErr || !user) return json({ error: "غير مصرح" }, 401);
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    );
+    const supabaseAdmin = getServiceClient();
 
     const { data: roles } = await supabaseAdmin
       .from("user_roles").select("role").eq("user_id", user.id);

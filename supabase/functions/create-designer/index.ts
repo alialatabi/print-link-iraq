@@ -1,14 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS_PLATFORM, normalizePhone, getServiceClient } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS_PLATFORM });
   }
 
   try {
@@ -16,15 +11,11 @@ Deno.serve(async (req) => {
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: "غير مصرح" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 401, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    const supabaseAdmin = getServiceClient();
 
     // Verify caller is an admin
     const token = authHeader.replace("Bearer ", "");
@@ -38,7 +29,7 @@ Deno.serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "غير مصرح" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 401, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
 
@@ -50,7 +41,7 @@ Deno.serve(async (req) => {
     if (!(callerRoles || []).some(r => r.role === "admin")) {
       return new Response(
         JSON.stringify({ error: "هذه الصلاحية متاحة فقط للأدمن" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 403, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
 
@@ -59,18 +50,18 @@ Deno.serve(async (req) => {
     if (!phone || typeof phone !== "string" || phone.length < 10) {
       return new Response(
         JSON.stringify({ error: "رقم هاتف غير صالح" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
 
     if (!password || password.length < 6) {
       return new Response(
         JSON.stringify({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
 
-    const normalizedPhone = phone.replace(/\s+/g, "").replace(/^0/, "964");
+    const normalizedPhone = normalizePhone(phone);
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
 
     // H4: refuse to act on a phone that already belongs to an account. The old code reset
@@ -87,7 +78,7 @@ Deno.serve(async (req) => {
     if (existingProfile) {
       return new Response(
         JSON.stringify({ error: "يوجد حساب مسجّل بهذا الرقم بالفعل — استخدم رقماً آخر" }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 409, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
 
@@ -102,7 +93,7 @@ Deno.serve(async (req) => {
     if (createError) {
       return new Response(
         JSON.stringify({ error: "فشل إنشاء الحساب: " + createError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
     const targetUserId: string = newUser.user!.id;
@@ -136,20 +127,20 @@ Deno.serve(async (req) => {
       if (roleError) {
         return new Response(
           JSON.stringify({ error: "تم إنشاء الحساب لكن فشل إضافة صلاحية المصمم" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 500, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
         );
       }
     }
 
     return new Response(
       JSON.stringify({ success: true, user_id: targetUserId, is_new: true }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("Unexpected error:", err);
     return new Response(
       JSON.stringify({ error: "خطأ غير متوقع" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
     );
   }
 });

@@ -1,8 +1,16 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import type { OrderDetailsJson } from '@/types/db';
 import { useNavigate } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  getCustomerNamesForDesigner,
+  queryDesignerOrderItemsBatch,
+  countDesignerArchivedOrders,
+  queryDesignerActiveOrders,
+  queryDesignerArchivedOrders,
+} from '@/services/designer';
 import StatusBadge from '@/components/StatusBadge';
 import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
 import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox, Printer, Package, Edit2, Search, AlertTriangle, Loader2, X } from 'lucide-react';
@@ -24,7 +32,7 @@ interface DesignerOrderItem {
   id: string;
   order_id: string;
   status: OrderStatus;
-  details: Record<string, any> | null;
+  details: OrderDetailsJson | null;
   templates?: { name: string; service_type: string } | null;
 }
 
@@ -34,7 +42,7 @@ interface DesignerOrder {
   designer_id: string | null;
   template_id: string | null;
   status: OrderStatus;
-  details: Record<string, any> | null;
+  details: OrderDetailsJson | null;
   created_at: string;
   updated_at: string;
   templates?: { name: string; service_type: string } | null;
@@ -46,8 +54,6 @@ interface DesignerOrder {
 // Constants & pure helpers (module scope — not re-created on every render)
 // ---------------------------------------------------------------------------
 const PAGE_SIZE = 20;
-const ORDER_SELECT =
-  'id, customer_id, designer_id, template_id, status, details, created_at, updated_at, templates(name, service_type)';
 const COMPLETED_STATUSES: OrderStatus[] = ['print_ready', 'printed', 'delivered'];
 // Completed orders live in the "archive" tab; keep them out of the active query.
 const ACTIVE_EXCLUDE = '(print_ready,printed,delivered)';
@@ -289,19 +295,19 @@ const DesignerOrders = () => {
   const reloadRef = useRef<() => void>(() => {});
 
   /** Attach customer names + order_items to a batch of orders. */
-  const hydrate = useCallback(async (rows: any[]): Promise<DesignerOrder[]> => {
+  const hydrate = useCallback(async (rows: DesignerOrder[]): Promise<DesignerOrder[]> => {
     if (!rows.length) return [];
     const customerIds = [...new Set(rows.map((o) => o.customer_id))];
     const orderIds = rows.map((o) => o.id);
 
     const [{ data: profilesData }, { data: itemsData }] = await Promise.all([
-      supabase.rpc('get_customer_names_for_designer', { customer_ids: customerIds }),
-      supabase.from('order_items' as any).select('*, templates(name, service_type)').in('order_id', orderIds),
+      getCustomerNamesForDesigner(customerIds),
+      queryDesignerOrderItemsBatch(orderIds),
     ]);
 
-    const profileMap = new Map((profilesData || []).map((p: any) => [p.user_id, p]));
+    const profileMap = new Map((profilesData || []).map((p) => [p.user_id, p]));
     const itemsByOrder = new Map<string, DesignerOrderItem[]>();
-    (itemsData || []).forEach((item: any) => {
+    ((itemsData as unknown as DesignerOrderItem[]) || []).forEach((item) => {
       const list = itemsByOrder.get(item.order_id) || [];
       list.push(item);
       itemsByOrder.set(item.order_id, list);
@@ -316,23 +322,13 @@ const DesignerOrders = () => {
 
   const refreshArchiveCount = useCallback(async () => {
     if (!user) return;
-    const { count } = await supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('designer_id', user.id)
-      .in('status', COMPLETED_STATUSES);
+    const { count } = await countDesignerArchivedOrders(user.id, COMPLETED_STATUSES);
     setArchiveCount(count || 0);
   }, [user]);
 
   const loadActive = useCallback(async () => {
     if (!user) return;
-    const { data, error: qErr } = await supabase
-      .from('orders')
-      .select(ORDER_SELECT)
-      .eq('designer_id', user.id)
-      .not('status', 'in', ACTIVE_EXCLUDE)
-      .order('created_at', { ascending: false })
-      .limit(activeLimit);
+    const { data, error: qErr } = await queryDesignerActiveOrders(user.id, ACTIVE_EXCLUDE, activeLimit);
 
     if (qErr) {
       setError('تعذّر تحميل الطلبات. تأكد من الاتصال وحاول مرة أخرى.');
@@ -340,7 +336,7 @@ const DesignerOrders = () => {
       return;
     }
     setError(null);
-    const rows = await hydrate(data || []);
+    const rows = await hydrate(data as unknown as DesignerOrder[] || []);
     rows.forEach((r) => ownedOrderIds.current.add(r.id));
     setOrders(rows);
     setActiveHasMore((data?.length || 0) === activeLimit);
@@ -350,20 +346,14 @@ const DesignerOrders = () => {
   const loadArchive = useCallback(async () => {
     if (!user) return;
     setArchiveLoading(true);
-    const { data, error: qErr } = await supabase
-      .from('orders')
-      .select(ORDER_SELECT)
-      .eq('designer_id', user.id)
-      .in('status', COMPLETED_STATUSES)
-      .order('updated_at', { ascending: false })
-      .limit(archiveLimit);
+    const { data, error: qErr } = await queryDesignerArchivedOrders(user.id, COMPLETED_STATUSES, archiveLimit);
 
     if (qErr) {
       setArchiveLoading(false);
       toast({ title: 'تعذّر تحميل الطلبات المكتملة', variant: 'destructive' });
       return;
     }
-    const rows = await hydrate(data || []);
+    const rows = await hydrate(data as unknown as DesignerOrder[] || []);
     rows.forEach((r) => ownedOrderIds.current.add(r.id));
     setArchived(rows);
     setArchiveHasMore((data?.length || 0) === archiveLimit);
@@ -404,8 +394,8 @@ const DesignerOrders = () => {
     const channel = supabase
       .channel('designer-orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        const newRow = payload.new as any;
-        const oldRow = payload.old as any;
+        const newRow = payload.new as { designer_id?: string };
+        const oldRow = payload.old as { designer_id?: string };
         if (newRow?.designer_id === user.id || oldRow?.designer_id === user.id) {
           if (payload.eventType === 'UPDATE' && newRow?.designer_id === user.id && oldRow?.designer_id !== user.id) {
             toast({ title: '🎨 تم تعيين طلب جديد لك!' });
@@ -415,7 +405,7 @@ const DesignerOrders = () => {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, (payload) => {
         // Ownership guard: only react to items belonging to this designer's orders.
-        const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
+        const orderId = (payload.new as { order_id?: string })?.order_id || (payload.old as { order_id?: string })?.order_id;
         if (orderId && ownedOrderIds.current.has(orderId)) scheduleReload();
       })
       .subscribe();

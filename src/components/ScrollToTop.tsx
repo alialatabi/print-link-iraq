@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const ScrollToTop = () => {
+const ScrollToTop = (): null => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 

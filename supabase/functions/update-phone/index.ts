@@ -1,16 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-const json = (body: unknown, status: number) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+import { CORS_HEADERS, json, normalizePhone, getServiceClient } from "../_shared/helpers.ts";
 
 // Change the authenticated customer's phone number after verifying an OTP that was sent to the NEW
 // number. The phone is the login identity (synthetic email `{phone}@phone.matbaati.local` + a
@@ -18,7 +7,7 @@ const json = (body: unknown, status: number) =>
 // otherwise the next login would break. Mirrors verify-otp's crypto + session minting.
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -31,7 +20,7 @@ Deno.serve(async (req) => {
       return json({ error: "رمز التحقق مطلوب" }, 400);
     }
 
-    const normalizedPhone = newPhone.replace(/\s+/g, "").replace(/^0/, "964");
+    const normalizedPhone = normalizePhone(newPhone);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -47,11 +36,7 @@ Deno.serve(async (req) => {
     const user = userData?.user;
     if (userErr || !user) return json({ error: "غير مصرح" }, 401);
 
-    const supabaseAdmin = createClient(
-      supabaseUrl,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    const supabaseAdmin = getServiceClient();
 
     // No-op guard: changing to the same number is pointless.
     const { data: myProfile } = await supabaseAdmin

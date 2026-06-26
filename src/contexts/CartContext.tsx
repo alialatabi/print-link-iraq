@@ -81,4 +81,5 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- standard React context pattern: hook + provider in one file
 export const useCart = () => useContext(CartContext);

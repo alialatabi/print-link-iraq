@@ -3,7 +3,7 @@ import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Search, ChevronDown, ChevronUp, User, Image, ShoppingBag, Coins, Wallet, TrendingUp, RefreshCw } from 'lucide-react';
+import { Sparkles, Search, ChevronDown, ChevronUp, User, Image, Coins, Wallet, TrendingUp, RefreshCw } from 'lucide-react';
 import { AI_PRODUCT_TYPES } from '@/lib/aiDesign';
 
 interface AiUsageProduct {

@@ -51,7 +51,7 @@ const CompleteProfile = () => {
       setLoading(false);
     };
     load();
-  }, [user, navigate]);
+  }, [user, navigate, redirectTo]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

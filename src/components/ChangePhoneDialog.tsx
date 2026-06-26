@@ -7,11 +7,12 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Phone, Shield, ArrowRight, RotateCcw, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { normalizePhone } from '@/lib/phoneUtils';
 
 const RESEND_COOLDOWN = 60;
 
 /** Normalize like the edge functions: strip spaces, map a leading 0 to the Iraq code. */
-const normalize = (p: string) => p.replace(/\s+/g, '').replace(/^0/, '964');
+const normalize = normalizePhone;
 
 interface Props {
   open: boolean;

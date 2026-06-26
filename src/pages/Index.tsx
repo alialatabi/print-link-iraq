@@ -156,8 +156,8 @@ const Index = () => {
 
     // Latest orders, anonymized (no names) — via SECURITY DEFINER RPC so it works for anonymous visitors.
     const loadActivity = async () => {
-      const { data } = await supabase.rpc('recent_order_activity', { p_limit: 10 });
-      if (Array.isArray(data)) setActivity(data as Activity[]);
+      const { data } = await supabase.rpc('recent_order_activity' as never, { p_limit: 10 } as never);
+      if (Array.isArray(data)) setActivity(data as unknown as Activity[]);
     };
 
     loadLabels();

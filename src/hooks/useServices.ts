@@ -36,8 +36,8 @@ export function useServices() {
     const { data } = await supabase
       .from('services')
       .select('*')
-      .order('sort_order', { ascending: true }) as any;
-    setServices(data || []);
+      .order('sort_order', { ascending: true });
+    setServices((data as unknown as DbService[]) || []);
     setLoading(false);
   };
 
@@ -59,8 +59,8 @@ export function useSpecializations() {
     const { data } = await supabase
       .from('specializations')
       .select('*')
-      .order('sort_order', { ascending: true }) as any;
-    setSpecializations(data || []);
+      .order('sort_order', { ascending: true });
+    setSpecializations((data as unknown as DbSpecialization[]) || []);
     setLoading(false);
   };
 

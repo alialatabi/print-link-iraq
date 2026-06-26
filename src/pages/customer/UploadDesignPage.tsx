@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { m as motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -11,6 +10,13 @@ import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
 import { isNativeApp } from '@/lib/platform';
+import {
+  insertOrder,
+  uploadOrderAttachment,
+  getOrderAttachmentPublicUrl,
+  patchOrderDetails,
+} from '@/services/orders';
+import type { Json } from '@/integrations/supabase/types';
 
 type Step = 'service' | 'upload';
 
@@ -81,7 +87,7 @@ const DropZone = ({ onDrop, onClick }: { onDrop: (e: React.DragEvent) => void; o
 };
 
 /** Mini file card used for both slots */
-const FileCard = ({ slot, onRemove, onReplace, inputRef }: {
+const FileCard = ({ slot, onRemove, onReplace, inputRef: _inputRef }: {
   slot: FileSlot;
   onRemove: () => void;
   onReplace: () => void;
@@ -173,15 +179,10 @@ const UploadDesignPage = () => {
       const pricing = buildPricingSnapshot(catalog, selectedService, quantity);
 
       // 1. Create order
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          customer_id: user.id,
-          status: 'submitted' as any,
-          details: { order_type: 'ready_design', service_type: selectedService, attachment_urls: [], quantity, pricing } as any,
-        })
-        .select('id')
-        .single();
+      const { data: orderData, error: orderError } = await insertOrder(
+        user.id,
+        { order_type: 'ready_design', service_type: selectedService, attachment_urls: [], quantity, pricing } as unknown as Json,
+      );
 
       if (orderError || !orderData) throw orderError;
 
@@ -194,21 +195,21 @@ const UploadDesignPage = () => {
       const publicUrls: string[] = [];
       for (const { file, name } of filesToUpload) {
         const path = `${orderData.id}/${name}`;
-        const { error: uploadError } = await supabase.storage.from('order-attachments').upload(path, file);
+        const { error: uploadError } = await uploadOrderAttachment(path, file);
         if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('order-attachments').getPublicUrl(path);
-        publicUrls.push(publicUrl);
+        publicUrls.push(getOrderAttachmentPublicUrl(path));
       }
 
       // 3. Update order with URLs
-      await supabase.from('orders').update({
-        details: { order_type: 'ready_design', service_type: selectedService, attachment_urls: publicUrls, quantity, pricing } as any,
-      }).eq('id', orderData.id);
+      await patchOrderDetails(
+        orderData.id,
+        { order_type: 'ready_design', service_type: selectedService, attachment_urls: publicUrls, quantity, pricing } as unknown as Json,
+      );
 
       toast({ title: 'تم إرسال طلبك بنجاح ✅' });
       navigate(`/order-success?order=${orderData.id}`);
-    } catch (err: any) {
-      toast({ title: 'حدث خطأ', description: getUserFriendlyError(err), variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'حدث خطأ', description: getUserFriendlyError(e), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
@@ -285,7 +286,7 @@ const UploadDesignPage = () => {
                       </div>
                       <p className="text-xs font-semibold">{service.label}</p>
                       {service.price > 0 && (
-                        <p className="text-primary/80 font-bold text-xs mt-1">{formatPrice(service.price, (service as any).min_quantity)}</p>
+                        <p className="text-primary/80 font-bold text-xs mt-1">{formatPrice(service.price, service.min_quantity)}</p>
                       )}
                     </button>
                   ))}
@@ -311,7 +312,7 @@ const UploadDesignPage = () => {
                     <div>
                       <p className="text-sm font-bold text-foreground">{selectedServiceData.label}</p>
                       {selectedServiceData.price > 0 && (
-                        <p className="text-primary font-bold text-xs">{formatPrice(selectedServiceData.price, (selectedServiceData as any).min_quantity)}</p>
+                        <p className="text-primary font-bold text-xs">{formatPrice(selectedServiceData.price, selectedServiceData.min_quantity)}</p>
                       )}
                     </div>
                   </div>

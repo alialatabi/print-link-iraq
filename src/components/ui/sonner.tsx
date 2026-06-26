@@ -24,4 +24,5 @@ const Toaster = ({ ...props }: ToasterProps) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- sonner re-export pattern: toast helper alongside Toaster component
 export { Toaster, toast };

@@ -4,7 +4,6 @@ import type { User, Session } from '@supabase/supabase-js';
 import { useHeartbeat } from '@/hooks/useHeartbeat';
 
 type AppRole = 'customer' | 'designer' | 'admin' | 'reseller';
-type SignOutCallback = () => void;
 
 interface AuthState {
   user: User | null;
@@ -12,7 +11,7 @@ interface AuthState {
   role: AppRole | null;
   loading: boolean;
   isSuperAdmin: boolean;
-  phoneLogin: (phone: string, password?: string) => Promise<{ error: any; isNewUser?: boolean }>;
+  phoneLogin: (phone: string, password?: string) => Promise<{ error: { message: string } | null; isNewUser?: boolean }>;
   signOut: () => Promise<void>;
 }
 
@@ -40,6 +39,7 @@ const isInactivityExpired = () => {
   }
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- standard React context pattern: hook + provider in one file
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be inside AuthProvider');
@@ -125,12 +125,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const phoneLogin = async (phone: string, password?: string) => {
     try {
-      const body: any = { phone };
+      const body: Record<string, unknown> = { phone };
       if (password) body.password = password;
       const { data, error } = await supabase.functions.invoke('phone-login', {
         body,
       });
-      if (error) return { error };
+      if (error) {
+        // supabase-js returns a generic message for non-2xx and stashes the real
+        // function Response in error.context — read it so the actual reason
+        // (الرمز غير صحيح / تم تجاوز عدد المحاولات / …) surfaces to the caller.
+        let message = error.message;
+        try {
+          const ctx = (error as { context?: { json?: () => Promise<{ error?: string }> } }).context;
+          const body = ctx?.json ? await ctx.json() : undefined;
+          if (body?.error) message = body.error;
+        } catch { /* keep the generic message */ }
+        return { error: { message } };
+      }
       if (data?.error) return { error: { message: data.error } };
 
       if (data?.session) {
@@ -140,8 +151,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
-      return { error: null, isNewUser: data?.isNewUser };
-    } catch (err: any) {
+      return { error: null as null, isNewUser: data?.isNewUser };
+    } catch (e: unknown) {
+      const err = e as { message?: string };
       return { error: { message: err.message || 'خطأ في تسجيل الدخول' } };
     }
   };

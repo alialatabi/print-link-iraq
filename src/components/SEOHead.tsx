@@ -21,7 +21,7 @@ const SEOHead = ({
   type = 'website',
   image,
   noindex = false,
-}: SEOHeadProps) => {
+}: SEOHeadProps): null => {
   const fullTitle = title ? `${title} | مطبعتي` : DEFAULT_TITLE;
   const desc = description || DEFAULT_DESC;
   const canonicalUrl = canonical ? `${BASE_URL}${canonical}` : undefined;

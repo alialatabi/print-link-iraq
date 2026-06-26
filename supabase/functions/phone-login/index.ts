@@ -1,15 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { CORS_HEADERS_PLATFORM, normalizePhone, getServiceClient } from "../_shared/helpers.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
+// phone-login uses CORS_HEADERS_PLATFORM so it keeps its own local json() that spreads that set.
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" },
   });
 
 const LOCK_THRESHOLD = 5;
@@ -23,7 +19,7 @@ const LOCK_MS = 15 * 60 * 1000;
  * small (1e6) PIN space against brute force.
  */
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS_PLATFORM });
 
   try {
     const { phone, password } = await req.json();
@@ -34,13 +30,11 @@ Deno.serve(async (req) => {
       return json({ error: "الرمز مطلوب" }, 400);
     }
 
-    const normalizedPhone = phone.replace(/\s+/g, "").replace(/^0/, "964");
+    const normalizedPhone = normalizePhone(phone);
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 
-    const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const supabaseAdmin = getServiceClient();
 
     // ── Lockout check (reset a stale lock so legitimate users aren't permanently blocked) ──
     const { data: throttle } = await supabaseAdmin

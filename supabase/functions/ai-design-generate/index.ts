@@ -1,15 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { CORS_HEADERS_PLATFORM, getServiceClient } from "../_shared/helpers.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
+// ai-design-generate uses the extended platform CORS headers, so it keeps its own local
+// json() that spreads CORS_HEADERS_PLATFORM (the shared json() uses the short set).
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" },
   });
 
 // OpenAI config (confirm exact model ids / endpoints against OpenAI docs at deploy time).
@@ -163,7 +160,7 @@ async function generateImage(apiKey: string, prompt: string, size: string): Prom
     console.error("generateImage error:", res.status, errText);
     throw new Response(
       JSON.stringify({ error: res.status === 429 ? "تم تجاوز الحد المسموح، حاول بعد قليل" : "فشل توليد التصميم" }),
-      { status: res.status === 429 ? 429 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: res.status === 429 ? 429 : 502, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } },
     );
   }
 
@@ -189,9 +186,12 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 // either a `data:` URL (b64_json) or a hosted OpenAI URL (which expires) — normalise both to raw
 // bytes, then upload to the public `order-attachments` bucket and return the permanent public URL.
 // Best-effort: returns null on any failure so a storage hiccup never blocks the customer's design.
+interface SupabaseStorageClient {
+  storage: { from: (bucket: string) => { upload: (path: string, data: Uint8Array, opts?: { contentType?: string; upsert?: boolean }) => Promise<{ error: { message: string } | null }>; getPublicUrl: (path: string) => { data: { publicUrl: string } } } };
+}
+
 async function storeGenerationImage(
-  // deno-lint-ignore no-explicit-any
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseStorageClient,
   userId: string,
   image: string,
 ): Promise<string | null> {
@@ -238,7 +238,7 @@ async function generateImageEdit(apiKey: string, prompt: string, size: string, i
     console.error("generateImageEdit error:", res.status, errText);
     throw new Response(
       JSON.stringify({ error: res.status === 429 ? "تم تجاوز الحد المسموح، حاول بعد قليل" : "فشل توليد التصميم بالصور المرجعية" }),
-      { status: res.status === 429 ? 429 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: res.status === 429 ? 429 : 502, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } },
     );
   }
 
@@ -253,7 +253,7 @@ async function generateImageEdit(apiKey: string, prompt: string, size: string, i
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS_PLATFORM });
   }
 
   try {
@@ -294,11 +294,7 @@ Deno.serve(async (req) => {
       ? referenceImages.filter((s: unknown) => typeof s === "string" && (s as string).startsWith("data:image")).slice(0, 3)
       : [];
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    );
+    const supabaseAdmin = getServiceClient();
 
     // H7: atomically reserve one slot for today BEFORE the costly OpenAI call. The DB
     // increment is capped in a single statement, so concurrent requests can never burst

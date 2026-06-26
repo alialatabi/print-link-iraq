@@ -111,8 +111,8 @@ const AdminResellers = () => {
       setDialogOpen(false);
       setForm({ shop_name: '', phone: '', password: '', shop_phone: '', shop_address: '' });
       loadResellers();
-    } catch (err: any) {
-      toast.error(err.message || 'فشل إنشاء حساب المطبعة');
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'فشل إنشاء حساب المطبعة');
     } finally {
       setCreating(false);
     }

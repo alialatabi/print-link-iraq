@@ -12,9 +12,24 @@ export interface SearchResult {
   parentLabel?: string;
 }
 
+interface CachedService {
+  id: string;
+  label: string;
+  icon: string;
+  icon_url: string | null;
+  parent_id: string | null;
+}
+
+interface CachedTemplate {
+  id: string;
+  name: string;
+  service_type: string;
+  preview_url: string | null;
+}
+
 interface CachedData {
-  services: any[];
-  templates: any[];
+  services: CachedService[];
+  templates: CachedTemplate[];
 }
 
 let cachedData: CachedData | null = null;
@@ -72,7 +87,7 @@ export function useSearch(query: string) {
           link: isParent ? `/sub-services/${s.id}` : `/templates/${s.id}`,
           icon: s.icon,
           iconUrl: s.icon_url,
-          parentLabel: !isParent ? parentMap[s.parent_id] : undefined,
+          parentLabel: !isParent && s.parent_id ? parentMap[s.parent_id] : undefined,
         });
       }
     }

@@ -1,14 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { CORS_HEADERS } from '../_shared/helpers.ts';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
 
   try {
+    // admin-delete-user's original service client omits auth options — preserved as-is.
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -16,11 +13,11 @@ Deno.serve(async (req) => {
 
     // Verify caller is admin
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+    if (!authHeader) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user: caller }, error: authErr } = await supabaseAdmin.auth.getUser(token);
-    if (authErr || !caller) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+    if (authErr || !caller) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
 
     const { data: roleData } = await supabaseAdmin
       .from('user_roles')
@@ -29,13 +26,13 @@ Deno.serve(async (req) => {
       .eq('role', 'admin')
       .single();
 
-    if (!roleData) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: corsHeaders });
+    if (!roleData) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: CORS_HEADERS });
 
     const { userId } = await req.json();
-    if (!userId) return new Response(JSON.stringify({ error: 'userId required' }), { status: 400, headers: corsHeaders });
+    if (!userId) return new Response(JSON.stringify({ error: 'userId required' }), { status: 400, headers: CORS_HEADERS });
 
     const fail = (error: string, status = 403) =>
-      new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      new Response(JSON.stringify({ error }), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
 
     // A user must never delete their own account here (covers a super admin deleting themselves).
     if (userId === caller.id) return fail('لا يمكنك حذف حسابك الخاص');
@@ -59,7 +56,7 @@ Deno.serve(async (req) => {
     }
 
     const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
+    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: CORS_HEADERS });
 
     // Cascade (ON DELETE CASCADE) already removed every user-id-owned row (profile, orders,
     // designs, vault, addresses, device_tokens, reseller data). The phone-keyed OTP tables are
@@ -77,8 +74,8 @@ Deno.serve(async (req) => {
       if (attemptsDel.error) console.error('otp_attempts cleanup failed:', attemptsDel.error.message);
     }
 
-    return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
+  } catch (e: unknown) {
+    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: CORS_HEADERS });
   }
 });

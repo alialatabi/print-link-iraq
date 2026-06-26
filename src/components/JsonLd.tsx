@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 
 interface JsonLdProps {
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 }
 
-const JsonLd = ({ data }: JsonLdProps) => {
+const JsonLd = ({ data }: JsonLdProps): null => {
   const scriptRef = useRef<HTMLScriptElement | null>(null);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ const JsonLd = ({ data }: JsonLdProps) => {
 export default JsonLd;
 
 // ── Reusable Schema Generators ──
-
+// eslint-disable-next-line react-refresh/only-export-components -- schema constants co-located with the JsonLd component by design
 export const organizationSchema = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
@@ -46,9 +46,10 @@ export const organizationSchema = {
     '@type': 'Country',
     name: 'العراق',
   },
-  sameAs: [],
+  sameAs: [] as string[],
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const localBusinessSchema = {
   '@context': 'https://schema.org',
   '@type': 'LocalBusiness',
@@ -79,6 +80,7 @@ export const localBusinessSchema = {
   paymentAccepted: 'Cash',
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const websiteSchema = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
@@ -89,6 +91,7 @@ export const websiteSchema = {
   description: 'خدمات طباعة احترافية أونلاين في العراق',
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const breadcrumbSchema = (items: { name: string; url: string }[]) => ({
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',

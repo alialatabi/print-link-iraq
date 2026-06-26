@@ -15,11 +15,11 @@ export function useServiceDiscounts() {
     const load = async () => {
       const now = new Date().toISOString();
       const { data } = await supabase
-        .from('discounts' as any)
+        .from('discounts' as never)
         .select('*')
-        .eq('is_active', true) as any;
+        .eq('is_active', true);
 
-      const active = ((data || []) as Discount[]).filter(d => {
+      const active = ((data ?? []) as unknown as Discount[]).filter(d => {
         if (d.starts_at && d.starts_at > now) return false;
         if (d.ends_at && d.ends_at < now) return false;
         return true;

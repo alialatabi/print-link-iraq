@@ -1,5 +1,6 @@
 import { isNativeApp } from '@/lib/platform';
 import { Preferences } from '@capacitor/preferences';
+import { normalizePhone } from '@/lib/phoneUtils';
 
 /**
  * Biometric ("fingerprint / face") login for the native app.
@@ -18,7 +19,8 @@ const PHONE_KEY = 'mb_bio_phone'; // the enrolled phone (unguarded) — for the 
 
 interface BioCred { phone: string; pin: string; }
 
-const normPhone = (p: string) => p.replace(/\s+/g, '').replace(/^0/, '964');
+// Local alias — preserves all existing call-sites inside this module unchanged.
+const normPhone = normalizePhone;
 
 // Lazily load the plugin MODULE (never the proxy itself). Returning the Capacitor plugin
 // proxy from an async fn makes Promise.resolve probe `proxy.then`, which the proxy turns into

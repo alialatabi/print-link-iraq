@@ -17,6 +17,7 @@ import {
   ArrowUpDown, ArrowUp, ArrowDown, Clock,
   Phone, MessageCircle, Trash2, ShieldOff, ShieldCheck,
 } from 'lucide-react';
+import { formatPhoneDisplay } from '@/lib/phoneUtils';
 
 interface CustomerData {
   user_id: string;
@@ -61,15 +62,8 @@ const formatTimeSpent = (seconds: number): string => {
   return `${days} يوم ${remainHrs > 0 ? `و ${remainHrs} س` : ''}`;
 };
 
-// Format phone for tel: and wa.me links
-const formatPhone = (phone: string | null): string => {
-  if (!phone) return '';
-  // Remove spaces/dashes, ensure starts with + or country code
-  let p = phone.replace(/[\s\-()]/g, '');
-  if (p.startsWith('0')) p = '964' + p.slice(1); // Iraqi local
-  if (!p.startsWith('+')) p = '+' + p;
-  return p;
-};
+// Local alias — call sites stay unchanged; implementation is now in @/lib/phoneUtils.
+const formatPhone = formatPhoneDisplay;
 
 const AdminCustomers = () => {
   const [customers, setCustomers] = useState<CustomerData[]>([]);
@@ -110,9 +104,9 @@ const AdminCustomers = () => {
         province: p.province,
         area: p.area,
         landmark: p.landmark,
-        last_seen: (p as any).last_seen ?? null,
+        last_seen: p.last_seen ?? null,
         is_active: p.is_active,
-        total_time_seconds: (p as any).total_time_seconds ?? 0,
+        total_time_seconds: p.total_time_seconds ?? 0,
         orderCount: customerOrders.length,
         totalSpent: customerOrders.reduce((sum, o) => sum + (o.paid_amount || 0), 0),
       };
@@ -128,7 +122,7 @@ const AdminCustomers = () => {
   const handleBlock = async (userId: string, currentActive: boolean) => {
     const { error } = await supabase
       .from('profiles')
-      .update({ is_active: !currentActive } as any)
+      .update({ is_active: !currentActive })
       .eq('user_id', userId);
     if (error) { toast.error('فشل تحديث حالة الزبون'); return; }
     toast.success(currentActive ? 'تم حظر الزبون' : 'تم رفع الحظر');
@@ -168,11 +162,11 @@ const AdminCustomers = () => {
   }
 
   filtered = [...filtered].sort((a, b) => {
-    let valA: any, valB: any;
+    let valA: string | number; let valB: string | number;
     if (sortKey === 'display_name') { valA = (a.display_name || '').toLowerCase(); valB = (b.display_name || '').toLowerCase(); }
     else if (sortKey === 'phone') { valA = a.phone || ''; valB = b.phone || ''; }
     else if (sortKey === 'last_seen') { valA = a.last_seen ? new Date(a.last_seen).getTime() : 0; valB = b.last_seen ? new Date(b.last_seen).getTime() : 0; }
-    else { valA = a[sortKey]; valB = b[sortKey]; }
+    else { valA = String(a[sortKey] ?? ''); valB = String(b[sortKey] ?? ''); }
     if (valA < valB) return sortDir === 'asc' ? -1 : 1;
     if (valA > valB) return sortDir === 'asc' ? 1 : -1;
     return 0;

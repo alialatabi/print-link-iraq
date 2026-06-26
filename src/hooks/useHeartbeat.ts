@@ -23,7 +23,7 @@ export const useHeartbeat = (userId: string | undefined, enabled: boolean) => {
         isFirstRef.current = false;
         await supabase
           .from('profiles')
-          .update({ last_seen: now } as any)
+          .update({ last_seen: now })
           .eq('user_id', userId);
       } else {
         // Subsequent: update last_seen AND increment time by 60s
@@ -34,13 +34,10 @@ export const useHeartbeat = (userId: string | undefined, enabled: boolean) => {
           .eq('user_id', userId)
           .single();
         
-        const currentTime = (profile as any)?.total_time_seconds || 0;
+        const currentTime = profile?.total_time_seconds || 0;
         await supabase
           .from('profiles')
-          .update({ 
-            last_seen: now, 
-            total_time_seconds: currentTime + 60 
-          } as any)
+          .update({ last_seen: now, total_time_seconds: currentTime + 60 })
           .eq('user_id', userId);
       }
     };

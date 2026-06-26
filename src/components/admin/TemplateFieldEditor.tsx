@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type CSSProperties } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
@@ -155,8 +155,9 @@ const TemplateFieldEditor = ({ imageUrl, fields, onChange }: TemplateFieldEditor
     const rect = canvasRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
     const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
-    updateField(dragging, { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
-  }, [dragging, fields]);
+    // Inline updateField to keep deps stable (onChange + fields already cover what updateField used)
+    onChange(fields.map((f, i) => i === dragging ? { ...f, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 } : f));
+  }, [dragging, fields, onChange]);
 
   const handleMouseUp = useCallback(() => {
     setDragging(null);
@@ -220,7 +221,7 @@ const TemplateFieldEditor = ({ imageUrl, fields, onChange }: TemplateFieldEditor
                 color: field.fontColor,
                 fontWeight: field.fontWeight,
                 fontFamily: field.fontFamily || 'Cairo',
-                textAlign: field.textAlign as any,
+                textAlign: field.textAlign as CSSProperties['textAlign'],
                 maxWidth: isImage ? undefined : `${field.maxWidth}%`,
                 whiteSpace: 'nowrap',
                 textShadow: isImage ? 'none' : '0 0 3px rgba(255,255,255,0.8)',

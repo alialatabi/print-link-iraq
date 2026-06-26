@@ -17,6 +17,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { DbService } from '@/hooks/useServices';
+import type { OrderDetailsJson } from '@/types/db';
 
 /** Immutable record of what a single order line was charged at order time. */
 export interface PricingSnapshot {
@@ -99,7 +100,7 @@ export interface RevenueLine {
  * the legacy row has no snapshot and no `details.service_type`).
  */
 export function computeLine(
-  details: any,
+  details: OrderDetailsJson,
   catalog: Catalog,
   fallbackServiceType = '',
 ): RevenueLine {

@@ -1,14 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { CORS_HEADERS_PLATFORM, getServiceClient } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: CORS_HEADERS_PLATFORM });
   }
 
   try {
@@ -16,7 +11,7 @@ Deno.serve(async (req) => {
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: "غير مصرح" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 401, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
 
@@ -31,22 +26,18 @@ Deno.serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "غير مصرح" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 401, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    const supabaseAdmin = getServiceClient();
 
     const { action, code } = await req.json();
 
     if (action === "list") {
       // Return active coupons with limited fields (no used_count/max_uses)
       const now = new Date().toISOString();
-      const { data, error } = await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from("coupons")
         .select("id, code, percentage, is_active, expires_at")
         .eq("is_active", true)
@@ -55,7 +46,7 @@ Deno.serve(async (req) => {
       if (error) {
         return new Response(
           JSON.stringify({ error: "فشل جلب الكوبونات" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 500, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
         );
       }
 
@@ -82,7 +73,7 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({ coupons }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
 
@@ -90,7 +81,7 @@ Deno.serve(async (req) => {
       if (!code || typeof code !== "string") {
         return new Response(
           JSON.stringify({ error: "كود غير صالح" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 400, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
         );
       }
 
@@ -104,7 +95,7 @@ Deno.serve(async (req) => {
       if (error || !data) {
         return new Response(
           JSON.stringify({ valid: false, error: "كود غير صالح" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
         );
       }
 
@@ -112,13 +103,13 @@ Deno.serve(async (req) => {
       if (data.expires_at && data.expires_at < now) {
         return new Response(
           JSON.stringify({ valid: false, error: "الكوبون منتهي الصلاحية" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
         );
       }
       if (data.max_uses && data.used_count >= data.max_uses) {
         return new Response(
           JSON.stringify({ valid: false, error: "تم استنفاد الكوبون" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
         );
       }
 
@@ -127,19 +118,19 @@ Deno.serve(async (req) => {
           valid: true,
           coupon: { id: data.id, code: data.code, percentage: data.percentage },
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
       );
     }
 
     return new Response(
       JSON.stringify({ error: "إجراء غير معروف" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 400, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("Unexpected error:", err);
     return new Response(
       JSON.stringify({ error: "خطأ غير متوقع" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...CORS_HEADERS_PLATFORM, "Content-Type": "application/json" } }
     );
   }
 });

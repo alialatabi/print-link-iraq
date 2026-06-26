@@ -19,7 +19,7 @@ export function getOptimizedImageUrl(
   }
 
   // Replace /object/public/ with /render/image/public/ for transformation API
-  let transformedUrl = url.replace(
+  const transformedUrl = url.replace(
     '/storage/v1/object/public/',
     '/storage/v1/render/image/public/'
   );

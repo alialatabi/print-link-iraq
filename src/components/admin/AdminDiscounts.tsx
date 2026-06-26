@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useDiscounts, useCoupons, Discount, Coupon } from '@/hooks/useDiscounts';
+import { useDiscounts, useCoupons, Discount } from '@/hooks/useDiscounts';
 import { useServices } from '@/hooks/useServices';
+import type { ServiceRow } from '@/types/db';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -39,14 +40,14 @@ const AdminDiscounts = () => {
   const [couponDialog, setCouponDialog] = useState(false);
   const [couponForm, setCouponForm] = useState({ code: generateCode(), percentage: 10, max_uses: '' });
 
-  const parentServices = services.filter(s => !(s as any).parent_id);
-  const subServices = services.filter(s => (s as any).parent_id);
+  const parentServices = services.filter(s => !(s as ServiceRow).parent_id);
+  const subServices = services.filter(s => (s as ServiceRow).parent_id);
 
   const handleCreateDiscount = async () => {
     if (discountForm.percentage < 1 || discountForm.percentage > 100) { toast.error('النسبة يجب أن تكون بين 1 و 100'); return; }
     if (discountForm.type !== 'global' && !discountForm.target_id) { toast.error('اختر القسم'); return; }
 
-    const { error } = await supabase.from('discounts' as any).insert({
+    const { error } = await supabase.from('discounts').insert({
       discount_type: discountForm.type,
       target_id: discountForm.type === 'global' ? null : discountForm.target_id,
       percentage: discountForm.percentage,
@@ -59,12 +60,12 @@ const AdminDiscounts = () => {
   };
 
   const handleToggleDiscount = async (id: string, active: boolean) => {
-    await supabase.from('discounts' as any).update({ is_active: !active }).eq('id', id);
+    await supabase.from('discounts').update({ is_active: !active }).eq('id', id);
     reloadDiscounts();
   };
 
   const handleDeleteDiscount = async (id: string) => {
-    await supabase.from('discounts' as any).delete().eq('id', id);
+    await supabase.from('discounts').delete().eq('id', id);
     toast.success('تم حذف الخصم');
     reloadDiscounts();
   };
@@ -73,7 +74,7 @@ const AdminDiscounts = () => {
     if (!couponForm.code.trim()) { toast.error('الكود مطلوب'); return; }
     if (couponForm.percentage < 1 || couponForm.percentage > 100) { toast.error('النسبة يجب أن تكون بين 1 و 100'); return; }
 
-    const { data: couponData, error } = await supabase.from('coupons' as any).insert({
+    const { error } = await supabase.from('coupons').insert({
       code: couponForm.code.trim().toUpperCase(),
       percentage: couponForm.percentage,
       max_uses: couponForm.max_uses ? parseInt(couponForm.max_uses) : null,
@@ -92,7 +93,7 @@ const AdminDiscounts = () => {
       .select('user_id')
       .eq('role', 'customer');
     if (customerRoles && customerRoles.length > 0) {
-      const notifs = customerRoles.map((r: any) => ({
+      const notifs = customerRoles.map((r) => ({
         user_id: r.user_id,
         title: `🎉 كوبون خصم ${pct}%`,
         message: `استخدم الكود ${code} للحصول على خصم ${pct}% على طلبك القادم!`,
@@ -108,12 +109,12 @@ const AdminDiscounts = () => {
   };
 
   const handleToggleCoupon = async (id: string, active: boolean) => {
-    await supabase.from('coupons' as any).update({ is_active: !active }).eq('id', id);
+    await supabase.from('coupons').update({ is_active: !active }).eq('id', id);
     reloadCoupons();
   };
 
   const handleDeleteCoupon = async (id: string) => {
-    await supabase.from('coupons' as any).delete().eq('id', id);
+    await supabase.from('coupons').delete().eq('id', id);
     toast.success('تم حذف الكوبون');
     reloadCoupons();
   };
@@ -309,7 +310,7 @@ const AdminDiscounts = () => {
                   <SelectTrigger className="rounded-xl"><SelectValue placeholder="اختر القسم" /></SelectTrigger>
                   <SelectContent>
                     {subServices.map(s => {
-                      const parent = parentServices.find(p => p.id === (s as any).parent_id);
+                      const parent = parentServices.find(p => p.id === (s as ServiceRow).parent_id);
                       return (
                         <SelectItem key={s.id} value={s.id}>
                           {s.label} {parent ? `(${parent.label})` : ''}

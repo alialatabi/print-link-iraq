@@ -279,7 +279,7 @@ const TemplateDetails = () => {
   }, [templateId]);
 
   // Get price from service, not template
-  const serviceData = services.find(s => s.id === template?.service_type) as any;
+  const serviceData = services.find(s => s.id === template?.service_type);
   const unitPrice = serviceData?.price || 0;
   const minQty = serviceData?.min_quantity || 1000;
   const cellophaneType: string = serviceData?.cellophane_type || 'none';
@@ -302,14 +302,14 @@ const TemplateDetails = () => {
     if (serviceData && (quantity === null || quantity === 0)) {
       setQuantity(minQty);
     }
-  }, [serviceData, minQty]);
+  }, [serviceData, minQty, quantity]);
 
-  // Set default cellophane when it's single type
+  // Set default cellophane when it's single type (or 'both' first load)
   useEffect(() => {
     if (cellophaneType === 'matte') setSelectedCellophane('matte');
     else if (cellophaneType === 'glossy') setSelectedCellophane('glossy');
     else if (cellophaneType === 'both' && !selectedCellophane) setSelectedCellophane('matte');
-  }, [cellophaneType]);
+  }, [cellophaneType, selectedCellophane]);
 
   // In the installed app, a guest taking an auth-required action is sent to the new
   // sign-in page (and returned here afterwards). Returns true if it redirected.
@@ -377,7 +377,6 @@ const TemplateDetails = () => {
   }
 
   const serviceLabel = SERVICE_LABELS[template.service_type as ServiceType] || 'تصميم';
-  const aspectRatio = TEMPLATE_ASPECT_RATIOS[template.service_type as ServiceType] || '3/4';
 
   return (
     <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>

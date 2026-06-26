@@ -1,6 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { m as motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
+import {
+  useProfileQuery,
+  useSavedAddressesQuery,
+  useUpdateProfileMutation,
+  useSaveAddressMutation,
+  useDeleteAddressMutation,
+  useSetDefaultAddressMutation,
+} from '@/hooks/queries/useProfileQuery';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,7 +105,6 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState<Tab>('profile');
 
   // ── Profile fields ──
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
@@ -106,52 +112,41 @@ const ProfilePage = () => {
   const [landmark, setLandmark] = useState('');
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
 
-  // ── Saved addresses ──
-  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
-  const [addrLoading, setAddrLoading] = useState(false);
+  // ── Saved addresses (form state only) ──
   const [editingId, setEditingId] = useState<string | null>(null); // null = add new
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [formSaving, setFormSaving] = useState(false);
 
-  // Load profile
-  useEffect(() => {
-    if (!user) return;
-    const load = async () => {
-      const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
-      if (data) {
-        setDisplayName(data.display_name || '');
-        setPhone(data.phone || '');
-        setLocation({
-          provinceId: (data as { province_id?: number | null }).province_id ?? null,
-          provinceName: data.province || '',
-          areaId: (data as { area_id?: number | null }).area_id ?? null,
-          areaName: data.area || '',
-        });
-        setLandmark(data.landmark || '');
-      }
-      setLoading(false);
-    };
-    load();
-  }, [user]);
+  // ── React Query: server state ──
+  const profileQuery = useProfileQuery(user?.id);
+  const savedAddressesQuery = useSavedAddressesQuery(user?.id, activeTab === 'addresses');
+  const updateProfileMutation = useUpdateProfileMutation();
+  const saveAddressMutation = useSaveAddressMutation(user?.id ?? '');
+  const deleteAddressMutation = useDeleteAddressMutation(user?.id ?? '');
+  const setDefaultAddressMutation = useSetDefaultAddressMutation(user?.id ?? '');
 
-  // Load addresses
-  const loadAddresses = useCallback(async () => {
-    if (!user) return;
-    setAddrLoading(true);
-    const { data } = await supabase
-      .from('saved_addresses')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('is_default', { ascending: false })
-      .order('created_at', { ascending: true });
-    setAddresses((data as SavedAddress[]) || []);
-    setAddrLoading(false);
-  }, [user]);
+  // Derived display values from query results
+  const loading = profileQuery.isLoading;
+  const addresses = (savedAddressesQuery.data ?? []) as SavedAddress[];
+  // Show spinner both on first load and while a post-mutation refetch is in flight —
+  // matches the original behaviour where loadAddresses() always showed the spinner.
+  const addrLoading = savedAddressesQuery.isFetching;
 
+  // Sync profile data from React Query into local form state once available
   useEffect(() => {
-    if (activeTab === 'addresses') loadAddresses();
-  }, [activeTab, loadAddresses]);
+    const data = profileQuery.data;
+    if (!data) return;
+    setDisplayName(data.display_name || '');
+    setPhone(data.phone || '');
+    setLocation({
+      provinceId: (data as { province_id?: number | null }).province_id ?? null,
+      provinceName: data.province || '',
+      areaId: (data as { area_id?: number | null }).area_id ?? null,
+      areaName: data.area || '',
+    });
+    setLandmark(data.landmark || '');
+  }, [profileQuery.data]);
 
   // ── Profile save ──
   const handleSave = async (e: React.FormEvent) => {
@@ -172,14 +167,17 @@ const ProfilePage = () => {
     setSaving(true);
     // Phone is intentionally excluded — it's the login identity and can only be changed via the
     // OTP-verified flow (ChangePhoneDialog), never through this general save.
-    const { error } = await supabase.from('profiles').update({
-      display_name: trimmedName,
-      province: trimmedProvince, area: trimmedArea,
-      province_id: location.provinceId, area_id: location.areaId,
-      landmark: trimmedLandmark,
-    } as never).eq('user_id', user.id);
+    const result = await updateProfileMutation.mutateAsync({
+      userId: user.id,
+      payload: {
+        display_name: trimmedName,
+        province: trimmedProvince, area: trimmedArea,
+        province_id: location.provinceId, area_id: location.areaId,
+        landmark: trimmedLandmark,
+      },
+    });
     setSaving(false);
-    if (error) toast({ title: 'خطأ في الحفظ', description: error.message, variant: 'destructive' });
+    if (result.error) toast({ title: 'خطأ في الحفظ', description: result.error.message, variant: 'destructive' });
     else toast({ title: 'تم الحفظ بنجاح', description: 'تم تحديث بياناتك الشخصية' });
   };
 
@@ -221,34 +219,32 @@ const ProfilePage = () => {
       landmark: form.landmark.trim() || null,
     };
 
-    if (editingId) {
-      const { error } = await supabase.from('saved_addresses').update(payload as never).eq('id', editingId);
-      if (!error) toast({ title: 'تم تعديل العنوان' });
-      else toast({ title: 'خطأ في التعديل', variant: 'destructive' });
+    const saveResult = await saveAddressMutation.mutateAsync({
+      editingId,
+      payload,
+      isDefault: addresses.length === 0,
+    });
+    if (!saveResult.error) {
+      toast({ title: editingId ? 'تم تعديل العنوان' : 'تم إضافة العنوان' });
     } else {
-      const { error } = await supabase.from('saved_addresses').insert({ ...payload, is_default: addresses.length === 0 } as never);
-      if (!error) toast({ title: 'تم إضافة العنوان' });
-      else toast({ title: 'خطأ في الإضافة', variant: 'destructive' });
+      toast({ title: editingId ? 'خطأ في التعديل' : 'خطأ في الإضافة', variant: 'destructive' });
     }
 
     setFormSaving(false);
     closeForm();
-    loadAddresses();
+    // addresses list refreshes automatically via invalidateQueries in the mutation hook
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('saved_addresses').delete().eq('id', id);
+    await deleteAddressMutation.mutateAsync(id);
     toast({ title: 'تم حذف العنوان' });
-    loadAddresses();
   };
 
   const handleSetDefault = async (id: string) => {
     if (!user) return;
     // Remove default from all, then set on selected
-    await supabase.from('saved_addresses').update({ is_default: false }).eq('user_id', user.id);
-    await supabase.from('saved_addresses').update({ is_default: true }).eq('id', id);
+    await setDefaultAddressMutation.mutateAsync(id);
     toast({ title: 'تم تعيين العنوان الافتراضي ⭐' });
-    loadAddresses();
   };
 
   if (loading) {

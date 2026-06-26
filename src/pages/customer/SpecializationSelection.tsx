@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { useServices, useSpecializations, buildLabelMap } from '@/hooks/useServices';
+import { useServices, useSpecializations } from '@/hooks/useServices';
 import { ArrowRight } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
@@ -25,12 +25,12 @@ const SpecializationSelection = () => {
       const { data } = await supabase
         .from('templates')
         .select('specializations')
-        .eq('service_type', (serviceType || '') as any);
+        .eq('service_type', serviceType || '');
 
       const specs = new Set<string>();
       if (data) {
         for (const row of data) {
-          const arr = (row as any).specializations;
+          const arr = row.specializations;
           if (Array.isArray(arr)) {
             arr.forEach((s: string) => specs.add(s));
           }

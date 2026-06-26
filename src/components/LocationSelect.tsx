@@ -15,6 +15,7 @@ export interface LocationValue {
   areaName: string;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- helper co-located with its component by design
 export const emptyLocation = (init?: Partial<LocationValue>): LocationValue => ({
   provinceId: init?.provinceId ?? null,
   provinceName: init?.provinceName ?? '',

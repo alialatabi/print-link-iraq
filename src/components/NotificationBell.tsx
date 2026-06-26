@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  loadUserNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '@/services/notifications';
 
 interface Notification {
   id: string;
@@ -26,20 +30,15 @@ const NotificationBell = () => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(20);
+    const { data } = await loadUserNotifications(user.id);
     setNotifications((data as Notification[]) || []);
-  };
+  }, [user]);
 
   useEffect(() => {
     loadNotifications();
-  }, [user]);
+  }, [loadNotifications]);
 
   // Realtime subscription
   useEffect(() => {
@@ -65,16 +64,12 @@ const NotificationBell = () => {
 
   const markAllRead = async () => {
     if (!user || unreadCount === 0) return;
-    await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('user_id', user.id)
-      .eq('read', false);
+    await markAllNotificationsRead(user.id);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
   const markRead = async (id: string) => {
-    await supabase.from('notifications').update({ read: true }).eq('id', id);
+    await markNotificationRead(id);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 

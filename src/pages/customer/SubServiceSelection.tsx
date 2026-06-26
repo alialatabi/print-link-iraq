@@ -18,7 +18,7 @@ const SubServiceSelection = () => {
   const parent = parentServices.find(s => s.id === parentId);
   const subServices = parentId ? getSubServices(parentId) : [];
 
-  const formatPrice = (service: any) => {
+  const formatPrice = (service: { price: number; min_quantity?: number }) => {
     if (!service.price) return null;
     const minQ = service.min_quantity || 1000;
     return `${service.price.toLocaleString('en-US')} د.ع / ${minQ.toLocaleString('en-US')}`;

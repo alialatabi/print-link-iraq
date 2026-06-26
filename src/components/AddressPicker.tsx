@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { m as motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +8,12 @@ import { toast } from '@/hooks/use-toast';
 import { MapPin, Phone, Landmark, Plus, CheckCircle2, Star, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import LocationSelect, { type LocationValue, emptyLocation } from '@/components/LocationSelect';
+import {
+  getProfileAddress,
+  listSavedAddresses,
+  insertAndReturnSavedAddress,
+  deleteSavedAddress,
+} from '@/services/profiles';
 
 /**
  * One delivery address from the customer's book. `__profile__` is the synthetic
@@ -57,18 +62,9 @@ const AddressPicker = ({ onChange }: { onChange: (addr: SavedAddress | null) => 
     if (!user) return;
     setLoading(true);
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('phone, province, area, landmark')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const { data: profile } = await getProfileAddress(user.id);
 
-    const { data: addresses } = await supabase
-      .from('saved_addresses')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('is_default', { ascending: false })
-      .order('created_at', { ascending: true });
+    const { data: addresses } = await listSavedAddresses(user.id);
 
     const list: SavedAddress[] = [];
     if (profile?.phone && profile?.province && profile?.area) {
@@ -114,11 +110,7 @@ const AddressPicker = ({ onChange }: { onChange: (addr: SavedAddress | null) => 
     };
 
     if (saveAddress) {
-      const { data, error } = await supabase
-        .from('saved_addresses')
-        .insert(newAddr as never)
-        .select()
-        .single();
+      const { data, error } = await insertAndReturnSavedAddress(newAddr);
       if (!error && data) {
         setSavedAddresses(prev => [...prev, data as SavedAddress]);
         select(data as SavedAddress);
@@ -136,7 +128,7 @@ const AddressPicker = ({ onChange }: { onChange: (addr: SavedAddress | null) => 
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('saved_addresses').delete().eq('id', id);
+    await deleteSavedAddress(id);
     const updated = savedAddresses.filter(a => a.id !== id);
     setSavedAddresses(updated);
     if (selectedId === id) select(updated[0] || null);

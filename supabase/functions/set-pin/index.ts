@@ -1,16 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-const json = (body: unknown, status: number) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+import { CORS_HEADERS, json, getServiceClient } from "../_shared/helpers.ts";
 
 /** Reject trivially-guessable PINs (all-same, simple ascending/descending runs). */
 function isWeakPin(pin: string): boolean {
@@ -27,7 +16,7 @@ function isWeakPin(pin: string): boolean {
  * first-time PIN setup and forgot-PIN recovery.
  */
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
     const { code } = await req.json();
@@ -51,9 +40,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userErr } = await userClient.auth.getUser(jwt);
     if (userErr || !user) return json({ error: "غير مصرح" }, 401);
 
-    const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const supabaseAdmin = getServiceClient();
 
     // Set the PIN as the account password.
     const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(user.id, { password: code });

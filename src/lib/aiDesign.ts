@@ -458,8 +458,8 @@ export async function createAiEditOrder(args: {
         imageUrls: [imageUrl],
         sizeLabel: args.sizeLabel,
         editRequest: args.editRequest,
-      }) as never,
-    });
+      }),
+    } as never);
   if (itemErr) throw itemErr;
 
   return order.id as string;

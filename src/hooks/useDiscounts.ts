@@ -29,10 +29,10 @@ export function useDiscounts() {
 
   const load = useCallback(async () => {
     const { data } = await supabase
-      .from('discounts' as any)
+      .from('discounts' as never)
       .select('*')
       .order('created_at', { ascending: false });
-    setDiscounts((data || []) as unknown as Discount[]);
+    setDiscounts(((data ?? []) as unknown as Discount[]));
     setLoading(false);
   }, []);
 
@@ -47,10 +47,10 @@ export function useCoupons() {
 
   const load = useCallback(async () => {
     const { data } = await supabase
-      .from('coupons' as any)
+      .from('coupons')
       .select('*')
       .order('created_at', { ascending: false });
-    setCoupons((data || []) as unknown as Coupon[]);
+    setCoupons(((data ?? []) as unknown as Coupon[]));
     setLoading(false);
   }, []);
 
@@ -72,11 +72,11 @@ export function useActiveDiscount(serviceId?: string, parentServiceId?: string |
     const load = async () => {
       const now = new Date().toISOString();
       const { data } = await supabase
-        .from('discounts' as any)
+        .from('discounts' as never)
         .select('*')
-        .eq('is_active', true) as any;
+        .eq('is_active', true);
 
-      const active = ((data || []) as Discount[]).filter(d => {
+      const active = ((data ?? []) as unknown as Discount[]).filter(d => {
         if (d.starts_at && d.starts_at > now) return false;
         if (d.ends_at && d.ends_at < now) return false;
         return true;
@@ -136,5 +136,5 @@ export async function validateCoupon(code: string): Promise<Coupon | null> {
  * so it cannot be drained or over-run from the client (H1).
  */
 export async function redeemCoupon(couponId: string, orderId: string) {
-  await supabase.rpc('redeem_coupon' as any, { p_coupon_id: couponId, p_order_id: orderId });
+  await supabase.rpc('redeem_coupon' as never, { p_coupon_id: couponId, p_order_id: orderId } as never);
 }

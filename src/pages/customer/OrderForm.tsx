@@ -12,6 +12,7 @@ import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
 import { isNativeApp } from '@/lib/platform';
+import type { Json } from '@/integrations/supabase/types';
 import { IMAGE_PDF_ACCEPT, partitionAllowed } from '@/lib/uploadValidation';
 
 const OrderForm = () => {
@@ -22,7 +23,7 @@ const OrderForm = () => {
   const { services } = useServices();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [template, setTemplate] = useState<any>(null);
+  const [template, setTemplate] = useState<{ service_type: string; preview_url?: string | null } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [details, setDetails] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -117,10 +118,10 @@ const OrderForm = () => {
       .insert({
         customer_id: user.id,
         template_id: templateId,
-        status: 'submitted' as any,
+        status: 'submitted',
         customer_name: user.id,
         customer_phone: '-',
-        details: { details, attachment_urls: [], quantity, pricing } as any,
+        details: { details, attachment_urls: [], quantity, pricing } as unknown as Json,
       })
       .select('id')
       .single();
@@ -143,7 +144,7 @@ const OrderForm = () => {
     if (attachmentUrls.length > 0) {
       await supabase
         .from('orders')
-        .update({ details: { details, attachment_urls: attachmentUrls, quantity, pricing } as any })
+        .update({ details: { details, attachment_urls: attachmentUrls, quantity, pricing } as unknown as Json })
         .eq('id', orderData.id);
     }
 

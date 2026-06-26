@@ -1,7 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
+// getDesignSignedUrl is now canonical in designUtils; re-export kept in storage.ts for other callers.
 import { getDesignSignedUrl } from '@/lib/storage';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
 import type { DbService } from '@/hooks/useServices';
+// Re-export so callers that import isImageUrl from this module continue to work.
+export { isImageUrl } from '@/lib/designUtils';
 
 /**
  * Design Vault ("خزنة التصاميم") helpers.
@@ -40,16 +43,6 @@ const SOURCE_LABEL: Record<VaultSource, string> = {
   uploaded: 'تصميم مرفوع',
   designer: 'تصميم صمّمناه لك',
 };
-
-const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'];
-
-/** True when a URL/path points at a directly-renderable raster image (not pdf/psd/etc). */
-export function isImageUrl(url: string | undefined | null): boolean {
-  if (!url) return false;
-  const clean = url.split('?')[0].split('#')[0];
-  const ext = clean.split('.').pop()?.toLowerCase() || '';
-  return IMAGE_EXTS.includes(ext);
-}
 
 // ---- Raw row shapes (loosely typed; the DB columns are JSON-ish) ----
 export interface RawOrder {

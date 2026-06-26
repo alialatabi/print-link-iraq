@@ -63,7 +63,6 @@ const SearchBar = ({ onNavigate }: { onNavigate?: () => void }) => {
 
   const showDropdown = open;
   const showSuggestions = open && query.trim().length === 0;
-  const showResults = open && query.trim().length > 0;
 
   return (
     <div ref={containerRef} className="relative w-full max-w-xs sm:max-w-sm">
