@@ -21,6 +21,10 @@ verify_jwt = false
 [functions.phone-login]
 verify_jwt = false
 
+# Authenticated: sets the caller's 6-digit PIN as their account password (after OTP verify).
+[functions.set-pin]
+verify_jwt = true
+
 [functions.send-to-telegram]
 verify_jwt = false
 

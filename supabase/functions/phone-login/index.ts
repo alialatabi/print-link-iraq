@@ -12,90 +12,79 @@ const json = (body: unknown, status: number) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+const LOCK_THRESHOLD = 5;
+const LOCK_MS = 15 * 60 * 1000;
+
+/**
+ * Phone + password sign-in. `password` is the customer's 6-digit PIN or a staff password —
+ * both are real bcrypt-hashed Supabase passwords. There is NO passwordless / salt-derived
+ * branch (the old one was an unauthenticated account-takeover, C1) and NO account creation
+ * (accounts are created only by verify-otp after a real OTP). A per-phone lockout defends the
+ * small (1e6) PIN space against brute force.
+ */
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { phone, password } = await req.json();
-
     if (!phone || typeof phone !== "string" || phone.length < 10) {
       return json({ error: "رقم هاتف غير صالح" }, 400);
+    }
+    if (!password || typeof password !== "string") {
+      return json({ error: "الرمز مطلوب" }, 400);
     }
 
     const normalizedPhone = phone.replace(/\s+/g, "").replace(/^0/, "964");
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Resolve the password to use. If the caller supplied one (staff login),
-    // use it directly. Otherwise fall back to the deterministic salt-derived
-    // password (legacy passwordless flow) — only this branch needs the salt.
-    let loginPassword: string | undefined = password;
-    if (!loginPassword) {
-      const salt = Deno.env.get("PHONE_AUTH_SECRET_SALT");
-      if (!salt) {
-        console.error("PHONE_AUTH_SECRET_SALT is not configured");
-        return json({ error: "خطأ في إعدادات الخادم" }, 500);
-      }
-      const encoder = new TextEncoder();
-      const hashBuffer = await crypto.subtle.digest(
-        "SHA-256",
-        encoder.encode(`${salt}:${normalizedPhone}`),
-      );
-      loginPassword = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Check whether the account already exists.
-    const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = userList?.users?.find((u) => u.email === syntheticEmail);
+    // ── Lockout check (reset a stale lock so legitimate users aren't permanently blocked) ──
+    const { data: throttle } = await supabaseAdmin
+      .from("phone_throttle")
+      .select("login_attempts, login_locked_until")
+      .eq("phone", normalizedPhone).maybeSingle();
 
-    let isNewUser = false;
-
-    if (!existingUser) {
-      // First time this phone is seen: create the account with the supplied
-      // password so the user can sign in with it from now on.
-      const { error: signUpError } = await supabaseAdmin.auth.admin.createUser({
-        email: syntheticEmail,
-        password: loginPassword,
-        phone: normalizedPhone,
-        email_confirm: true,
-        user_metadata: { display_name: normalizedPhone, phone: normalizedPhone },
-      });
-
-      if (signUpError && signUpError.code !== "email_exists") {
-        console.error("Sign up error:", signUpError);
-        return json({ error: "فشل إنشاء الحساب" }, 500);
-      }
-      isNewUser = !signUpError;
+    const locked = throttle?.login_locked_until && new Date(throttle.login_locked_until) > new Date();
+    if (locked) {
+      const minutesLeft = Math.ceil((new Date(throttle!.login_locked_until).getTime() - Date.now()) / 60000);
+      return json({ error: `تم تجاوز عدد المحاولات. حاول بعد ${minutesLeft} دقائق` }, 429);
     }
+    const priorAttempts = (throttle && !throttle.login_locked_until) ? (throttle.login_attempts || 0) : 0;
 
-    // Authenticate with the password. This is the real verification step:
-    // an existing user must provide the correct password to obtain a session.
-    const supabaseAuth = createClient(supabaseUrl, anonKey, {
+    // ── Authenticate (the only verification step) ──
+    const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { data: signInData, error: signInError } =
-      await supabaseAuth.auth.signInWithPassword({
-        email: syntheticEmail,
-        password: loginPassword!,
-      });
+    const { data: signInData, error: signInError } = await supabaseAuth.auth.signInWithPassword({
+      email: syntheticEmail, password,
+    });
 
     if (signInError || !signInData?.session) {
-      console.error("Sign in error:", signInError?.message);
-      return json({ error: "كلمة المرور غير صحيحة" }, 401);
+      const currentAttempts = priorAttempts + 1;
+      const lockout = currentAttempts >= LOCK_THRESHOLD
+        ? { login_locked_until: new Date(Date.now() + LOCK_MS).toISOString() }
+        : { login_locked_until: null };
+      await supabaseAdmin.from("phone_throttle").upsert({
+        phone: normalizedPhone, login_attempts: currentAttempts,
+        updated_at: new Date().toISOString(), ...lockout,
+      });
+      const remaining = LOCK_THRESHOLD - currentAttempts;
+      return json(
+        { error: remaining <= 0 ? "تم تجاوز عدد المحاولات. حاول بعد 15 دقيقة" : "الرمز غير صحيح" },
+        remaining <= 0 ? 429 : 401,
+      );
     }
 
-    return json({ success: true, session: signInData.session, isNewUser }, 200);
+    // Success → clear login attempts.
+    await supabaseAdmin.from("phone_throttle")
+      .update({ login_attempts: 0, login_locked_until: null, updated_at: new Date().toISOString() })
+      .eq("phone", normalizedPhone);
+
+    return json({ success: true, session: signInData.session }, 200);
   } catch (err) {
     console.error("Unexpected error:", err);
     return json({ error: "خطأ غير متوقع" }, 500);

@@ -23,9 +23,6 @@ const AuthContext = createContext<AuthState | null>(null);
 // is a paid Supabase feature, so we enforce the window on the client instead.
 const LAST_ACTIVITY_KEY = 'mb_last_activity';
 const MAX_INACTIVITY_MS = 28 * 24 * 60 * 60 * 1000; // 4 weeks
-// Customers re-verify by OTP at most once every 3 weeks: once their last OTP is older than this,
-// force a logout so the next sign-in goes through OTP again. Staff (password login) are exempt.
-const OTP_VALIDITY_MS = 21 * 24 * 60 * 60 * 1000; // 3 weeks
 
 const markActivity = () => {
   try { localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString()); } catch { /* storage unavailable */ }
@@ -62,23 +59,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       supabase.from('profiles').select('*').eq('user_id', userId).single(),
     ]);
     const roleList = (roles || []).map(r => r.role);
-    const isStaff = roleList.includes('admin') || roleList.includes('designer') || roleList.includes('reseller');
-
-    // Customers re-verify by OTP every 3 weeks: if their last OTP is older than the window, sign
-    // them out so the next login goes through OTP again. Staff log in by password and are exempt;
-    // a null stamp (legacy session, never stamped) is left alone to avoid mass-logout.
-    if (!isStaff) {
-      const lastOtp = (profile as { last_otp_verified_at?: string | null })?.last_otp_verified_at;
-      if (lastOtp && Date.now() - new Date(lastOtp).getTime() > OTP_VALIDITY_MS) {
-        await supabase.auth.signOut();
-        try { localStorage.removeItem(LAST_ACTIVITY_KEY); } catch { /* ignore */ }
-        setSession(null);
-        setUser(null);
-        setRole(null);
-        setIsSuperAdmin(false);
-        return;
-      }
-    }
 
     if (roleList.includes('admin')) setRole('admin');
     else if (roleList.includes('designer')) setRole('designer');
@@ -167,6 +147,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Biometric credentials are stored separately and survive sign-out, so a normal
+    // (global) sign-out is fine — biometric login re-authenticates from scratch.
     setUser(null);
     setSession(null);
     setRole(null);

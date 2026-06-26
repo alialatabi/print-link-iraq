@@ -130,6 +130,11 @@ export async function validateCoupon(code: string): Promise<Coupon | null> {
   }
 }
 
-export async function incrementCouponUsage(couponId: string) {
-  await supabase.rpc('increment_coupon_usage' as any, { coupon_id: couponId });
+/**
+ * Consume one use of a coupon, tied to a real order the caller owns. The DB function
+ * records the redemption once per order and bumps used_count atomically under max_uses,
+ * so it cannot be drained or over-run from the client (H1).
+ */
+export async function redeemCoupon(couponId: string, orderId: string) {
+  await supabase.rpc('redeem_coupon' as any, { p_coupon_id: couponId, p_order_id: orderId });
 }

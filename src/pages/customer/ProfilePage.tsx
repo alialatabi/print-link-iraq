@@ -5,8 +5,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Phone, MapPin, Save, Landmark, Plus, Trash2, Pencil, Star, CheckCircle2, X, ShieldCheck } from 'lucide-react';
+import { User, Phone, MapPin, Save, Landmark, Plus, Trash2, Pencil, Star, CheckCircle2, X, ShieldCheck, LogOut, Fingerprint } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { biometricSupported, biometricEnabled, enableBiometric, disableBiometric } from '@/lib/biometric';
 import { cn } from '@/lib/utils';
 import LocationSelect, { type LocationValue, emptyLocation } from '@/components/LocationSelect';
 import ChangePhoneDialog from '@/components/ChangePhoneDialog';
@@ -29,8 +34,67 @@ interface SavedAddress {
 const emptyForm = () => ({ label: '', phone: '', location: emptyLocation(), landmark: '' });
 
 const ProfilePage = () => {
-  const { user } = useAuth();
+  const { user, signOut, phoneLogin } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  // ── Biometric login toggle (native only, if hardware supports it) ──
+  const [bioSupported, setBioSupported] = useState(false);
+  const [bioEnabled, setBioEnabled] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
+  const [bioPinOpen, setBioPinOpen] = useState(false);
+  const [bioPin, setBioPin] = useState('');
+
+  useEffect(() => {
+    if (!isNativeApp) return;
+    biometricSupported().then(setBioSupported);
+    biometricEnabled().then(setBioEnabled);
+  }, []);
+
+  const toggleBiometric = async (next: boolean) => {
+    if (next) {
+      // Enabling needs the PIN (so biometric login can re-authenticate). Ask for it.
+      setBioPin('');
+      setBioPinOpen(true);
+      return;
+    }
+    setBioBusy(true);
+    try {
+      await disableBiometric();
+      setBioEnabled(false);
+      toast({ title: 'تم إيقاف تسجيل الدخول بالبصمة' });
+    } finally {
+      setBioBusy(false);
+    }
+  };
+
+  // Confirm enabling: verify the entered PIN, then biometric-confirm and store it.
+  const confirmEnableBio = async () => {
+    if (bioPin.length < 6) return;
+    setBioBusy(true);
+    try {
+      const { error } = await phoneLogin(phone, bioPin); // validates the PIN (re-auths same user)
+      if (error) {
+        setBioPin('');
+        toast({ title: 'الرمز غير صحيح', variant: 'destructive' });
+        return;
+      }
+      const ok = await enableBiometric(phone, bioPin);
+      setBioEnabled(ok);
+      setBioPinOpen(false);
+      setBioPin('');
+      toast(ok
+        ? { title: 'تم تفعيل تسجيل الدخول بالبصمة ✓' }
+        : { title: 'تعذّر التفعيل', description: 'لم يتم التحقق من البصمة', variant: 'destructive' });
+    } finally {
+      setBioBusy(false);
+    }
+  };
   const [activeTab, setActiveTab] = useState<Tab>('profile');
 
   // ── Profile fields ──
@@ -430,6 +494,32 @@ const ProfilePage = () => {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Biometric login toggle (device only) */}
+          {isNativeApp && bioSupported && (
+            <div className="mt-6 bg-card rounded-2xl border border-border/60 shadow-card p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center shrink-0">
+                  <Fingerprint className="w-5 h-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-foreground text-sm">تسجيل الدخول بالبصمة</p>
+                  <p className="text-muted-foreground text-xs mt-0.5">ادخل بسرعة باستخدام بصمتك بدل إدخال الرمز</p>
+                </div>
+              </div>
+              <Switch checked={bioEnabled} disabled={bioBusy} onCheckedChange={toggleBiometric} />
+            </div>
+          )}
+
+          {/* Sign out */}
+          <Button
+            variant="outline"
+            onClick={handleSignOut}
+            className="w-full h-12 mt-6 gap-2 border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
+          >
+            <LogOut className="w-4 h-4" />
+            تسجيل الخروج
+          </Button>
         </motion.div>
       </div>
 
@@ -439,6 +529,28 @@ const ProfilePage = () => {
         currentPhone={phone}
         onChanged={setPhone}
       />
+
+      {/* PIN prompt to enable biometric login */}
+      <Dialog open={bioPinOpen} onOpenChange={(o) => { if (!o && !bioBusy) { setBioPinOpen(false); setBioPin(''); } }}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-center text-base">أدخل رمزك لتفعيل البصمة</DialogTitle>
+          </DialogHeader>
+          <p className="text-center text-xs text-muted-foreground -mt-1">سنستخدمه لتسجيل دخولك ببصمتك لاحقاً</p>
+          <div dir="ltr" className="py-2">
+            <InputOTP maxLength={6} value={bioPin} onChange={setBioPin} containerClassName="w-full" autoFocus>
+              <InputOTPGroup className="flex w-full gap-2">
+                {[0, 1, 2, 3, 4, 5].map(i => (
+                  <InputOTPSlot key={i} index={i} className="h-12 flex-1 !rounded-xl !border border-input bg-background/50 text-lg font-bold" />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+          <Button onClick={confirmEnableBio} disabled={bioPin.length < 6 || bioBusy} className="w-full h-11">
+            {bioBusy ? 'جاري التفعيل...' : 'تفعيل'}
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

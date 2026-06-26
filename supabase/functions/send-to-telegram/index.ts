@@ -53,13 +53,29 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    // Auth check
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
+    // Auth: require a VALID JWT (not just a "Bearer " prefix) belonging to a staff
+    // member — this endpoint pushes orders to print and fetches design files server-side.
+    const jwt = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
+    if (!jwt) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const userClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } })
+    const { data: { user }, error: authErr } = await userClient.auth.getUser(jwt)
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+    const { data: roleRows } = await supabase.from('user_roles').select('role').eq('user_id', user.id)
+    if (!(roleRows || []).some((r: { role: string }) => ['admin', 'designer', 'reseller'].includes(r.role))) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    // SSRF guard: design URLs may ONLY point at this project's own Supabase storage host.
+    const supabaseHost = new URL(SUPABASE_URL).hostname
+    const isAllowedDesignUrl = (u: string): boolean => {
+      try { const p = new URL(u); return p.protocol === 'https:' && p.hostname === supabaseHost }
+      catch { return false }
+    }
 
     // designFilePath  → a single path inside the private `designs` bucket (customer/template flow)
     // designFileUrls  → public URLs (e.g. reseller uploads in `order-attachments`) fetched over HTTP
@@ -170,6 +186,7 @@ ${address}
       }
     }
     for (const url of fileUrls) {
+      if (!isAllowedDesignUrl(url)) { console.error('Blocked non-allowlisted design URL:', url); continue }
       try {
         const res = await fetch(url)
         if (!res.ok) { console.error(`Failed to fetch design URL [${res.status}]:`, url); continue }
@@ -249,8 +266,7 @@ ${address}
     })
   } catch (error: unknown) {
     console.error('Error in send-to-telegram:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

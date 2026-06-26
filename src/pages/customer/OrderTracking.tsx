@@ -14,6 +14,7 @@ import { getDesignSignedUrl } from '@/lib/storage';
 import { playNotificationSound } from '@/lib/notificationSound';
 import { cn } from '@/lib/utils';
 import { isNativeApp } from '@/lib/platform';
+import { IMAGE_ACCEPT, partitionAllowed } from '@/lib/uploadValidation';
 import ImageLightbox from '@/components/ImageLightbox';
 import { isImageUrl } from '@/lib/designVault';
 import {
@@ -179,8 +180,12 @@ const OrderTracking = () => {
 
   const handleRevisionImageSelect = (e: React.ChangeEvent<HTMLInputElement>, itemId: string) => {
     const files = Array.from(e.target.files || []);
+    const { ok: allowed, rejected } = partitionAllowed(files);
+    if (rejected.length) {
+      toast({ title: 'صيغة غير مدعومة — PNG أو JPG فقط', variant: 'destructive' });
+    }
     const current = revisionImages[itemId] || [];
-    const combined = [...current, ...files].slice(0, 3);
+    const combined = [...current, ...allowed].slice(0, 3);
     setRevisionImages(prev => ({ ...prev, [itemId]: combined }));
     setRevisionImagePreviews(prev => ({ ...prev, [itemId]: combined.map(f => URL.createObjectURL(f)) }));
     e.target.value = '';
@@ -446,7 +451,7 @@ const OrderTracking = () => {
                                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
                                     <Textarea value={revisionNotes[item.id] || ''} onChange={e => setRevisionNotes(prev => ({ ...prev, [item.id]: e.target.value }))} placeholder="اكتب ملاحظاتك للمصمم..." className="min-h-[80px]" dir="rtl" />
                                     <div>
-                                      <input ref={el => { revisionImgRefs.current[item.id] = el; }} type="file" accept="image/*" multiple className="hidden" onChange={e => handleRevisionImageSelect(e, item.id)} />
+                                      <input ref={el => { revisionImgRefs.current[item.id] = el; }} type="file" accept={IMAGE_ACCEPT} multiple className="hidden" onChange={e => handleRevisionImageSelect(e, item.id)} />
                                       {curRevisionImages.length > 0 && (
                                         <div className="flex gap-2 flex-wrap mb-2">
                                           {curRevisionImages.map((src, idx) => (

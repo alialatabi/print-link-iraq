@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { ArrowRight, FileText, Upload, X, Image, Loader2, ChevronLeft, ChevronRight, Check, Copy, Palette, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
-import { incrementCouponUsage, Coupon } from '@/hooks/useDiscounts';
+import { redeemCoupon, Coupon } from '@/hooks/useDiscounts';
+import { IMAGE_PDF_ACCEPT, partitionAllowed } from '@/lib/uploadValidation';
 import { buildAiOrderItemDetails } from '@/lib/aiDesign';
 import { useServices } from '@/hooks/useServices';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
@@ -72,7 +73,11 @@ const CheckoutPage = () => {
     if (!currentItem) return;
     const tid = currentItem.templateId;
     const files = Array.from(e.target.files || []);
-    const valid = files.filter(f => f.size <= 10 * 1024 * 1024);
+    const { ok: allowed, rejected } = partitionAllowed(files, { pdf: true });
+    if (rejected.length) {
+      toast({ title: 'صيغة غير مدعومة — PNG أو JPG أو PDF فقط', variant: 'destructive' });
+    }
+    const valid = allowed.filter(f => f.size <= 10 * 1024 * 1024);
     const current = attachments[tid] || [];
     if (current.length + valid.length > 5) {
       toast({ title: 'الحد الأقصى 5 صور', variant: 'destructive' });
@@ -229,9 +234,9 @@ const CheckoutPage = () => {
         }
       }
 
-      // Increment coupon usage
+      // Consume the coupon, tied to this order (server enforces the cap atomically).
       if (appliedCoupon) {
-        await incrementCouponUsage(appliedCoupon.id);
+        await redeemCoupon(appliedCoupon.id, orderData.id);
         sessionStorage.removeItem('matbaty_coupon');
       }
 
@@ -367,7 +372,7 @@ const CheckoutPage = () => {
               صور أو لوغوهات (اختياري)
             </Label>
 
-            <input ref={fileInputRef} type="file" accept="image/*,.pdf" multiple onChange={handleFileSelect} className="hidden" />
+            <input ref={fileInputRef} type="file" accept={IMAGE_PDF_ACCEPT} multiple onChange={handleFileSelect} className="hidden" />
 
             {curPreviews.length > 0 && (
               <div className="grid grid-cols-3 gap-2 mb-3">

@@ -18,6 +18,7 @@ import { generateAiDesign, resolveRequest, uploadAiDraftImage, createAiEditOrder
 import { useAiProducts } from '@/hooks/useAiProducts';
 import { saveAiDesignToVault, deleteVaultDesign } from '@/lib/designVault';
 import { fileToDownscaledDataUrl } from '@/lib/imageUtils';
+import { IMAGE_ACCEPT, isAllowedAttachment } from '@/lib/uploadValidation';
 import { isNativeApp } from '@/lib/platform';
 
 const MAX_REF_IMAGES = 3;
@@ -72,7 +73,7 @@ const AiDesignPage = () => {
     const room = MAX_REF_IMAGES - refImages.length;
     if (room <= 0) { toast({ title: `الحد الأقصى ${MAX_REF_IMAGES} صور`, variant: 'destructive' }); return; }
     for (const file of Array.from(files).slice(0, room)) {
-      if (!file.type.startsWith('image/')) { toast({ title: 'يرجى اختيار صور فقط', variant: 'destructive' }); continue; }
+      if (!isAllowedAttachment(file)) { toast({ title: 'صيغة غير مدعومة — PNG أو JPG فقط', variant: 'destructive' }); continue; }
       if (file.size > 10 * 1024 * 1024) { toast({ title: 'حجم الصورة كبير جداً (الحد 10MB)', variant: 'destructive' }); continue; }
       try {
         const dataUrl = await fileToDownscaledDataUrl(file, 1024);
@@ -364,7 +365,7 @@ const AiDesignPage = () => {
               </AnimatePresence>
               {refImages.length < MAX_REF_IMAGES && (
                 <label className={`aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5 ${busy ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <input type="file" accept="image/*" multiple className="hidden" disabled={busy} onChange={e => { handleAddRefImages(e.target.files); e.currentTarget.value = ''; }} />
+                  <input type="file" accept={IMAGE_ACCEPT} multiple className="hidden" disabled={busy} onChange={e => { handleAddRefImages(e.target.files); e.currentTarget.value = ''; }} />
                   <ImagePlus className="w-6 h-6 text-muted-foreground" />
                   <span className="text-[11px] text-muted-foreground font-medium">إضافة صورة</span>
                 </label>

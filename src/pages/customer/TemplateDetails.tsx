@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Check, Shield, Truck, Printer, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -249,6 +250,7 @@ const TemplateDetails = () => {
   const { templateId } = useParams<{ templateId: string }>();
   const navigate = useNavigate();
   const { addItem, items } = useCart();
+  const { user } = useAuth();
   const { toast } = useToast();
   const { services } = useServices();
   const { specializations } = useSpecializations();
@@ -309,8 +311,19 @@ const TemplateDetails = () => {
     else if (cellophaneType === 'both' && !selectedCellophane) setSelectedCellophane('matte');
   }, [cellophaneType]);
 
+  // In the installed app, a guest taking an auth-required action is sent to the new
+  // sign-in page (and returned here afterwards). Returns true if it redirected.
+  const guardGuest = (): boolean => {
+    if (isNativeApp && !user) {
+      navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname)}`);
+      return true;
+    }
+    return false;
+  };
+
   const handleAddToCart = () => {
     if (!template) return;
+    if (guardGuest()) return;
     addItem({
       templateId: template.id,
       templateName: template.name,
@@ -325,6 +338,7 @@ const TemplateDetails = () => {
   };
 
   const handleOrder = () => {
+    if (guardGuest()) return;
     handleAddToCart();
     navigate('/cart');
   };

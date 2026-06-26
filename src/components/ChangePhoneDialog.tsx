@@ -64,16 +64,15 @@ const ChangePhoneDialog = ({ open, onOpenChange, currentPhone, onChanged }: Prop
       const { data, error } = await supabase.functions.invoke('send-otp', { body: { phone: trimmed } });
       if (error || data?.error) {
         toast({ title: 'خطأ', description: data?.error || error?.message || 'فشل إرسال الرمز', variant: 'destructive' });
-      } else if (data?.isStaff) {
-        toast({ title: 'لا يمكن استخدام هذا الرقم', variant: 'destructive' });
-      } else if (data?.session || data?.existingUser) {
-        // send-otp found this number on another account (auto-login session or existing profile).
-        toast({ title: 'هذا الرقم مستخدم بالفعل بحساب آخر', variant: 'destructive' });
-      } else {
+      } else if (data?.route === 'otp' && data?.isNewUser) {
+        // Only a brand-new (unclaimed) number gets an OTP and can be switched to.
         toast({ title: 'تم إرسال رمز التحقق إلى الرقم الجديد' });
         setOtp('');
         setStep('verify');
         setCountdown(RESEND_COOLDOWN);
+      } else {
+        // staff number, or an existing account (route 'staff'/'code', or 'otp' on a known profile).
+        toast({ title: 'هذا الرقم مستخدم بالفعل بحساب آخر', variant: 'destructive' });
       }
     } catch {
       toast({ title: 'خطأ غير متوقع', variant: 'destructive' });

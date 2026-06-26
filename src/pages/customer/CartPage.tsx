@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Minus, Plus, Trash2, ShoppingCart, Palette, ShieldCheck, Truck, Tag, Loader2, X, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ const fadeUp = {
 
 const CartPage = () => {
   const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
@@ -257,6 +259,8 @@ const CartPage = () => {
 
           <Button
             onClick={() => {
+              // Installed-app guests are sent to the new sign-in before checkout.
+              if (isNativeApp && !user) { navigate('/auth?redirect=/checkout'); return; }
               // Store coupon in sessionStorage for checkout to use
               if (appliedCoupon) {
                 sessionStorage.setItem('matbaty_coupon', JSON.stringify(appliedCoupon));

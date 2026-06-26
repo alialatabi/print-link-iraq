@@ -12,6 +12,7 @@ import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
 import { isNativeApp } from '@/lib/platform';
+import { IMAGE_PDF_ACCEPT, partitionAllowed } from '@/lib/uploadValidation';
 
 const OrderForm = () => {
   const { templateId } = useParams<{ templateId: string }>();
@@ -44,8 +45,12 @@ const OrderForm = () => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const valid = files.filter(f => f.size <= 10 * 1024 * 1024);
-    if (valid.length !== files.length) {
+    const { ok: allowed, rejected } = partitionAllowed(files, { pdf: true });
+    if (rejected.length) {
+      toast({ title: 'صيغة غير مدعومة — PNG أو JPG أو PDF فقط', variant: 'destructive' });
+    }
+    const valid = allowed.filter(f => f.size <= 10 * 1024 * 1024);
+    if (valid.length !== allowed.length) {
       toast({ title: 'بعض الملفات تجاوزت 10MB وتم تجاهلها', variant: 'destructive' });
     }
     if (attachments.length + valid.length > 5) {
@@ -214,7 +219,7 @@ const OrderForm = () => {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,.pdf"
+                accept={IMAGE_PDF_ACCEPT}
                 multiple
                 onChange={handleFileSelect}
                 className="hidden"

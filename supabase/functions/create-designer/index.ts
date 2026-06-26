@@ -73,33 +73,39 @@ Deno.serve(async (req) => {
     const normalizedPhone = phone.replace(/\s+/g, "").replace(/^0/, "964");
     const syntheticEmail = `${normalizedPhone}@phone.matbaati.local`;
 
-    // Check if user already exists
-    const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = userList?.users?.find(u => u.email === syntheticEmail);
+    // H4: refuse to act on a phone that already belongs to an account. The old code reset
+    // the existing user's password and stripped their role here, which was an account-takeover
+    // vector (incl. against the super-admin). Reliable, pagination-safe existence check via
+    // profiles.phone (also fixes the listUsers() first-page bug, M9).
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("user_id")
+      .eq("phone", normalizedPhone)
+      .limit(1)
+      .maybeSingle();
 
-    let targetUserId: string;
-
-    if (existingUser) {
-      targetUserId = existingUser.id;
-      // Update password
-      await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password });
-    } else {
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: syntheticEmail,
-        password,
-        phone: normalizedPhone,
-        email_confirm: true,
-        user_metadata: { display_name: display_name || normalizedPhone, phone: normalizedPhone },
-      });
-
-      if (createError) {
-        return new Response(
-          JSON.stringify({ error: "فشل إنشاء الحساب: " + createError.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      targetUserId = newUser.user!.id;
+    if (existingProfile) {
+      return new Response(
+        JSON.stringify({ error: "يوجد حساب مسجّل بهذا الرقم بالفعل — استخدم رقماً آخر" }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: syntheticEmail,
+      password,
+      phone: normalizedPhone,
+      email_confirm: true,
+      user_metadata: { display_name: display_name || normalizedPhone, phone: normalizedPhone },
+    });
+
+    if (createError) {
+      return new Response(
+        JSON.stringify({ error: "فشل إنشاء الحساب: " + createError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const targetUserId: string = newUser.user!.id;
 
     // Update display_name in profile if provided
     if (display_name) {
@@ -136,7 +142,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, user_id: targetUserId, is_new: !existingUser }),
+      JSON.stringify({ success: true, user_id: targetUserId, is_new: true }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

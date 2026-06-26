@@ -29,6 +29,8 @@ const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   }
 
   if (!user) {
+    // Guests hitting a protected feature/area are sent to the sign-in page (with a
+    // redirect back to where they were heading), on both web and the installed app.
     const currentPath = window.location.pathname + window.location.search;
     return <Navigate to={`/auth?redirect=${encodeURIComponent(currentPath)}`} replace />;
   }
