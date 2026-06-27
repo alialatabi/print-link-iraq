@@ -174,6 +174,25 @@ export function insertDesignVersion(
 }
 
 /**
+ * Insert an ORDER-LEVEL design version (no order_item_id) for item-less orders —
+ * template/ready-design orders that store their design on the order row instead of
+ * in order_items. The customer's item-less tracking view resolves this via the
+ * order-level design (`order_item_id IS NULL`), so the design surfaces to them too.
+ */
+export function insertOrderDesignVersion(
+  orderId: string,
+  version: number,
+  fileUrl: string,
+) {
+  return supabase.from('designs').insert({
+    order_id: orderId,
+    order_item_id: null,
+    version,
+    file_url: fileUrl,
+  });
+}
+
+/**
  * Delete a design version record from the `designs` table.
  * Errors are handled by the caller.
  */

@@ -274,6 +274,28 @@ export interface GenerateResult {
   remaining: number;
 }
 
+/**
+ * Return a currently-valid access token, refreshing the session if the persisted one has gone
+ * stale. The `ai-design-generate` function requires a live JWT (`getUser(jwt)`), so a logged-in
+ * user must always send a fresh token. On native, a backgrounded app can carry an expired token
+ * that auto-refresh hasn't renewed yet — which the function rejects with 401. Forcing a refresh
+ * here makes AI design depend only on BEING logged in, regardless of how the user signed in
+ * (biometric or PIN). Returns null only when there is no session at all (truly not logged in).
+ */
+async function getValidAccessToken(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+  const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;
+  // Refresh when the token is expired or within 60s of expiring.
+  if (expiresAtMs && expiresAtMs - Date.now() < 60_000) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (!error && data.session) return data.session.access_token;
+    // Refresh failed (e.g. dead refresh token) — fall back to the existing token and let the
+    // function surface the real 401 reason rather than silently logging the user out.
+  }
+  return session.access_token;
+}
+
 /** Invoke the edge function to generate an AI design. Throws an Error (Arabic message) on failure. */
 export async function generateAiDesign(params: {
   brief: string;
@@ -285,8 +307,15 @@ export async function generateAiDesign(params: {
   /** optional reference/logo images (base64 data URLs) composited into the design */
   referenceImages?: string[];
 }): Promise<GenerateResult> {
+  // Gate AI design on a valid login session (independent of the biometric feature): send a
+  // freshly-validated access token so the function always sees the caller as authenticated.
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) {
+    throw new Error('يجب تسجيل الدخول لاستخدام هذه الميزة');
+  }
   const { data, error } = await supabase.functions.invoke('ai-design-generate', {
     body: params,
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (error) {
     // supabase-js collapses any non-2xx into a FunctionsHttpError whose generic message hides the

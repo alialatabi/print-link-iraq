@@ -4,12 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { ArrowRight } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { OrderStatus } from '@/data/mockData';
+import { SERVICE_LABELS, type OrderStatus, type ServiceType } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
 import { getDesignSignedUrl } from '@/lib/storage';
 import { getUserFriendlyError } from '@/lib/errors';
 import type { OrderDetailsJson } from '@/types/db';
 import ResellerOrderPanel from './ResellerOrderPanel';
+import ItemlessOrderPanel from './ItemlessOrderPanel';
 import DesignItemCard, { type DesignVersion, type OrderItem } from './DesignItemCard';
 import {
   getCustomerNamesForDesigner,
@@ -18,6 +19,7 @@ import {
   uploadDesignFile,
   removeDesignFile,
   insertDesignVersion,
+  insertOrderDesignVersion,
   setOrderItemStatus,
   setOrderItemStatusAndDetails,
   setOrderStatus,
@@ -55,6 +57,10 @@ const DesignerOrderDetails = () => {
   const [reviewNote, setReviewNote] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState<'approve' | 'reject' | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  // Item-less orders (template/ready-design): the design lives on the order row, not in order_items.
+  const [orderUploading, setOrderUploading] = useState(false);
+  const [orderPrinting, setOrderPrinting] = useState(false);
+  const orderFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadOrder = useCallback(async () => {
     const { data } = await getDesignerOrderDetail(orderId || '');
@@ -326,6 +332,86 @@ const DesignerOrderDetails = () => {
     }
   };
 
+  // ── Item-less orders (template / ready-design): design lives on the order row ──
+  // The designer uploads an order-level design (order_item_id IS NULL) and sends it to the
+  // print group; the customer's item-less tracking view surfaces the same order-level design.
+  const handleItemlessFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !orderId) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'الملف كبير جداً', description: 'الحد الأقصى 10MB', variant: 'destructive' });
+      return;
+    }
+
+    setOrderUploading(true);
+    try {
+      const orderDesigns = designs.filter(d => !d.order_item_id);
+      const nextVersion = orderDesigns.length > 0 ? orderDesigns[0].version + 1 : 1;
+      const ext = file.name.split('.').pop();
+      const filePath = `${orderId}/order/v${nextVersion}.${ext}`;
+
+      const { error: uploadError } = await uploadDesignFile(filePath, file);
+      if (uploadError) throw uploadError;
+
+      const { error: insertError } = await insertOrderDesignVersion(orderId, nextVersion, filePath);
+      if (insertError) throw insertError;
+
+      // Move the order forward so the customer sees progress (only from the pre-design states).
+      if (order && ['submitted', 'assigned'].includes(order.status)) {
+        await setOrderStatus(orderId, 'design_uploaded');
+      }
+
+      toast({ title: 'تم رفع التصميم بنجاح', description: `الإصدار ${nextVersion}` });
+      loadDesigns();
+      loadOrder();
+    } catch (err: unknown) {
+      toast({ title: 'فشل رفع الملف', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setOrderUploading(false);
+      if (orderFileInputRef.current) orderFileInputRef.current.value = '';
+    }
+  };
+
+  const handleItemlessSendToPrint = async () => {
+    if (!orderId) return;
+    const orderDesigns = designs.filter(d => !d.order_item_id);
+    const latest = orderDesigns.find(d => d.file_url);
+    const attachments: string[] = Array.isArray(order?.details?.attachment_urls) ? order!.details.attachment_urls : [];
+    if (!latest?.file_url && attachments.length === 0) {
+      toast({ title: 'لا يوجد تصميم لإرساله', description: 'ارفع ملف التصميم أو تأكد من وجود ملف مرفق', variant: 'destructive' });
+      return;
+    }
+    setOrderPrinting(true);
+    try {
+      // Uploaded design lives in the private `designs` bucket (designFilePath); a customer's
+      // own attachment is a public order-attachments URL (designFileUrls). The edge function
+      // flips the order to print_ready on success.
+      const body: Record<string, unknown> = latest?.file_url
+        ? { orderId, designFilePath: latest.file_url }
+        : { orderId, designFileUrls: attachments };
+
+      const { error: tgError } = await invokeSendToTelegram(body);
+      if (tgError) {
+        // supabase-js hides the real reason behind a generic FunctionsHttpError — read the
+        // function's own `{ error }` body off error.context (same pattern as sendDesignToPrint).
+        let message = (tgError as { message?: string })?.message || 'تعذّر إرسال التصميم للتلكرام';
+        const ctx = (tgError as { context?: unknown }).context;
+        if (ctx && typeof (ctx as Response).json === 'function') {
+          try { const b = await (ctx as Response).json(); if (b?.error) message = b.error as string; } catch { /* keep fallback */ }
+        }
+        throw new Error(message);
+      }
+      toast({ title: '✅ تمت الموافقة وأُرسل التصميم للطبع' });
+      loadDesigns();
+      loadOrder();
+    } catch (err) {
+      toast({ title: 'فشل الإرسال', description: getUserFriendlyError(err), variant: 'destructive' });
+    } finally {
+      setOrderPrinting(false);
+    }
+  };
+
   if (loading) return <div className="py-20 text-center"><p className="text-muted-foreground">جاري التحميل...</p></div>;
   if (!order) return <div className="py-20 text-center"><p className="text-muted-foreground text-lg">لم يتم العثور على الطلب</p></div>;
 
@@ -401,10 +487,23 @@ const DesignerOrderDetails = () => {
               ))}
             </div>
           ) : (
-            /* Legacy: single order without items - show old behavior */
-            <div className="bg-card rounded-xl p-6 border border-border">
-              <p className="text-muted-foreground text-center">هذا الطلب لا يحتوي على عناصر فرعية</p>
-            </div>
+            /* Item-less order (template / ready-design): design lives on the order row */
+            <ItemlessOrderPanel
+              orderStatus={order.status}
+              details={order.details || {}}
+              attachments={Array.isArray(order.details?.attachment_urls) ? order.details.attachment_urls.filter(Boolean) : []}
+              serviceLabel={SERVICE_LABELS[order.details?.service_type as ServiceType] || order.templates?.name || ''}
+              quantity={order.details?.quantity as number | undefined}
+              total={order.details?.pricing?.line_total as number | undefined}
+              orderDesigns={designs.filter(d => !d.order_item_id)}
+              uploading={orderUploading}
+              printing={orderPrinting}
+              fileInputRef={orderFileInputRef}
+              onFileSelect={handleItemlessFileSelect}
+              onSendToPrint={handleItemlessSendToPrint}
+              onViewDesign={handleViewDesign}
+              onDeleteDesign={handleDeleteDesign}
+            />
           )}
         </motion.div>
       </div>
