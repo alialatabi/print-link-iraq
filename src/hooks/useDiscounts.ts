@@ -66,6 +66,32 @@ export function useCoupons() {
 }
 
 /**
+ * Customer-facing coupon list for the /my-coupons page and any future referral/loyalty
+ * screen. Reads via the `my_coupons()` SECURITY DEFINER RPC (migration
+ * 20260703121000): the coupons table has no non-admin SELECT policy, and a table policy
+ * would be column-blind and leak used_count/max_uses, so the RPC returns only the four
+ * rendered columns for active, in-window, not-maxed codes.
+ *
+ * The generated Supabase types don't know the RPC yet, hence the redeem_coupon /
+ * popular_templates-style `as never` cast. If the RPC isn't deployed yet (or RLS denies),
+ * the error is swallowed and the page shows its empty state.
+ */
+export function useMyCoupons() {
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['coupons', 'mine'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('my_coupons' as never);
+      if (error) return EMPTY_COUPONS;
+      return (data ?? []) as unknown as Coupon[];
+    },
+    staleTime: DISCOUNTS_STALE_TIME,
+  });
+  const reload = useCallback(async () => { await refetch(); }, [refetch]);
+
+  return { coupons: data ?? EMPTY_COUPONS, loading: isLoading, reload };
+}
+
+/**
  * Returns the best applicable discount percentage for a given service.
  * Checks: sub_service match → parent_service match → global discount
  * Only considers active discounts within their date range.

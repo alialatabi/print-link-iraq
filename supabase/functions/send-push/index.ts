@@ -1,11 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { CORS_HEADERS, json, getServiceClient } from "../_shared/helpers.ts";
 
-// Sends push notifications via Firebase Cloud Messaging (HTTP v1). Auth (M6): the caller's JWT
-// must resolve to an admin, super-admin, or designer (super admins hold the `admin` role).
-// Resellers and customers are rejected — this is not a general messaging endpoint. Targets are
-// additionally validated: every target user must be the customer of some order, so staff can't
-// push to arbitrary users. Input:
+// Sends push notifications via Firebase Cloud Messaging (HTTP v1). Auth (M6): two caller paths.
+// Staff (admin / super-admin / designer — super admins hold the `admin` role) may only target
+// users who are the customer of some order, so staff can't push to arbitrary users. Any OTHER
+// caller (a customer) may only target the assigned designer of their OWN orders (the customer →
+// designer approve/revision pushes from OrderTracking) — nothing else. This is not a general
+// messaging endpoint. Input:
 //   { userId?: string, userIds?: string[], title: string, body: string, data?: Record<string,string> }
 // Looks up the targets' device tokens, sends one message per token, and prunes tokens FCM reports
 // as unregistered. Needs the FCM_SERVICE_ACCOUNT secret (the full Firebase service-account JSON).
@@ -76,26 +77,41 @@ Deno.serve(async (req) => {
 
     const supabaseAdmin = getServiceClient();
 
-    // M6: only admins, super-admins, and designers may send notifications. A super admin
-    // always holds the `admin` role, so user_roles covers them. Resellers and customers are
-    // rejected — previously ANY staff-ish caller (incl. resellers) could push to ANY user.
+    // M6: the caller's role decides which target rule applies below. A super admin always
+    // holds the `admin` role, so user_roles covers them.
     const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", user.id);
-    const canPush = (roles || []).some((r: { role: string }) => ["admin", "designer"].includes(r.role));
-    if (!canPush) return json({ error: "هذه العملية للأدمن والمصممين فقط" }, 403);
+    const isStaff = (roles || []).some((r: { role: string }) => ["admin", "designer"].includes(r.role));
 
     const { userId, userIds, title, body, data } = await req.json();
     const targets: string[] = [...new Set([...(Array.isArray(userIds) ? userIds : []), ...(userId ? [userId] : [])])];
     if (targets.length === 0) return json({ error: "no target users" }, 400);
     if (!title || !body) return json({ error: "title and body required" }, 400);
 
-    // M6: staff may only push to users who are the customer of some order — blocks pushing to
-    // arbitrary users / other staff. AdminPanel and the designer flow always target
-    // order.customer_id, so a legitimate call is never rejected here.
-    const { data: custRows } = await supabaseAdmin
-      .from("orders").select("customer_id").in("customer_id", targets);
-    const orderCustomers = new Set((custRows || []).map((r: { customer_id: string }) => r.customer_id));
-    if (targets.some((t) => !orderCustomers.has(t))) {
-      return json({ error: "الهدف غير صالح" }, 403);
+    if (isStaff) {
+      // M6: staff may only push to users who are the customer of some order — blocks pushing to
+      // arbitrary users / other staff. AdminPanel and the designer flow always target
+      // order.customer_id, so a legitimate call is never rejected here.
+      const { data: custRows } = await supabaseAdmin
+        .from("orders").select("customer_id").in("customer_id", targets);
+      const orderCustomers = new Set((custRows || []).map((r: { customer_id: string }) => r.customer_id));
+      if (targets.some((t) => !orderCustomers.has(t))) {
+        return json({ error: "الهدف غير صالح" }, 403);
+      }
+    } else {
+      // Customer → designer path: a caller without a staff role may notify ONLY the assigned
+      // designers of their OWN orders (the OrderTracking approve/revision pushes). One query:
+      // the caller's orders whose designer_id is among the targets — every target must land in
+      // that set. Unassigned orders (designer_id NULL) never match, so they grant nothing.
+      const { data: ownRows } = await supabaseAdmin
+        .from("orders").select("designer_id").eq("customer_id", user.id).in("designer_id", targets);
+      const ownDesigners = new Set(
+        (ownRows || [])
+          .map((r: { designer_id: string | null }) => r.designer_id)
+          .filter((d): d is string => typeof d === "string" && d.length > 0),
+      );
+      if (targets.some((t) => !ownDesigners.has(t))) {
+        return json({ error: "يمكنك إشعار مصممي طلباتك فقط" }, 403);
+      }
     }
 
     const saRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");

@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { useAlwaseetCities, useAlwaseetRegions, type AwLocation } from '@/hooks/useAlwaseetLocations';
+import { capMatches } from '@/lib/comboboxCap';
 
 /** Selected محافظة + منطقة — names (for display/back-compat) plus Al-Waseet ids. */
 export interface LocationValue {
@@ -23,6 +24,11 @@ export const emptyLocation = (init?: Partial<LocationValue>): LocationValue => (
   areaName: init?.areaName ?? '',
 });
 
+// How many CommandItems we ever mount at once. cmdk keeps every registered item in the
+// DOM (it only hides non-matches), so rendering all ~750 of Baghdad's مناطق janks the
+// popover open on cheap phones — we render a capped slice and nudge the user to type.
+const MAX_RENDERED = 60;
+
 /** A single searchable combobox over a list of Al-Waseet locations. */
 function Combobox({
   items, current, placeholder, searchPlaceholder, emptyText, disabled, loading, onSelect,
@@ -37,8 +43,14 @@ function Combobox({
   onSelect: (item: AwLocation) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  // We own the filtering (shouldFilter={false}) so we can mount at most MAX_RENDERED
+  // matches instead of the whole list; the current selection is always kept in the slice.
+  const { items: visibleItems, total, capped } = capMatches(items, search, current.id, MAX_RENDERED);
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(''); }}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -55,16 +67,21 @@ function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start" dir="rtl">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} className="text-right" />
+        <Command shouldFilter={false}>
+          <CommandInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder={searchPlaceholder}
+            className="text-right"
+          />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
-              {items.map((item) => (
+              {visibleItems.map((item) => (
                 <CommandItem
                   key={item.id}
-                  value={item.name}
-                  onSelect={() => { onSelect(item); setOpen(false); }}
+                  value={String(item.id)}
+                  onSelect={() => { onSelect(item); setOpen(false); setSearch(''); }}
                   className="cursor-pointer"
                 >
                   <Check className={cn('ml-2 w-4 h-4', current.id === item.id ? 'opacity-100' : 'opacity-0')} />
@@ -73,6 +90,11 @@ function Combobox({
               ))}
             </CommandGroup>
           </CommandList>
+          {capped && (
+            <div className="px-3 py-2 text-center text-xs text-muted-foreground border-t border-border/40 select-none">
+              اكتب للبحث عن منطقتك… <span className="opacity-70">({MAX_RENDERED} من {total})</span>
+            </div>
+          )}
         </Command>
       </PopoverContent>
     </Popover>

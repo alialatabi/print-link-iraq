@@ -21,10 +21,7 @@ const AuthPage = lazy(() => import("./pages/auth/AuthPage"));
 const StaffLogin = lazy(() => import("./pages/auth/StaffLogin"));
 const ServiceSelection = lazy(() => import("./pages/customer/ServiceSelection"));
 const SubServiceSelection = lazy(() => import("./pages/customer/SubServiceSelection"));
-const SpecializationSelection = lazy(() => import("./pages/customer/SpecializationSelection"));
 const TemplateSelection = lazy(() => import("./pages/customer/TemplateSelection"));
-const OrderForm = lazy(() => import("./pages/customer/OrderForm"));
-const OTPVerification = lazy(() => import("./pages/customer/OTPVerification"));
 const OrderSuccess = lazy(() => import("./pages/customer/OrderSuccess"));
 const OrderTracking = lazy(() => import("./pages/customer/OrderTracking"));
 const MyOrders = lazy(() => import("./pages/customer/MyOrders"));
@@ -86,19 +83,16 @@ const App = () => (
                 <Route path="/staff-login" element={<StaffLogin />} />
                 <Route path="/services" element={<ServiceSelection />} />
                 <Route path="/sub-services/:parentId" element={<SubServiceSelection />} />
-                <Route path="/specializations/:serviceType" element={<SpecializationSelection />} />
                 <Route path="/templates/:serviceType" element={<TemplateSelection />} />
                 <Route path="/template/:templateId" element={<TemplateDetails />} />
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/privacy" element={<PrivacyPolicy />} />
 
                 {/* Authenticated customer routes */}
-                <Route path="/order/:templateId" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
                 <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
                 <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
                 <Route path="/upload-design" element={<ProtectedRoute><UploadDesignPage /></ProtectedRoute>} />
                 <Route path="/ai-design" element={<ProtectedRoute><AiDesignPage /></ProtectedRoute>} />
-                <Route path="/verify-otp" element={<ProtectedRoute><OTPVerification /></ProtectedRoute>} />
                 <Route path="/order-success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
                 <Route path="/track-order/:orderId" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
                 <Route path="/delivery-address/:orderId" element={<ProtectedRoute><DeliveryAddressPage /></ProtectedRoute>} />

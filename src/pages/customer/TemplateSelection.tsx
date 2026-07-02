@@ -20,6 +20,7 @@ import { useActiveDiscount } from '@/hooks/useDiscounts';
 import DiscountBadge from '@/components/DiscountBadge';
 import { TemplateGridSkeleton } from '@/components/skeletons/CatalogSkeletons';
 import { isNativeApp } from '@/lib/platform';
+import { prefetchTemplateDetails } from '@/lib/prefetchTemplate';
 
 interface DbTemplate {
   id: string;
@@ -168,6 +169,8 @@ const TemplateSelection = () => {
               >
                 <Link
                   to={`/template/${template.id}`}
+                  onPointerEnter={prefetchTemplateDetails}
+                  onFocus={prefetchTemplateDetails}
                   className="group block rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60 hover:border-primary/20"
                 >
                   <div className={`relative bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`} style={{ aspectRatio: '1/1' }}>

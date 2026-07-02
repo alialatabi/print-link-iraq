@@ -13,6 +13,7 @@ import { ShoppingBag, Package, ChevronLeft, ImageIcon, Layers, RotateCcw, Loader
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
 import { resolveReorder, type ReorderSourceItem } from '@/lib/reorder';
+import { formatProductCount } from '@/lib/arabicPlural';
 import { toast } from '@/hooks/use-toast';
 import { playNotificationSound } from '@/lib/notificationSound';
 import SEOHead from '@/components/SEOHead';
@@ -56,7 +57,7 @@ const MyOrders = () => {
       toast({
         title: 'أُضيفت المنتجات إلى السلة ✓',
         description: skipped.length > 0
-          ? `تعذّر إضافة ${skipped.length} ${skipped.length === 1 ? 'منتج لم يعد متوفراً' : 'منتجات لم تعد متوفرة'}`
+          ? `تعذّر إضافة ${formatProductCount(skipped.length)} لعدم التوفر`
           : undefined,
       });
       navigate('/cart');

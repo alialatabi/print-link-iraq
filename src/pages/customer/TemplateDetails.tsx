@@ -16,6 +16,7 @@ import { trackView, getPreferredServiceTypes, getRecentlyViewed } from '@/lib/br
 import { useActiveDiscount } from '@/hooks/useDiscounts';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
 import { isNativeApp } from '@/lib/platform';
+import { prefetchTemplateDetails } from '@/lib/prefetchTemplate';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -222,6 +223,8 @@ const PersonalizedRecommendations = ({ serviceType, currentId }: { serviceType: 
             >
               <Link
                 to={`/template/${t.id}`}
+                onPointerEnter={prefetchTemplateDetails}
+                onFocus={prefetchTemplateDetails}
                 className="group block rounded-2xl overflow-hidden border border-border/40 bg-card/80 backdrop-blur-sm shadow-card hover:shadow-card-hover hover:-translate-y-1.5 transition-all duration-400"
               >
                 <div className="overflow-hidden bg-muted/30" style={{ aspectRatio }}>

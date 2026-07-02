@@ -13,6 +13,7 @@ import JsonLd, { localBusinessSchema, websiteSchema, organizationSchema } from '
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
 import { isNativeApp } from '@/lib/platform';
 import NativeHome from '@/components/native/NativeHome';
+import { prefetchTemplateDetails } from '@/lib/prefetchTemplate';
 
 interface PopularTemplate {
   id: string;
@@ -364,6 +365,8 @@ const Index = () => {
                 {/* services hover effect: lift + cyan border + image zoom + "خصّص" badge */}
                 <Link
                   to={`/template/${t.id}`}
+                  onPointerEnter={prefetchTemplateDetails}
+                  onFocus={prefetchTemplateDetails}
                   className="group block rounded-[20px] overflow-hidden bg-white border border-[#EFE7DC] shadow-[0_12px_30px_-22px_rgba(80,60,40,.4)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_26px_50px_-26px_rgba(80,60,40,.45)] hover:border-[#10B0E0]/40"
                 >
                   <CardThumb t={t} isFirst={i === 0} />

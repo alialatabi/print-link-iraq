@@ -45,3 +45,43 @@ export function notifyOrderStatusPush(
     })
     .catch(() => { /* push is non-critical */ });
 }
+
+/**
+ * Designer-facing push copy for customer actions on a design (Arabic). Kept as a
+ * SEPARATE map from STATUS_PUSH — that one is strictly the customer-facing set and
+ * is asserted key-for-key in tests. Keyed by the logical customer action, not a DB
+ * status ('revision' writes the item back to `assigned`, which must stay silent).
+ */
+export const CUSTOMER_ACTION_PUSH: Record<'approved' | 'revision', { title: string; body: string }> = {
+  approved: { title: 'وافق الزبون على التصميم ✅', body: 'يمكنك الآن إرساله للطباعة' },
+  revision: { title: 'الزبون طلب تعديلاً ✍️', body: 'افتح الطلب لقراءة الملاحظات' },
+};
+
+export type CustomerAction = keyof typeof CUSTOMER_ACTION_PUSH;
+
+/**
+ * Best-effort push to the assigned designer when the customer acts on a design in
+ * OrderTracking (approves it or requests a revision) — the reverse direction of
+ * notifyOrderStatusPush. Never blocks or throws (push is non-critical), and no-ops
+ * when the order has no assigned designer yet (`designer_id` NULL).
+ *
+ * The send-push edge function authorizes this direction server-side: a non-staff
+ * caller may only target the designers of their own orders.
+ *
+ * @param orderId    the order the push deep-links to (`data.orderId`)
+ * @param designerId recipient user id (`order.designer_id`)
+ * @param action     what the customer did: 'approved' | 'revision'
+ */
+export function notifyDesignerOfCustomerAction(
+  orderId: string | null | undefined,
+  designerId: string | null | undefined,
+  action: CustomerAction,
+): void {
+  const msg = CUSTOMER_ACTION_PUSH[action];
+  if (!orderId || !designerId || !msg) return;
+  supabase.functions
+    .invoke('send-push', {
+      body: { userId: designerId, title: msg.title, body: msg.body, data: { orderId, action } },
+    })
+    .catch(() => { /* push is non-critical */ });
+}

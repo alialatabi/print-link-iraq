@@ -1,31 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { m as motion } from 'framer-motion';
 import { Ticket, Copy, CheckCircle2, Tag } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { isNativeApp } from '@/lib/platform';
-import { listCoupons, type CouponRow } from '@/services/coupons';
+import { useMyCoupons, type Coupon } from '@/hooks/useDiscounts';
 
 const MyCoupons = () => {
-  const [coupons, setCoupons] = useState<CouponRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Reads active coupons via the my_coupons() RPC. Pre-migration / RLS-denied → empty list.
+  const { coupons, loading } = useMyCoupons();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { data, error } = await listCoupons();
-        if (!error && data?.coupons) {
-          setCoupons(data.coupons as CouponRow[]);
-        }
-      } catch (e) {
-        console.error('Failed to load coupons', e);
-      }
-      setLoading(false);
-    };
-    load();
-  }, []);
-
-  const copyCode = (coupon: CouponRow) => {
+  const copyCode = (coupon: Coupon) => {
     navigator.clipboard.writeText(coupon.code);
     setCopiedId(coupon.id);
     toast({ title: 'تم نسخ الكود! 🎉', description: `الصقه في السلة للحصول على خصم ${coupon.percentage}%` });

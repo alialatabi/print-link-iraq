@@ -167,7 +167,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 </span>
               </Link>
               {parentServices.map((service) => {
-                const isActive = pathname.includes(`/sub-services/${service.id}`) || pathname.includes(`/specializations/${service.id}`) || pathname.includes(`/templates/${service.id}`);
+                const isActive = pathname.includes(`/sub-services/${service.id}`) || pathname.includes(`/templates/${service.id}`);
                 return (
                   <Link
                     key={service.id}

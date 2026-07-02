@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCart } from '@/contexts/CartContext';
+import { useCart, type CartItem } from '@/contexts/CartContext';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,6 +40,24 @@ interface TemplateData {
  */
 const PRINT_AS_IS_MARKER = 'اطبعوا التصميم كما هو بدون تعديلات';
 
+/**
+ * A stable, order-sensitive content signature for the cart. It captures each item's identity IN
+ * ORDER — templateId, quantity, cellophane, and (for AI items) the generated-image ref — so an
+ * unchanged cart yields the identical string while ANY content change yields a different one, even
+ * an edit that keeps the same item COUNT (swap a template, change a quantity/cellophane, regenerate
+ * an AI image). This is what keys the reusable idempotency ids: same signature -> reuse the same
+ * order/item UUIDs (so a dropped-response retry reconciles via create_order_with_items'
+ * ON CONFLICT DO NOTHING); changed signature -> mint fresh UUIDs (so new content can't bind to stale
+ * ids and get silently no-op'd by that same conflict clause). JSON.stringify keeps it collision-safe
+ * regardless of what characters an id/URL contains.
+ */
+export const cartItemsSignature = (
+  items: ReadonlyArray<Pick<CartItem, 'templateId' | 'quantity' | 'cellophane' | 'aiDesign'>>,
+): string =>
+  JSON.stringify(
+    items.map((it) => [it.templateId, it.quantity, it.cellophane ?? '', it.aiDesign?.imageUrl ?? '']),
+  );
+
 const CheckoutPage = () => {
   const { items, clearCart } = useCart();
   const { services } = useServices();
@@ -57,12 +75,19 @@ const CheckoutPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Idempotency keys (order + per-item ids) generated once and reused across submit retries, so
-  // an interrupted submit on a flaky network reconciles the SAME order instead of duplicating it.
-  const idempotencyRef = useRef<{ orderId: string; itemIds: string[] } | null>(null);
+  // Idempotency keys (order + per-item ids) generated once and reused across submit retries, so an
+  // interrupted submit on a flaky network reconciles the SAME order (create_order_with_items is
+  // ON CONFLICT DO NOTHING) instead of duplicating it. They're keyed on the cart's CONTENT signature,
+  // NOT its item COUNT: a same-length edit (swap a template, change a quantity/cellophane) changes the
+  // signature and mints fresh ids, so new content can never bind to stale ids and get silently
+  // no-op'd by that conflict clause — while an unchanged cart keeps its ids, preserving retry
+  // stability (the entire point of reusing them).
+  const idempotencyRef = useRef<{ signature: string; orderId: string; itemIds: string[] } | null>(null);
   const getIdempotencyKeys = () => {
-    if (!idempotencyRef.current || idempotencyRef.current.itemIds.length !== items.length) {
+    const signature = cartItemsSignature(items);
+    if (!idempotencyRef.current || idempotencyRef.current.signature !== signature) {
       idempotencyRef.current = {
+        signature,
         orderId: crypto.randomUUID(),
         itemIds: items.map(() => crypto.randomUUID()),
       };

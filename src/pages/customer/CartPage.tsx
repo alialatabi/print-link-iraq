@@ -61,7 +61,7 @@ const CartPage = () => {
           <p className="text-muted-foreground text-sm mb-10 max-w-xs mx-auto leading-relaxed">
             أضف قوالب من الخدمات المختلفة لبدء الطلب
           </p>
-          <Link to="/">
+          <Link to="/services">
             <Button variant="outline" size="lg" className="gap-2 rounded-xl h-12 px-8">
               <ArrowRight className="w-4 h-4" />
               تصفح الخدمات

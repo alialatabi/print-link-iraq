@@ -65,7 +65,6 @@ const CompleteProfile = () => {
     if (!user) return;
 
     const trimmedName = displayName.trim();
-    const trimmedPhone = phone.trim();
     const trimmedProvince = location.provinceName.trim();
     const trimmedArea = location.areaName.trim();
     const trimmedLandmark = landmark.trim();
@@ -77,11 +76,13 @@ const CompleteProfile = () => {
     if (!trimmedName) { toast({ title: 'الاسم مطلوب', variant: 'destructive' }); return; }
 
     setSaving(true);
+    // phone is intentionally NOT written here: it's the login identifier, set at signup and shown
+    // read-only in this form. Re-writing it on a name-only save was redundant (and risked clobbering
+    // the identifier) — persist only the editable fields.
     const { error } = await supabase
       .from('profiles')
       .update({
         display_name: trimmedName,
-        phone: trimmedPhone || null,
         province: trimmedProvince || null,
         area: trimmedArea || null,
         province_id: location.provinceId,

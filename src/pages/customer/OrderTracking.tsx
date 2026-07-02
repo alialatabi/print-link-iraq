@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { XCircle, RotateCcw, Loader2, Share2 } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { resolveReorder, type ReorderSourceItem } from '@/lib/reorder';
+import { notifyDesignerOfCustomerAction } from '@/lib/orderStatusNotify';
+import { formatProductCount } from '@/lib/arabicPlural';
 import { shareContent, SITE_URL } from '@/lib/share';
 import type { OrderStatus } from '@/data/mockData';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
@@ -36,6 +38,7 @@ import ItemlessOrderView from './ItemlessOrderView';
 interface OrderData {
   id: string;
   status: string;
+  designer_id: string | null;
   details: OrderDetailsJson;
   templates?: { name?: string } | null;
 }
@@ -131,6 +134,13 @@ const OrderTracking = () => {
       approved_at: new Date().toISOString(),
     });
 
+    // Push to the assigned designer (best-effort, never blocks). Each approve action writes
+    // exactly one item, so this fires ONE push per action — including the final approval
+    // below, which doubles as the single order-level "all approved" push before we navigate.
+    // The in-app notifications row for the designer is created by a DB trigger only when the
+    // ORDER status flips to 'approved' (delivery-address step), so nothing is duplicated here.
+    notifyDesignerOfCustomerAction(orderId, order?.designer_id, 'approved');
+
     // Check if all items approved
     const updated = orderItems.map(i => i.id === itemId ? { ...i, status: 'approved' as OrderStatus } : i);
     const allApproved = updated.every(i => ['approved', 'print_ready', 'printed', 'delivered'].includes(i.status));
@@ -184,6 +194,10 @@ const OrderTracking = () => {
 
     await updateOrderItemDetails(itemId, 'assigned', { ...currentDetails, revisions });
 
+    // Push to the assigned designer (best-effort, never blocks). No DB trigger fires on
+    // order_items updates, so without this the designer only notices on their next visit.
+    notifyDesignerOfCustomerAction(orderId, order?.designer_id, 'revision');
+
     toast({ title: 'تم إرسال طلب التعديل للمصمم' });
     setRevisionNotes(prev => ({ ...prev, [itemId]: '' }));
     setRevisionImages(prev => ({ ...prev, [itemId]: [] }));
@@ -231,7 +245,7 @@ const OrderTracking = () => {
       toast({
         title: 'أُضيفت المنتجات إلى السلة ✓',
         description: skipped.length > 0
-          ? `تعذّر إضافة ${skipped.length} ${skipped.length === 1 ? 'منتج لم يعد متوفراً' : 'منتجات لم تعد متوفرة'}`
+          ? `تعذّر إضافة ${formatProductCount(skipped.length)} لعدم التوفر`
           : undefined,
       });
       navigate('/cart');
