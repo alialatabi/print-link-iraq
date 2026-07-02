@@ -30,6 +30,9 @@ dist-ssr
 # (android/ IS committed because it can be generated on Windows; ios/ cannot.)
 /ios
 
+# Stray iOS build artifact (bundle produced by CI; never source)
+/App.app
+
 # Supabase
 supabase/.temp
 
