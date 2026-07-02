@@ -43,3 +43,4 @@ TWILIO.TXT
 # Firebase service-account private keys — must NEVER be committed (stored as Supabase secret)
 **/*firebase-adminsdk*.json
 **/*service-account*.json
+/image.png
