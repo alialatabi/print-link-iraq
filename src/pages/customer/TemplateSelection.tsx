@@ -16,6 +16,9 @@ import logoImg from '@/assets/logo-small.webp';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 import { useServices, useSpecializations } from '@/hooks/useServices';
+import { useActiveDiscount } from '@/hooks/useDiscounts';
+import DiscountBadge from '@/components/DiscountBadge';
+import { TemplateGridSkeleton } from '@/components/skeletons/CatalogSkeletons';
 import { isNativeApp } from '@/lib/platform';
 
 interface DbTemplate {
@@ -29,7 +32,7 @@ interface DbTemplate {
 
 const TemplateSelection = () => {
   const { serviceType } = useParams<{ serviceType: string }>();
-  const { services } = useServices();
+  const { services, getSubServices } = useServices();
   const { specializations, loading: specsLoading } = useSpecializations();
   const [allTemplates, setAllTemplates] = useState<DbTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +42,24 @@ const TemplateSelection = () => {
   const currentService = services.find(s => s.id === serviceType);
   const serviceLabel = currentService?.label || 'التصميم';
   const parentId = currentService?.parent_id;
+
+  // Price + discount are owned by the sub-service, so every template in this grid shares
+  // the same figures — compute once for the page. `preview + price` are the card's real
+  // information carriers (template `name` in prod is just an ID-prefix code).
+  const unitPrice = currentService?.price || 0;
+  const minQty = currentService?.min_quantity || 1000;
+  const { discountPercent } = useActiveDiscount(serviceType, parentId);
+  const discountedUnitPrice = discountPercent > 0
+    ? Math.ceil(unitPrice * (1 - discountPercent / 100))
+    : unitPrice;
+
+  // When this sub-service's parent has only one child, the sub-service picker is skipped,
+  // so "back" must return to the category list (the level above the collapsed picker),
+  // not to the picker page — which would just redirect back here (a loop).
+  const parentIsSingleChild = parentId ? getSubServices(parentId).length === 1 : false;
+  const backTo = parentId
+    ? (parentIsSingleChild ? '/services' : `/sub-services/${parentId}`)
+    : '/';
 
   // Load all templates for this service type
   useEffect(() => {
@@ -83,13 +104,13 @@ const TemplateSelection = () => {
       />
       <JsonLd data={breadcrumbSchema([
         { name: 'الرئيسية', url: '/' },
-        ...(parentId ? [{ name: services.find(s => s.id === parentId)?.label || '', url: `/sub-services/${parentId}` }] : []),
+        ...(parentId && !parentIsSingleChild ? [{ name: services.find(s => s.id === parentId)?.label || '', url: `/sub-services/${parentId}` }] : []),
         { name: serviceLabel, url: `/templates/${serviceType}` },
       ])} />
       <div className="container max-w-5xl">
         {!isNativeApp && (
           <Link
-            to={parentId ? `/sub-services/${parentId}` : '/'}
+            to={backTo}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8 transition-all duration-150"
           >
             <ArrowRight className="w-4 h-4" />
@@ -135,12 +156,7 @@ const TemplateSelection = () => {
         )}
 
         {loading ? (
-          <div className={`text-center ${isNativeApp ? 'py-16' : 'py-24'}`}>
-            <div className="w-10 h-10 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 animate-pulse">
-              <Palette className="w-5 h-5 text-muted-foreground" />
-            </div>
-            <p className="text-muted-foreground text-sm">جاري التحميل...</p>
-          </div>
+          <TemplateGridSkeleton />
         ) : filteredTemplates.length > 0 ? (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {filteredTemplates.map((template, i) => (
@@ -154,7 +170,8 @@ const TemplateSelection = () => {
                   to={`/template/${template.id}`}
                   className="group block rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60 hover:border-primary/20"
                 >
-                  <div className={`bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`} style={{ aspectRatio: '1/1' }}>
+                  <div className={`relative bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`} style={{ aspectRatio: '1/1' }}>
+                    <DiscountBadge percentage={discountPercent} />
                     {template.preview_url ? (
                       <img src={getOptimizedImageUrl(template.preview_url, { width: 400, height: 400 })} alt={template.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500" loading="lazy" width="400" height="400" />
                     ) : (
@@ -164,7 +181,18 @@ const TemplateSelection = () => {
                     )}
                   </div>
                   <div className="p-3 sm:p-4 bg-card">
-                    <p className="font-mono font-bold text-primary text-xs tracking-widest">{template.id.slice(0, 8).toUpperCase()}</p>
+                    {unitPrice > 0 && (
+                      <div className="flex items-baseline gap-1.5 flex-wrap mb-1.5">
+                        <span className={`font-extrabold text-sm sm:text-base leading-none ${discountPercent > 0 ? 'text-success' : 'text-foreground'}`}>
+                          {discountedUnitPrice.toLocaleString('en-US')}
+                        </span>
+                        <span className="text-[11px] font-semibold text-muted-foreground">د.ع / {minQty.toLocaleString('en-US')}</span>
+                        {discountPercent > 0 && (
+                          <span className="text-[11px] text-destructive line-through font-bold">{unitPrice.toLocaleString('en-US')}</span>
+                        )}
+                      </div>
+                    )}
+                    <p className="font-mono text-muted-foreground text-[10px] tracking-widest">{template.id.slice(0, 8).toUpperCase()}</p>
                   </div>
                 </Link>
               </motion.div>

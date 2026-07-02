@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Archive, Sparkles, Upload, Palette, FileText, ShoppingBag, Loader2, Trash2 } from 'lucide-react';
+import { Archive, Sparkles, Upload, Palette, FileText, ShoppingBag, Loader2, Trash2, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
 import ImageLightbox from '@/components/ImageLightbox';
 import { isNativeApp } from '@/lib/platform';
+import { shareContent, SITE_URL } from '@/lib/share';
 import {
   VaultItem, VaultSource, loadVault, resolveVaultDisplayUrl,
   deleteVaultDesign, isImageUrl,
@@ -19,10 +20,11 @@ const SECTIONS: { source: VaultSource; title: string; icon: typeof Sparkles }[] 
   { source: 'designer', title: 'تصاميم صمّمناها لك', icon: Palette },
 ];
 
-const VaultCard = ({ item, onReorder, onDelete, onView, busy }: {
+const VaultCard = ({ item, onReorder, onDelete, onShare, onView, busy }: {
   item: VaultItem;
   onReorder: (item: VaultItem) => void;
   onDelete: (item: VaultItem) => void;
+  onShare: (item: VaultItem) => void;
   onView: (url: string) => void;
   busy: boolean;
 }) => {
@@ -52,6 +54,13 @@ const VaultCard = ({ item, onReorder, onDelete, onView, busy }: {
         ) : (
           <Loader2 className="w-6 h-6 text-muted-foreground/50 animate-spin" />
         )}
+        <button
+          onClick={() => onShare(item)}
+          aria-label="مشاركة"
+          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-background/80 backdrop-blur text-foreground flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+        >
+          <Share2 className="w-4 h-4" />
+        </button>
         {item.vaultRowId && (
           <button
             onClick={() => onDelete(item)}
@@ -120,6 +129,17 @@ const DesignVaultPage = () => {
     navigate('/reorder-design', { state: { item } });
   };
 
+  // Share the design. AI/uploaded designs live in the PUBLIC order-attachments bucket
+  // (`publicUrl`), so WhatsApp can unfurl the image directly. Designer designs are only
+  // available as short-lived signed URLs, so those fall back to the public site link.
+  const handleShare = (item: VaultItem) => {
+    shareContent({
+      title: 'تصميم من مطبعتي',
+      text: 'شوفوا التصميم اللي سويته بمطبعتي ✨',
+      url: item.publicUrl ?? SITE_URL,
+    });
+  };
+
   const handleDelete = async (item: VaultItem) => {
     if (!item.vaultRowId) return;
     setBusyId(item.id);
@@ -184,6 +204,7 @@ const DesignVaultPage = () => {
                         item={item}
                         onReorder={handleReorder}
                         onDelete={handleDelete}
+                        onShare={handleShare}
                         onView={setLightboxUrl}
                         busy={busyId === item.id}
                       />

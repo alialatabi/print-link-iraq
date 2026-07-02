@@ -11,6 +11,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import Layout from "@/components/Layout";
 import ScrollToTop from "@/components/ScrollToTop";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import PageSkeleton from "@/components/system/PageSkeleton";
 import { isNativeApp } from "@/lib/platform";
 const Index = lazy(() => import("./pages/Index"));
 
@@ -46,7 +47,21 @@ const ResellerDashboard = lazy(() => import("./pages/reseller/ResellerDashboard"
 const ResellerNewOrder = lazy(() => import("./pages/reseller/ResellerNewOrder"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 
-const queryClient = new QueryClient();
+// Sensible app-wide query defaults: catalog/reference data no longer refetches
+// on every navigation (staleTime), the cache survives ~30 min of back-and-forth
+// (gcTime), background focus refetches are off (jarring on mobile), and failed
+// requests retry once. Hooks that need fresher data (orders/profile: 30s) set
+// their own staleTime and keep those overrides.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60_000,
+      gcTime: 30 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   // LazyMotion supplies animation features to all `m` (lightweight motion) components below.
@@ -63,7 +78,7 @@ const App = () => (
           <BrowserRouter>
             <ScrollToTop />
             <Layout>
-              <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+              <Suspense fallback={<PageSkeleton />}>
               <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />

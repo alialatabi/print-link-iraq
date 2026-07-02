@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { m as motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence, type HTMLMotionProps } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { SERVICE_LABELS, TEMPLATE_ASPECT_RATIOS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Palette, Minus, Plus, ShoppingCart, Check, Shield, Truck, Printer, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -14,6 +14,7 @@ import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 import { trackView, getPreferredServiceTypes, getRecentlyViewed } from '@/lib/browsingTracker';
 import { useActiveDiscount } from '@/hooks/useDiscounts';
+import { getOptimizedImageUrl } from '@/lib/imageUtils';
 import { isNativeApp } from '@/lib/platform';
 
 const fadeUp = {
@@ -62,12 +63,18 @@ const Gallery = ({ images, name }: { images: string[]; name: string }) => {
         <AnimatePresence mode="wait">
           <motion.img
             key={active}
-            src={images[active]}
+            src={getOptimizedImageUrl(images[active], { width: 1024 })}
             alt={name}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
+            decoding="async"
+            // Page LCP: never lazy; hint high priority. react-dom 18 drops the camelCase
+            // fetchPriority prop, so pass the lowercase DOM attribute via a typed spread.
+            // Cast to the motion img props (not ImgHTMLAttributes) so it merges cleanly
+            // with motion.img, whose onDrag/style types differ from the DOM ones.
+            {...({ fetchpriority: 'high' } as HTMLMotionProps<'img'>)}
             className="w-full h-full object-contain"
           />
         </AnimatePresence>
@@ -117,7 +124,7 @@ const Gallery = ({ images, name }: { images: string[]; name: string }) => {
                 active === i ? 'border-primary shadow-md' : 'border-border/40 opacity-60 hover:opacity-100'
               }`}
             >
-              <img src={img} alt="" className="w-full h-full object-cover" />
+              <img src={getOptimizedImageUrl(img, { width: 128, height: 128 })} alt="" loading="lazy" width={64} height={64} className="w-full h-full object-cover" />
             </button>
           ))}
         </div>
@@ -220,8 +227,9 @@ const PersonalizedRecommendations = ({ serviceType, currentId }: { serviceType: 
                 <div className="overflow-hidden bg-muted/30" style={{ aspectRatio }}>
                   {t.preview_url ? (
                     <img
-                      src={t.preview_url}
+                      src={getOptimizedImageUrl(t.preview_url, { width: 400 })}
                       alt=""
+                      loading="lazy"
                       className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (

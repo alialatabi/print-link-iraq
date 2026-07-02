@@ -27,6 +27,22 @@ export async function initNative(): Promise<void> {
     await SplashScreen.hide();
   } catch { /* ignore */ }
 
+  // Keyboard-aware scrolling. Pages live in a 100dvh overflow-hidden shell, so the soft keyboard
+  // can cover a focused checkout textarea / PIN input. On focus, wait for the keyboard-open
+  // animation + WebView resize (Android adjustResize / iOS KeyboardResize.Native) to settle, then
+  // scroll the field into the centre of the viewport. Native-only (initNative no-ops on the web);
+  // attached once for the app's lifetime, so no teardown is needed.
+  document.addEventListener('focusin', (event: Event) => {
+    const el = event.target;
+    if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) return;
+    window.setTimeout(() => {
+      // The user may have blurred or moved to another field during the delay — re-check.
+      if (document.activeElement === el) {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    }, 300);
+  });
+
   try {
     const { App } = await import('@capacitor/app');
 

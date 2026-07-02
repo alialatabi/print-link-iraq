@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SearchResult {
@@ -32,51 +33,61 @@ interface CachedData {
   templates: CachedTemplate[];
 }
 
-let cachedData: CachedData | null = null;
+// The full services + templates dataset is only needed once the user actually
+// intends to search. Cache it for 10 minutes so subsequent searches (and pages)
+// reuse it. Keyed globally so every SearchBar instance shares one fetch.
+const SEARCH_STALE_TIME = 10 * 60_000;
 
-export function useSearch(query: string) {
-  const [allData, setAllData] = useState<CachedData | null>(cachedData);
-  const [loading, setLoading] = useState(!cachedData);
+async function loadSearchDataset(): Promise<CachedData> {
+  const [sRes, tRes] = await Promise.all([
+    supabase.from('services').select('id, label, icon, icon_url, parent_id').order('sort_order'),
+    supabase.from('templates').select('id, name, service_type, preview_url'),
+  ]);
+  return {
+    services: sRes.data ?? [],
+    templates: tRes.data ?? [],
+  };
+}
 
-  useEffect(() => {
-    if (cachedData) return;
-    const load = async () => {
-      const [sRes, tRes] = await Promise.all([
-        supabase.from('services').select('id, label, icon, icon_url, parent_id').order('sort_order'),
-        supabase.from('templates').select('id, name, service_type, preview_url'),
-      ]);
-      const data = {
-        services: sRes.data || [],
-        templates: tRes.data || [],
-      };
-      cachedData = data;
-      setAllData(data);
-      setLoading(false);
-    };
-    load();
-  }, []);
+const normalizeArabic = (text: string) =>
+  text
+    .replace(/[أإآا]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي')
+    .toLowerCase()
+    .trim();
 
-  const normalizeArabic = (text: string) =>
-    text
-      .replace(/[أإآا]/g, 'ا')
-      .replace(/ة/g, 'ه')
-      .replace(/ى/g, 'ي')
-      .replace(/ؤ/g, 'و')
-      .replace(/ئ/g, 'ي')
-      .toLowerCase()
-      .trim();
+/**
+ * Search over services + templates.
+ *
+ * The dataset is loaded lazily: it only fetches once the user shows search
+ * intent — either the SearchBar is focused/open (`active`) or a query has been
+ * typed. Previously it downloaded everything on mount of every page because the
+ * SearchBar lives in the header. `staleTime` keeps it cached across pages.
+ */
+export function useSearch(query: string, active = false) {
+  const enabled = active || query.trim().length > 0;
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['search-dataset'],
+    queryFn: loadSearchDataset,
+    enabled,
+    staleTime: SEARCH_STALE_TIME,
+  });
 
   const results = useMemo<SearchResult[]>(() => {
-    if (!allData || !query.trim()) return [];
+    if (!data || !query.trim()) return [];
     const q = normalizeArabic(query);
 
     const matches: SearchResult[] = [];
 
     // Search parent services
-    const parents = allData.services.filter(s => !s.parent_id);
+    const parents = data.services.filter(s => !s.parent_id);
     const parentMap = Object.fromEntries(parents.map(p => [p.id, p.label]));
 
-    for (const s of allData.services) {
+    for (const s of data.services) {
       if (normalizeArabic(s.label).includes(q)) {
         const isParent = !s.parent_id;
         matches.push({
@@ -93,9 +104,9 @@ export function useSearch(query: string) {
     }
 
     // Search templates
-    for (const t of allData.templates) {
+    for (const t of data.templates) {
       if (normalizeArabic(t.name).includes(q)) {
-        const serviceLabel = allData.services.find(s => s.id === t.service_type)?.label;
+        const serviceLabel = data.services.find(s => s.id === t.service_type)?.label;
         matches.push({
           id: t.id,
           label: t.name,
@@ -107,9 +118,11 @@ export function useSearch(query: string) {
       }
     }
 
-
     return matches.slice(0, 12);
-  }, [allData, query]);
+  }, [data, query]);
+
+  // Only surface a loading state once we've actually triggered a fetch.
+  const loading = enabled && isLoading;
 
   return { results, loading };
 }

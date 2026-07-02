@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, Navigate } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { useServices } from '@/hooks/useServices';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
@@ -9,6 +9,8 @@ import { useServiceDiscounts } from '@/hooks/useServiceDiscounts';
 import DiscountBadge from '@/components/DiscountBadge';
 import { isNativeApp } from '@/lib/platform';
 import { getServiceIcon } from '@/lib/serviceIcons';
+import { singleSubServiceTarget } from '@/lib/catalogSkip';
+import { SubServiceGridSkeleton, PageHeaderSkeleton } from '@/components/skeletons/CatalogSkeletons';
 
 const SubServiceSelection = () => {
   const { parentId } = useParams<{ parentId: string }>();
@@ -27,11 +29,21 @@ const SubServiceSelection = () => {
   if (loading) {
     return (
       <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
-        <div className={`container max-w-4xl text-center ${isNativeApp ? 'py-16' : 'py-24'}`}>
-          <p className="text-muted-foreground text-sm">جاري التحميل...</p>
+        <div className="container max-w-4xl">
+          <PageHeaderSkeleton className={isNativeApp ? 'mb-6' : 'mb-12'} />
+          <SubServiceGridSkeleton />
         </div>
       </div>
     );
+  }
+
+  // Single-child category: this picker is a dead one-item page. Redirect straight to the
+  // lone sub-service's templates. `replace` keeps this URL out of history, so a deep link
+  // here (or a stale link into it) never traps the back button in a redirect loop — back
+  // from the templates page lands on the level ABOVE this one (/services).
+  const skipTarget = singleSubServiceTarget(subServices);
+  if (skipTarget) {
+    return <Navigate to={`/templates/${skipTarget}`} replace />;
   }
 
   return (

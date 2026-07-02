@@ -23,7 +23,9 @@ const POPULAR_SUGGESTIONS = [
 const SearchBar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
-  const { results, loading } = useSearch(query);
+  // Pass `open` so the search dataset loads lazily on first focus/open (or first
+  // keystroke inside the hook) rather than on mount of every page.
+  const { results, loading } = useSearch(query, open);
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

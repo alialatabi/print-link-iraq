@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ArrowRight, Sparkles, Loader2, RefreshCw, ShoppingCart, Wand2, Ruler, Archive, Pencil, Send, ImagePlus, X, Check } from 'lucide-react';
+import { ArrowRight, Sparkles, Loader2, RefreshCw, ShoppingCart, Wand2, Ruler, Archive, Pencil, Send, ImagePlus, X, Check, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
 import ImageLightbox from '@/components/ImageLightbox';
@@ -20,6 +20,7 @@ import { saveAiDesignToVault, deleteVaultDesign } from '@/lib/designVault';
 import { fileToDownscaledDataUrl } from '@/lib/imageUtils';
 import { IMAGE_ACCEPT, isAllowedAttachment } from '@/lib/uploadValidation';
 import { isNativeApp } from '@/lib/platform';
+import { shareContent, SITE_URL } from '@/lib/share';
 
 const MAX_REF_IMAGES = 3;
 
@@ -43,6 +44,9 @@ const AiDesignPage = () => {
   const [editText, setEditText] = useState('');
   const [sendingEdit, setSendingEdit] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  // Public URL minted for the current design the first time it is shared (reused on re-share).
+  const [sharedImageUrl, setSharedImageUrl] = useState<string | null>(null);
   // Each generated design is auto-saved to the customer's vault. We track the row so a
   // re-generate replaces the prior draft instead of piling up throw-away versions.
   const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'guest'>('idle');
@@ -99,6 +103,7 @@ const AiDesignPage = () => {
     setResult(null);
     setEditMode(false);
     setEditText('');
+    setSharedImageUrl(null); // a new design invalidates any previously minted share URL
     try {
       const req = resolveRequest(selected, optionId, customSize);
       const res = await generateAiDesign({ brief, ...req, referenceImages: refImages.map(r => r.dataUrl) });
@@ -213,6 +218,31 @@ const AiDesignPage = () => {
     } finally {
       setSendingEdit(false);
     }
+  };
+
+  // Share the generated design. For a logged-in user we mint (once) a permanent public URL in
+  // the public order-attachments bucket so recipients see the actual image (WhatsApp unfurls it);
+  // guests / upload failures fall back to the AI-design invite link. Sharing the exact image as a
+  // native file (download-to-cache) is a deliberate future enhancement, not this pass.
+  const handleShareDesign = async () => {
+    if (!result) return;
+    let url = sharedImageUrl ?? undefined;
+    if (!url && user) {
+      setSharing(true);
+      try {
+        url = await uploadAiDraftImage(user.id, result.imageDataUrl);
+        setSharedImageUrl(url);
+      } catch {
+        url = undefined; // fall back to the invite link below
+      } finally {
+        setSharing(false);
+      }
+    }
+    await shareContent({
+      title: 'تصميم من مطبعتي',
+      text: 'شوفوا التصميم اللي سويته بمطبعتي ✨',
+      url: url ?? `${SITE_URL}/ai-design`,
+    });
   };
 
   const busy = generating || submitting || sendingEdit;
@@ -475,6 +505,14 @@ const AiDesignPage = () => {
                 <Button onClick={handleGenerate} disabled={busy} variant="outline" className="w-full rounded-xl py-5">
                   <RefreshCw className="w-4 h-4 ml-2" />
                   إعادة توليد
+                </Button>
+
+                <Button onClick={handleShareDesign} disabled={busy || sharing} variant="outline" className="w-full rounded-xl py-5">
+                  {sharing ? (
+                    <><Loader2 className="w-4 h-4 ml-2 animate-spin" /> جاري التحضير...</>
+                  ) : (
+                    <><Share2 className="w-4 h-4 ml-2" /> مشاركة التصميم</>
+                  )}
                 </Button>
 
                 <Button

@@ -9,6 +9,8 @@ import { useServiceDiscounts } from '@/hooks/useServiceDiscounts';
 import DiscountBadge from '@/components/DiscountBadge';
 import { isNativeApp } from '@/lib/platform';
 import { getServiceIcon } from '@/lib/serviceIcons';
+import { singleSubServiceTarget } from '@/lib/catalogSkip';
+import { CategoryGridSkeleton, PageHeaderSkeleton } from '@/components/skeletons/CatalogSkeletons';
 
 const ServiceSelection = () => {
   const { parentServices, getSubServices, loading: servicesLoading } = useServices();
@@ -22,8 +24,9 @@ const ServiceSelection = () => {
   if (servicesLoading) {
     return (
       <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
-        <div className={`container max-w-4xl text-center ${isNativeApp ? 'py-16' : 'py-24'}`}>
-          <p className="text-muted-foreground text-sm">جاري التحميل...</p>
+        <div className="container max-w-4xl">
+          <PageHeaderSkeleton className={isNativeApp ? 'mb-6' : 'mb-12'} />
+          <CategoryGridSkeleton />
         </div>
       </div>
     );
@@ -70,7 +73,12 @@ const ServiceSelection = () => {
           // and an inline discount pill when a discount is active.
           <div className="space-y-3">
             {parentServices.map((service, i) => {
-              const subCount = getSubServices(service.id).length;
+              const subs = getSubServices(service.id);
+              const subCount = subs.length;
+              // Single-child category: skip the one-item sub-service page and link
+              // straight to that sub-service's templates.
+              const skipTarget = singleSubServiceTarget(subs);
+              const to = skipTarget ? `/templates/${skipTarget}` : `/sub-services/${service.id}`;
               const discount = bestDiscount(service.id);
               const Icon = getServiceIcon(service);
               return (
@@ -81,7 +89,7 @@ const ServiceSelection = () => {
                   transition={{ delay: i * 0.05 }}
                 >
                   <Link
-                    to={`/sub-services/${service.id}`}
+                    to={to}
                     className="group relative flex items-center gap-4 bg-card rounded-2xl p-4 shadow-card border border-border/60 active:scale-[0.99] transition-all duration-200 overflow-hidden"
                   >
                     <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center shrink-0">
@@ -108,7 +116,11 @@ const ServiceSelection = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 auto-rows-fr gap-5 sm:gap-6">
-            {parentServices.map((service, i) => (
+            {parentServices.map((service, i) => {
+              // Single-child category: link straight to the lone sub-service's templates.
+              const skipTarget = singleSubServiceTarget(getSubServices(service.id));
+              const to = skipTarget ? `/templates/${skipTarget}` : `/sub-services/${service.id}`;
+              return (
               <motion.div
                 key={service.id}
                 initial={{ opacity: 0, scale: 0.96 }}
@@ -116,7 +128,7 @@ const ServiceSelection = () => {
                 transition={{ delay: i * 0.07 }}
               >
                 <Link
-                  to={`/sub-services/${service.id}`}
+                  to={to}
                   className="group relative h-full flex flex-col justify-center bg-card rounded-2xl p-6 sm:p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60 overflow-hidden"
                 >
                   <DiscountBadge percentage={bestDiscount(service.id)} />
@@ -130,7 +142,8 @@ const ServiceSelection = () => {
                   <h3 className="font-bold text-base sm:text-lg text-foreground">{service.label}</h3>
                 </Link>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

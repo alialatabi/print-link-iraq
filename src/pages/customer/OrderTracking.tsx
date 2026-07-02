@@ -11,9 +11,10 @@ import {
 import { useOrderQuery, useOrderItemsQuery, ordersKeys } from '@/hooks/queries/useOrdersQuery';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { XCircle, RotateCcw, Loader2 } from 'lucide-react';
+import { XCircle, RotateCcw, Loader2, Share2 } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { resolveReorder, type ReorderSourceItem } from '@/lib/reorder';
+import { shareContent, SITE_URL } from '@/lib/share';
 import type { OrderStatus } from '@/data/mockData';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import { useServices } from '@/hooks/useServices';
@@ -199,6 +200,17 @@ const OrderTracking = () => {
     else { toast({ title: 'تم إلغاء الطلب' }); navigate('/my-orders'); }
   };
 
+  // Share the order-tracking link. The tracking page is auth-guarded, so the recipient sees
+  // the live status only after signing in (acceptable for v1 — it's the customer's own link).
+  const handleShare = () => {
+    if (!orderId) return;
+    shareContent({
+      title: 'تتبع الطلب - مطبعتي',
+      text: 'تابع حالة طلبي في مطبعتي 🖨️',
+      url: `${SITE_URL}/track-order/${orderId}`,
+    });
+  };
+
   // One-tap re-order: re-add this order's template items to the cart at CURRENT
   // prices, then go to the cart. Deleted/unavailable templates are surfaced.
   const handleReorder = async () => {
@@ -260,8 +272,16 @@ const OrderTracking = () => {
                 {hasItems && <span className="mr-2">• {orderItems.length} عناصر</span>}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <StatusBadge status={order.status as OrderStatus} />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleShare}
+                className="min-h-[44px] gap-1.5"
+              >
+                <Share2 className="w-4 h-4" />مشاركة
+              </Button>
               {(['submitted', 'assigned', 'design_uploaded', 'waiting_approval'] as string[]).includes(order.status) && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
