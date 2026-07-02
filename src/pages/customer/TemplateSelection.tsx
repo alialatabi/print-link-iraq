@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import logoImg from '@/assets/logo.png';
+import logoImg from '@/assets/logo-small.webp';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 import { useServices, useSpecializations } from '@/hooks/useServices';

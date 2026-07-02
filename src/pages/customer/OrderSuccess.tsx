@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
-import { CheckCircle, Eye, Home, Sparkles } from 'lucide-react';
+import { CheckCircle, Eye, Home, Sparkles, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isNativeApp } from '@/lib/platform';
 
@@ -58,9 +58,17 @@ const OrderSuccess = () => {
               </div>
             )}
 
-            <p className="text-muted-foreground text-sm mb-12 leading-relaxed max-w-sm mx-auto">
+            <p className="text-muted-foreground text-sm mb-6 leading-relaxed max-w-sm mx-auto">
               سيتم تعيين مصمم لطلبك قريباً وستتلقى إشعاراً فورياً عند جهوز التصميم
             </p>
+
+            {/* Set expectations: the delivery address is collected later, after design approval */}
+            <div className="flex items-start gap-2.5 text-right rounded-xl border border-border/50 bg-muted/30 p-3.5 mb-12 max-w-sm mx-auto">
+              <MapPin className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                بعد موافقتك على التصميم سنطلب منك عنوان التوصيل
+              </p>
+            </div>
 
             <div className="flex flex-col gap-3">
               {orderId && (

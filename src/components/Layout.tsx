@@ -1,7 +1,8 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, User, Palette, ShieldCheck, LogIn, LogOut, Menu, X, ShoppingCart, Store, Archive, Sparkles } from 'lucide-react';
-import logoImg from '@/assets/logo.png';
+// 160px-tall WebP (~17 KB) — renders at 56/64px; logo.png is kept only as the source for scripts/optimize-images.mjs.
+import logoImg from '@/assets/logo-small.webp';
 import NotificationBell from '@/components/NotificationBell';
 import SearchBar from '@/components/SearchBar';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';

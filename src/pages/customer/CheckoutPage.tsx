@@ -8,7 +8,8 @@ import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ArrowRight, FileText, Upload, X, Image, Loader2, ChevronLeft, ChevronRight, Check, Copy, Palette, Sparkles } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowRight, FileText, Upload, X, Image, Loader2, ChevronLeft, ChevronRight, Check, Copy, Palette, Sparkles, Truck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
 import { redeemCoupon, Coupon } from '@/hooks/useDiscounts';
@@ -16,14 +17,30 @@ import { IMAGE_PDF_ACCEPT, partitionAllowed } from '@/lib/uploadValidation';
 import { buildAiOrderItemDetails } from '@/lib/aiDesign';
 import { useServices } from '@/hooks/useServices';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
+import { retryAsync } from '@/lib/retry';
+import {
+  createCartOrder,
+  insertCartOrderItem,
+  uploadCartAttachment,
+  getOrderAttachmentPublicUrl,
+  isDuplicateKeyError,
+  isAlreadyExistsError,
+} from '@/services/orders';
 import { isNativeApp } from '@/lib/platform';
 import type { Json } from '@/integrations/supabase/types';
+
 interface TemplateData {
   id: string;
   name: string;
   preview_url: string | null;
   service_type: string;
 }
+
+/**
+ * Stored in an item's details when the customer opts out of the design brief ("print my ready
+ * artwork as-is"). A stable marker so designers/admin see the intent instead of a blank brief.
+ */
+const PRINT_AS_IS_MARKER = 'اطبعوا التصميم كما هو بدون تعديلات';
 
 const CheckoutPage = () => {
   const { items, clearCart } = useCart();
@@ -36,10 +53,35 @@ const CheckoutPage = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [_templates, setTemplates] = useState<Record<string, TemplateData>>({});
   const [details, setDetails] = useState<Record<string, string>>({});
+  const [printAsIs, setPrintAsIs] = useState<Record<string, boolean>>({});
   const [attachments, setAttachments] = useState<Record<string, File[]>>({});
   const [previews, setPreviews] = useState<Record<string, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Idempotency keys (order + per-item ids) generated once and reused across submit retries, so
+  // an interrupted submit on a flaky network reconciles the SAME order instead of duplicating it.
+  const idempotencyRef = useRef<{ orderId: string; itemIds: string[] } | null>(null);
+  const getIdempotencyKeys = () => {
+    if (!idempotencyRef.current || idempotencyRef.current.itemIds.length !== items.length) {
+      idempotencyRef.current = {
+        orderId: crypto.randomUUID(),
+        itemIds: items.map(() => crypto.randomUUID()),
+      };
+    }
+    return idempotencyRef.current;
+  };
+
+  // The brief is required only for non-AI items the customer wants edited (not "print as-is").
+  const detailsRequired = (item: (typeof items)[number]) => !item.aiDesign && !printAsIs[item.templateId];
+
+  // Effective brief stored on the item: the ready-to-print marker (plus any optional notes) when
+  // "print as-is" is checked, otherwise the typed brief.
+  const composeDetails = (item: (typeof items)[number]): string => {
+    const typed = (details[item.templateId] || '').trim();
+    if (printAsIs[item.templateId]) return typed ? `${PRINT_AS_IS_MARKER}\n${typed}` : PRINT_AS_IS_MARKER;
+    return typed;
+  };
 
   useEffect(() => {
     if (items.length === 0) { navigate('/cart'); return; }
@@ -104,7 +146,7 @@ const CheckoutPage = () => {
 
   const goNext = () => {
     if (!currentItem) return;
-    if (!currentItem.aiDesign && !details[currentItem.templateId]?.trim()) {
+    if (detailsRequired(currentItem) && !details[currentItem.templateId]?.trim()) {
       toast({ title: 'يرجى إدخال تفاصيل التصميم', variant: 'destructive' });
       return;
     }
@@ -113,23 +155,24 @@ const CheckoutPage = () => {
 
   const goPrev = () => { if (currentStep > 0) setCurrentStep(s => s - 1); };
 
-  const uploadAttachments = async (orderId: string, itemId: string, files: File[]): Promise<string[]> => {
-    const urls: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const ext = file.name.split('.').pop();
-      const path = `${orderId}/${itemId}/${Date.now()}_${i}.${ext}`;
-      const { error } = await supabase.storage.from('order-attachments').upload(path, file);
-      if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('order-attachments').getPublicUrl(path);
-        urls.push(publicUrl);
-      }
-    }
-    return urls;
+  /**
+   * Upload one attachment with retry, using a STABLE path (orderId/itemIndex/fileIndex) so a
+   * retried upload targets the same object. A file already stored by a prior attempt surfaces an
+   * "already exists" error we treat as success — no duplicate files, no lost uploads. Throws if the
+   * file still can't be uploaded after retries so the caller can block success.
+   */
+  const uploadItemFile = async (orderId: string, itemIndex: number, fileIndex: number, file: File): Promise<string> => {
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const path = `${orderId}/${itemIndex}/${fileIndex}.${ext}`;
+    await retryAsync(async () => {
+      const { error } = await uploadCartAttachment(path, file);
+      if (error && !isAlreadyExistsError(error)) throw error;
+    });
+    return getOrderAttachmentPublicUrl(path);
   };
 
   const handleSubmit = async () => {
-    if (!currentItem || (!currentItem.aiDesign && !details[currentItem.templateId]?.trim())) {
+    if (currentItem && detailsRequired(currentItem) && !details[currentItem.templateId]?.trim()) {
       toast({ title: 'يرجى إدخال تفاصيل التصميم', variant: 'destructive' });
       return;
     }
@@ -138,6 +181,8 @@ const CheckoutPage = () => {
       navigate('/auth');
       return;
     }
+    // In-flight guard: never run two submits concurrently (belt-and-suspenders beyond the disabled button).
+    if (submitting) return;
 
     setSubmitting(true);
 
@@ -153,97 +198,85 @@ const CheckoutPage = () => {
       const catalog = buildCatalog(services);
       const couponPct = appliedCoupon?.percentage ?? 0;
 
-      // 1. Create ONE order for the entire cart
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          customer_id: user.id,
-          status: 'submitted',
-          details: {
-            item_count: items.length,
-            ...(appliedCoupon ? { coupon_code: appliedCoupon.code, coupon_percentage: appliedCoupon.percentage } : {}),
-          },
-        })
-        .select('id')
-        .single();
+      // Stable idempotency keys reused across retries.
+      const { orderId, itemIds } = getIdempotencyKeys();
 
-      if (orderError || !orderData) throw orderError;
+      // 1. Upload ALL attachments FIRST (before any DB write) so an order is never created with
+      //    missing files. Files upload in parallel, each with its own retry. If ANY file can't be
+      //    uploaded after retries, BLOCK success and keep the user on the page with state intact —
+      //    a retry re-attempts only the still-missing uploads (stable paths make it idempotent).
+      const urlsByItem: string[][] = Array.from({ length: items.length }, () => []);
+      try {
+        await Promise.all(items.map(async (item, index) => {
+          if (item.aiDesign) return; // AI image is already uploaded
+          const files = attachments[item.templateId] || [];
+          urlsByItem[index] = await Promise.all(
+            files.map((file, fileIndex) => uploadItemFile(orderId, index, fileIndex, file)),
+          );
+        }));
+      } catch {
+        toast({ title: 'بعض الملفات لم تُرفع، تحقق من الاتصال وحاول مجدداً', variant: 'destructive' });
+        return; // stay on page; form state (files/brief) is preserved for retry
+      }
 
-      // 2. Create order_items for each cart item
-      for (const item of items) {
-        // AI items: image already uploaded; build the AI details (records the 1000 IQD fee).
-        if (item.aiDesign) {
-          await supabase
-            .from('order_items' as never)
-            .insert({
-              order_id: orderData.id,
-              template_id: null,
-              details: buildAiOrderItemDetails({
-                brief: item.aiDesign.brief,
-                productType: item.aiDesign.productType,
-                productLabel: item.aiDesign.productLabel,
-                rewrittenPrompt: item.aiDesign.rewrittenPrompt,
-                imageUrls: [item.aiDesign.imageUrl],
-                quantity: 1,
-                sizeLabel: item.aiDesign.sizeLabel,
-                unitPrice: item.unitPrice,
-                discountPct: couponPct,
-              }),
-              status: 'submitted',
-            } as never);
-          continue;
-        }
+      // 2. Create ONE order for the entire cart (idempotent by explicit id: a duplicate-key on a
+      //    retry means the order was already created by an interrupted attempt — treat as success).
+      await retryAsync(async () => {
+        const { error } = await createCartOrder(orderId, user.id, {
+          item_count: items.length,
+          ...(appliedCoupon ? { coupon_code: appliedCoupon.code, coupon_percentage: appliedCoupon.percentage } : {}),
+        } as unknown as Json);
+        if (error && !isDuplicateKeyError(error)) throw error;
+      });
 
-        const itemDetails = details[item.templateId] || '';
-        const itemFiles = attachments[item.templateId] || [];
-
-        const { data: itemData, error: itemError } = await supabase
-          .from('order_items')
-          .insert({
-            order_id: orderData.id,
-            template_id: item.templateId,
-            details: {
-              details: itemDetails,
-              attachment_urls: [],
+      // 3. Create every order_item (idempotent by explicit id). Uploads already succeeded, so each
+      //    item is inserted ONCE with its final attachment URLs — no insert-then-update, no partial
+      //    rows. If an item can't be inserted after retries the error propagates below (we neither
+      //    clear the cart nor navigate), and a retry reconciles the same order without duplicating.
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index];
+        const itemDetails: Json = item.aiDesign
+          ? (buildAiOrderItemDetails({
+              brief: item.aiDesign.brief,
+              productType: item.aiDesign.productType,
+              productLabel: item.aiDesign.productLabel,
+              rewrittenPrompt: item.aiDesign.rewrittenPrompt,
+              imageUrls: [item.aiDesign.imageUrl],
+              quantity: 1,
+              sizeLabel: item.aiDesign.sizeLabel,
+              unitPrice: item.unitPrice,
+              discountPct: couponPct,
+            }) as unknown as Json)
+          : ({
+              details: composeDetails(item),
+              attachment_urls: urlsByItem[index],
               quantity: item.quantity,
               cellophane: item.cellophane || null,
               pricing: buildPricingSnapshot(catalog, item.serviceType, item.quantity, { discountPct: couponPct, priceOverride: item.unitPrice }),
-            } as unknown as Json,
-            status: 'submitted',
-          })
-          .select('id')
-          .single();
+            } as unknown as Json);
 
-        if (itemError || !itemData) continue;
-
-        // Upload attachments per item
-        if (itemFiles.length > 0) {
-          const urls = await uploadAttachments(orderData.id, itemData.id, itemFiles);
-          await supabase
-            .from('order_items')
-            .update({
-              details: {
-                details: itemDetails,
-                attachment_urls: urls,
-                quantity: item.quantity,
-                cellophane: item.cellophane || null,
-                pricing: buildPricingSnapshot(catalog, item.serviceType, item.quantity, { discountPct: couponPct, priceOverride: item.unitPrice }),
-              } as unknown as Json,
-            })
-            .eq('id', itemData.id);
-        }
+        await retryAsync(async () => {
+          const { error } = await insertCartOrderItem({
+            id: itemIds[index],
+            orderId,
+            templateId: item.aiDesign ? null : item.templateId,
+            details: itemDetails,
+          });
+          if (error && !isDuplicateKeyError(error)) throw error;
+        });
       }
 
-      // Consume the coupon, tied to this order (server enforces the cap atomically).
+      // 4. Consume the coupon, tied to this order (server enforces the cap atomically). Best-effort:
+      //    a coupon failure must never block a fully-created order from completing.
       if (appliedCoupon) {
-        await redeemCoupon(appliedCoupon.id, orderData.id);
+        try { await redeemCoupon(appliedCoupon.id, orderId); } catch { /* non-fatal */ }
         sessionStorage.removeItem('matbaty_coupon');
       }
 
       clearCart();
-      navigate(`/order-success?order=${orderData.id}`);
+      navigate(`/order-success?order=${orderId}`);
     } catch (e: unknown) {
-      toast({ title: 'حدث خطأ', description: getUserFriendlyError(e), variant: 'destructive' });
+      toast({ title: 'تعذّر إرسال الطلب، تحقق من الاتصال وحاول مجدداً', description: getUserFriendlyError(e), variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
@@ -351,15 +384,35 @@ const CheckoutPage = () => {
             </div>
           )}
           {!isAi && (<>
+          {/* Ready-to-print express option — makes the brief optional for finished artwork */}
+          <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-3.5">
+            <Checkbox
+              id={`print-as-is-${tid}`}
+              checked={!!printAsIs[tid]}
+              onCheckedChange={v => setPrintAsIs(prev => ({ ...prev, [tid]: v === true }))}
+              className="mt-0.5 shrink-0"
+            />
+            <Label htmlFor={`print-as-is-${tid}`} className="text-sm text-foreground leading-relaxed font-normal cursor-pointer">
+              {PRINT_AS_IS_MARKER}
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                فعّل هذا الخيار إذا كان تصميمك جاهزاً للطباعة ولا يحتاج أي تعديل — عندها لن تحتاج لكتابة التفاصيل.
+              </span>
+            </Label>
+          </div>
+
           <div>
             <Label className="text-foreground font-medium flex items-center gap-2 mb-2">
               <FileText className="w-4 h-4 text-muted-foreground" />
-              تفاصيل التصميم <span className="text-destructive">*</span>
+              تفاصيل التصميم {printAsIs[tid]
+                ? <span className="text-muted-foreground font-normal">(اختياري)</span>
+                : <span className="text-destructive">*</span>}
             </Label>
             <Textarea
               value={details[tid] || ''}
               onChange={e => setDetails(prev => ({ ...prev, [tid]: e.target.value }))}
-              placeholder="اكتب هنا كل البيانات التي تريدها على التصميم&#10;مثال: الاسم، رقم الهاتف، العنوان، المسمى الوظيفي..."
+              placeholder={printAsIs[tid]
+                ? 'ملاحظات إضافية للمصمم (اختياري)'
+                : 'اكتب هنا كل البيانات التي تريدها على التصميم\nمثال: الاسم، رقم الهاتف، العنوان، المسمى الوظيفي...'}
               rows={6}
               className="text-right resize-none rounded-xl"
             />
@@ -400,6 +453,14 @@ const CheckoutPage = () => {
             )}
           </div>
           </>)}
+
+          {/* Delivery-fee expectation — shown at the commit step; not a charge in any total */}
+          {currentStep === totalSteps - 1 && (
+            <div className="flex items-start gap-2 rounded-xl border border-border/50 bg-muted/30 p-3 text-muted-foreground">
+              <Truck className="w-4 h-4 mt-0.5 shrink-0" />
+              <p className="text-xs leading-relaxed">رسوم التوصيل: تُحسب حسب المنطقة عند التوصيل</p>
+            </div>
+          )}
 
           {/* Navigation */}
           <div className="flex gap-3 pt-4">

@@ -11,7 +11,9 @@ import {
 import { useOrderQuery, useOrderItemsQuery, ordersKeys } from '@/hooks/queries/useOrdersQuery';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { XCircle } from 'lucide-react';
+import { XCircle, RotateCcw, Loader2 } from 'lucide-react';
+import { useCart } from '@/contexts/CartContext';
+import { resolveReorder, type ReorderSourceItem } from '@/lib/reorder';
 import type { OrderStatus } from '@/data/mockData';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import { useServices } from '@/hooks/useServices';
@@ -42,6 +44,7 @@ const OrderTracking = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { services: allServices } = useServices();
+  const { addItem } = useCart();
 
   // --- React Query for order + items ---
   const { data: orderData, isLoading: loading } = useOrderQuery(orderId);
@@ -67,6 +70,7 @@ const OrderTracking = () => {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [revisionImages, setRevisionImages] = useState<Record<string, File[]>>({});
   const [revisionImagePreviews, setRevisionImagePreviews] = useState<Record<string, string[]>>({});
+  const [reordering, setReordering] = useState(false);
 
   // --- loadDesigns stays manual (resolves signed URLs into multiple state maps) ---
   const loadDesigns = useCallback(async () => {
@@ -195,10 +199,43 @@ const OrderTracking = () => {
     else { toast({ title: 'تم إلغاء الطلب' }); navigate('/my-orders'); }
   };
 
+  // One-tap re-order: re-add this order's template items to the cart at CURRENT
+  // prices, then go to the cart. Deleted/unavailable templates are surfaced.
+  const handleReorder = async () => {
+    if (reordering) return;
+    const source: ReorderSourceItem[] = orderItems
+      .filter(it => it.template_id)
+      .map(it => ({ templateId: it.template_id, quantity: it.details?.quantity, cellophane: it.details?.cellophane }));
+    if (source.length === 0) return;
+
+    setReordering(true);
+    try {
+      const { items: reItems, skipped } = await resolveReorder(source);
+      if (reItems.length === 0) {
+        toast({ title: 'تعذّرت إعادة الطلب', description: 'المنتجات لم تعد متوفرة', variant: 'destructive' });
+        return;
+      }
+      reItems.forEach(addItem);
+      toast({
+        title: 'أُضيفت المنتجات إلى السلة ✓',
+        description: skipped.length > 0
+          ? `تعذّر إضافة ${skipped.length} ${skipped.length === 1 ? 'منتج لم يعد متوفراً' : 'منتجات لم تعد متوفرة'}`
+          : undefined,
+      });
+      navigate('/cart');
+    } catch {
+      toast({ title: 'حدث خطأ', description: 'تعذّرت إعادة الطلب، حاول مرة أخرى', variant: 'destructive' });
+    } finally {
+      setReordering(false);
+    }
+  };
+
   if (loading) return <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}><div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" /></div>;
   if (!order) return <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}><p className="text-muted-foreground text-sm">لم يتم العثور على الطلب</p></div>;
 
   const hasItems = orderItems.length > 0;
+  const canReorder = orderItems.some(it => it.template_id);
+  const isCompleted = (['delivered', 'printed', 'print_ready'] as string[]).includes(order.status);
 
   // Item-less orders: aggregate read-only display data from the order row itself.
   const od = order.details || {};
@@ -248,6 +285,22 @@ const OrderTracking = () => {
               )}
             </div>
           </div>
+
+          {/* Reorder — re-add this order's template items to the cart */}
+          {canReorder && (
+            <div className="mb-6">
+              <Button
+                onClick={handleReorder}
+                disabled={reordering}
+                variant={isCompleted ? 'default' : 'outline'}
+                className={`w-full h-12 rounded-xl gap-2 font-bold ${isCompleted ? 'bg-success hover:bg-success/90 text-success-foreground' : 'hover:border-primary/40 hover:text-primary'}`}
+              >
+                {reordering
+                  ? <><Loader2 className="w-5 h-5 animate-spin" /> جارٍ الإضافة...</>
+                  : <><RotateCcw className="w-5 h-5" /> إعادة الطلب</>}
+              </Button>
+            </div>
+          )}
 
           {/* Items */}
           {hasItems ? (

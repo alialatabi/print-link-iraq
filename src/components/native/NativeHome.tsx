@@ -67,11 +67,14 @@ const NativeHome = () => {
                 ابدأ الآن <ArrowLeft className="w-4 h-4" />
               </span>
             </div>
+            {/* Renders at 112-128px, so the 640w WebP variant alone is plenty (>=5x DPR);
+                eager (top-of-screen banner) with explicit dimensions to avoid CLS. */}
             <img
-              src="/hero-card.png"
+              src="/hero-card-sm.webp"
               alt="بطاقة عمل مطبعتي"
               width={128}
               height={86}
+              decoding="async"
               className="w-28 sm:w-32 rounded-xl shadow-[0_24px_40px_-18px_rgba(0,0,0,.55)] animate-floaty shrink-0"
             />
           </div>

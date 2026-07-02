@@ -243,6 +243,10 @@ const CartPage = () => {
                 {finalPrice.toLocaleString('en-US')} <span className="text-sm font-bold text-success/70">د.ع</span>
               </span>
             </div>
+            {/* Delivery fee — secondary note; computed per region at delivery, not part of the total above */}
+            <p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
+              رسوم التوصيل: تُحسب حسب المنطقة عند التوصيل
+            </p>
           </div>
 
           {/* Trust badges */}

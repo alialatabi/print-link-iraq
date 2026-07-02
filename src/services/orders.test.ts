@@ -29,6 +29,11 @@ import {
   approveDesignVersion,
   updateOrderItemDetails,
   cancelOrder,
+  isDuplicateKeyError,
+  isAlreadyExistsError,
+  createCartOrder,
+  insertCartOrderItem,
+  uploadCartAttachment,
 } from './orders';
 
 beforeEach(() => {
@@ -236,5 +241,91 @@ describe('cancelOrder', () => {
     const result = await cancelOrder('o1');
     // The result should be awaitable and contain an error field
     expect(result).toHaveProperty('error');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isDuplicateKeyError / isAlreadyExistsError (idempotency predicates)
+// ---------------------------------------------------------------------------
+
+describe('isDuplicateKeyError', () => {
+  it('is true only for Postgres unique-violation (23505)', () => {
+    expect(isDuplicateKeyError({ code: '23505' })).toBe(true);
+    expect(isDuplicateKeyError({ code: '23503' })).toBe(false);
+    expect(isDuplicateKeyError({ message: 'duplicate key value' })).toBe(false);
+    expect(isDuplicateKeyError(null)).toBe(false);
+    expect(isDuplicateKeyError(undefined)).toBe(false);
+  });
+});
+
+describe('isAlreadyExistsError', () => {
+  it('detects storage "already exists" by 409 status', () => {
+    expect(isAlreadyExistsError({ statusCode: '409' })).toBe(true);
+    expect(isAlreadyExistsError({ statusCode: 409 })).toBe(true);
+  });
+  it('detects storage "already exists" by message/error text', () => {
+    expect(isAlreadyExistsError({ error: 'Duplicate', message: 'The resource already exists' })).toBe(true);
+    expect(isAlreadyExistsError({ message: 'already exists' })).toBe(true);
+  });
+  it('is false for transient/other errors and nullish input', () => {
+    expect(isAlreadyExistsError({ statusCode: '500', message: 'network error' })).toBe(false);
+    expect(isAlreadyExistsError(null)).toBe(false);
+    expect(isAlreadyExistsError(undefined)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createCartOrder
+// ---------------------------------------------------------------------------
+
+describe('createCartOrder', () => {
+  it('inserts into the orders table and returns { data, error }', async () => {
+    mockSupabaseState.queryData = { id: 'order-1' };
+    const result = await createCartOrder('order-1', 'user-1', { item_count: 2 });
+    expect(mockSupabase.from).toHaveBeenCalledWith('orders');
+    expect(result).toHaveProperty('error');
+    expect(result.data?.id).toBe('order-1');
+  });
+
+  it('surfaces a duplicate-key error so the caller can treat it as already-created', async () => {
+    mockSupabaseState.queryData = null;
+    mockSupabaseState.queryError = { code: '23505' };
+    const { error } = await createCartOrder('order-1', 'user-1', { item_count: 1 });
+    expect(isDuplicateKeyError(error)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// insertCartOrderItem
+// ---------------------------------------------------------------------------
+
+describe('insertCartOrderItem', () => {
+  it('inserts into the order_items table and returns { data, error }', async () => {
+    mockSupabaseState.queryData = { id: 'item-1' };
+    const result = await insertCartOrderItem({ id: 'item-1', orderId: 'order-1', templateId: 't1', details: { details: 'x' } });
+    expect(mockSupabase.from).toHaveBeenCalledWith('order_items');
+    expect(result.data?.id).toBe('item-1');
+  });
+
+  it('accepts a null templateId (AI-designed items)', async () => {
+    mockSupabaseState.queryData = { id: 'item-ai' };
+    const result = await insertCartOrderItem({ id: 'item-ai', orderId: 'order-1', templateId: null, details: { is_ai_design: true } });
+    expect(result.data?.id).toBe('item-ai');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// uploadCartAttachment
+// ---------------------------------------------------------------------------
+
+describe('uploadCartAttachment', () => {
+  it('uploads to the order-attachments bucket at the given path', async () => {
+    const uploadSpy = vi.fn(async () => ({ data: { path: 'order-1/0/0.png' }, error: null }));
+    const fromSpy = vi.fn(() => ({ upload: uploadSpy }));
+    (mockSupabase as Record<string, unknown>).storage = { from: fromSpy };
+    const file = new File(['x'], 'logo.png', { type: 'image/png' });
+    await uploadCartAttachment('order-1/0/0.png', file);
+    expect(fromSpy).toHaveBeenCalledWith('order-attachments');
+    expect(uploadSpy).toHaveBeenCalledWith('order-1/0/0.png', file);
   });
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ImgHTMLAttributes } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { m as motion } from 'framer-motion';
@@ -137,20 +137,24 @@ const Index = () => {
       });
     };
 
+    // Top-8 templates by order count, computed server-side (SECURITY DEFINER RPC — the
+    // generated types don't know it yet, hence the recent_order_activity-style casts).
     const loadPopular = async () => {
       setLoading(true);
+      const { data, error } = await supabase.rpc('popular_templates' as never, { limit_count: 8 } as never);
+      if (!error && Array.isArray(data)) {
+        setPopularTemplates(data as unknown as PopularTemplate[]);
+        setLoading(false);
+        return;
+      }
+      // Fallback while the RPC isn't deployed: just the 8 newest templates —
+      // never the old "download every order row and count client-side" scan.
       const { data: templates } = await supabase
         .from('templates')
-        .select('id, name, preview_url, service_type');
-      if (!templates) { setLoading(false); return; }
-      const { data: orders } = await supabase.from('orders').select('template_id');
-      const countMap: Record<string, number> = {};
-      (orders || []).forEach((o: { template_id: string | null }) => {
-        if (o.template_id) countMap[o.template_id] = (countMap[o.template_id] || 0) + 1;
-      });
-      const withCounts = templates.map(t => ({ ...t, order_count: countMap[t.id] || 0 }));
-      withCounts.sort((a, b) => b.order_count - a.order_count);
-      setPopularTemplates(withCounts.slice(0, 8));
+        .select('id, name, preview_url, service_type')
+        .order('created_at', { ascending: false })
+        .limit(8);
+      setPopularTemplates((templates || []).map(t => ({ ...t, order_count: 0 })));
       setLoading(false);
     };
 
@@ -262,14 +266,25 @@ const Index = () => {
                 <div className="num text-[12px] text-white/70 font-semibold">0771 888 2200</div>
               </div>
             </div>
-            {/* front card — Matbaaty business card design */}
-            <img
-              src="/hero-card.png"
-              alt="بطاقة عمل مطبعتي"
-              width={440}
-              height={295}
-              className="relative w-[320px] sm:w-[440px] max-w-[90%] rounded-[20px] shadow-[0_40px_70px_-28px_rgba(80,60,40,.6)] animate-floaty"
-            />
+            {/* front card — Matbaaty business card design. LCP image: responsive WebP via
+                <picture> (640w under the sm breakpoint, 1200w above), eager + high priority,
+                explicit width/height (intrinsic ratio 2528:1696) so no CLS. Sizing classes live
+                on <picture> (the flex item); the img just fills it. */}
+            <picture className="relative w-[320px] sm:w-[440px] max-w-[90%] animate-floaty">
+              <source media="(max-width: 640px)" srcSet="/hero-card-sm.webp" type="image/webp" />
+              <source srcSet="/hero-card.webp" type="image/webp" />
+              <img
+                src="/hero-card.webp"
+                alt="بطاقة عمل مطبعتي"
+                width={440}
+                height={295}
+                decoding="async"
+                // react-dom 18 drops the camelCase fetchPriority prop; the lowercase DOM
+                // attribute passes through. Spread keeps TS strict happy.
+                {...({ fetchpriority: 'high' } as ImgHTMLAttributes<HTMLImageElement>)}
+                className="w-full h-auto rounded-[20px] shadow-[0_40px_70px_-28px_rgba(80,60,40,.6)]"
+              />
+            </picture>
             {/* floating badges */}
             <div className="absolute top-4 sm:top-7 right-[4%] bg-white border border-[#EFE7DC] rounded-[14px] px-3 py-2.5 shadow-[0_16px_30px_-14px_rgba(80,60,40,.45)] flex items-center gap-2">
               <span className="w-[30px] h-[30px] rounded-[9px] bg-[#E7F7EE] text-[#1B8A52] flex items-center justify-center">

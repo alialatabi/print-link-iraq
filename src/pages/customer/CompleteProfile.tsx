@@ -33,7 +33,12 @@ const CompleteProfile = () => {
         .eq('user_id', user.id)
         .maybeSingle();
       if (data) {
-        // Name intentionally starts empty so the customer types it fresh on this step.
+        // Prefill an existing real name. The signup trigger seeds display_name with the
+        // phone number for brand-new accounts, so treat display_name === phone as "no
+        // name yet" and leave the field empty for the customer to type.
+        if (data.display_name && data.display_name !== data.phone) {
+          setDisplayName(data.display_name);
+        }
         setPhone(data.phone || '');
         setLocation({
           provinceId: (data as { province_id?: number | null }).province_id ?? null,
@@ -42,8 +47,10 @@ const CompleteProfile = () => {
           areaName: data.area || '',
         });
         setLandmark(data.landmark || '');
-        // If profile is already complete, redirect away
-        if (data.province && data.area && data.landmark && data.display_name) {
+        // Only a real name is required now (address is optional — the delivery address is
+        // collected per-order at checkout). If the customer already has a name plus a
+        // saved province+area, there's nothing to do here → go where they were headed.
+        if (data.display_name && data.display_name !== data.phone && data.province && data.area) {
           navigate(redirectTo, { replace: true });
           return;
         }
@@ -63,23 +70,23 @@ const CompleteProfile = () => {
     const trimmedArea = location.areaName.trim();
     const trimmedLandmark = landmark.trim();
 
+    // Only the name is required — it's the delivery/contact name used on orders. The
+    // province/area/landmark are optional here; the real delivery address is collected
+    // per-order at checkout. When provided they simply pre-seed the address book, so we
+    // persist whatever was entered and write null (not '') for anything left blank.
     if (!trimmedName) { toast({ title: 'الاسم مطلوب', variant: 'destructive' }); return; }
-    if (!trimmedPhone) { toast({ title: 'رقم الهاتف مطلوب', variant: 'destructive' }); return; }
-    if (!trimmedProvince) { toast({ title: 'المحافظة مطلوبة', variant: 'destructive' }); return; }
-    if (!trimmedArea) { toast({ title: 'المنطقة مطلوبة', variant: 'destructive' }); return; }
-    if (!trimmedLandmark) { toast({ title: 'العلامة الدالة مطلوبة', variant: 'destructive' }); return; }
 
     setSaving(true);
     const { error } = await supabase
       .from('profiles')
       .update({
         display_name: trimmedName,
-        phone: trimmedPhone,
-        province: trimmedProvince,
-        area: trimmedArea,
+        phone: trimmedPhone || null,
+        province: trimmedProvince || null,
+        area: trimmedArea || null,
         province_id: location.provinceId,
         area_id: location.areaId,
-        landmark: trimmedLandmark,
+        landmark: trimmedLandmark || null,
       } as never)
       .eq('user_id', user.id);
 
@@ -107,13 +114,13 @@ const CompleteProfile = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="text-center mb-8">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 ring-1 ring-primary/15">
-              <MapPin className="h-8 w-8 text-primary" />
+              <User className="h-8 w-8 text-primary" />
             </div>
             <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
               أكمل بياناتك
             </h1>
             <p className="text-muted-foreground text-sm mt-2 leading-relaxed max-w-sm mx-auto">
-              نحتاج عنوانك لتوصيل طلباتك بدقة. هذه الخطوة مطلوبة مرة واحدة فقط.
+              فقط اسمك مطلوب للمتابعة. يمكنك إضافة عنوانك الآن أو لاحقاً عند أول طلب.
             </p>
           </div>
 
@@ -158,14 +165,18 @@ const CompleteProfile = () => {
                 <div className="flex items-center gap-2 text-foreground text-sm font-semibold">
                   <MapPin className="w-4 h-4 text-primary" />
                   العنوان التفصيلي
+                  <span className="text-xs font-normal text-muted-foreground">(اختياري)</span>
                 </div>
+                <p className="-mt-1 text-xs text-muted-foreground leading-relaxed">
+                  يمكنك تخطّي هذه الخطوة وإضافة عنوانك لاحقاً عند أول طلب.
+                </p>
 
                 <LocationSelect value={location} onChange={setLocation} disabled={saving} className="sm:grid-cols-1" />
 
                 <div>
                   <Label className="text-foreground text-sm font-medium flex items-center gap-2 mb-2">
                     <Landmark className="w-4 h-4 text-muted-foreground" />
-                    أقرب علامة دالة <span className="text-destructive">*</span>
+                    أقرب علامة دالة
                   </Label>
                   <Input
                     value={landmark}
@@ -173,7 +184,6 @@ const CompleteProfile = () => {
                     placeholder="مثال: قرب مول المنصور"
                     className="text-right"
                     maxLength={200}
-                    required
                   />
                 </div>
               </div>

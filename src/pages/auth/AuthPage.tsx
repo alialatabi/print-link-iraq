@@ -157,6 +157,21 @@ const AuthPage = () => {
     }
   };
 
+  // ── Skip PIN setup (setup mode only) ──
+  // verify-otp already minted the session, so the customer is signed in even without a
+  // PIN. Skippers just get an OTP again on their next login (send-otp routes accounts
+  // without a PIN back to OTP), so this is safe with the deployed backend. Consent stays
+  // mandatory — the exact same client-side gate that guards submitSetPin. Recovery mode
+  // never offers skip: the user forgot their PIN and must set a working one.
+  const skipPin = () => {
+    if (mode === 'setup' && !consent) {
+      toast({ title: 'يجب الموافقة على سياسة الخصوصية للمتابعة', variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'يمكنك ضبط رمزك لاحقاً من الملف الشخصي' });
+    goAfterAuth(isNewUser && mode === 'setup');
+  };
+
   const handleBiometric = async () => {
     setSubmitting(true);
     const cred = await biometricRetrieve();
@@ -365,6 +380,22 @@ const AuthPage = () => {
                   <Button onClick={submitSetPin} disabled={pin.length < 6 || confirmPin.length < 6 || submitting || (mode === 'setup' && !consent)} size="lg" className="h-12 w-full text-base font-bold">
                     {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'حفظ ومتابعة'}
                   </Button>
+                  {mode === 'setup' && (
+                    <div className="pt-1 text-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={skipPin}
+                        disabled={submitting || !consent}
+                        className="h-auto whitespace-normal py-2 text-sm font-medium leading-relaxed text-muted-foreground hover:text-foreground"
+                      >
+                        تخطي الآن — يمكنك ضبط الرمز لاحقاً من الملف الشخصي
+                      </Button>
+                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/80">
+                        بدون رمز، سنرسل لك رمز تحقق عبر الرسائل عند تسجيل الدخول القادم.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}

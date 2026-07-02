@@ -5,7 +5,7 @@ import {
   ChevronRight, ShoppingCart, Home, Sparkles, Package, Archive, User, Store, PlusCircle,
   Sun, Moon, type LucideIcon,
 } from 'lucide-react';
-import logoImg from '@/assets/logo.png';
+import logoImg from '@/assets/logo-small.webp';
 import NotificationBell from '@/components/NotificationBell';
 import PullToRefresh from '@/components/native/PullToRefresh';
 import { applyStatusBarTheme } from '@/lib/native';

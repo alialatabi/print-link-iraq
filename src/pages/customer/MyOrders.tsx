@@ -9,8 +9,10 @@ import { STATUS_LABELS, SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/
 import { useServices } from '@/hooks/useServices';
 import { useMyOrdersQuery, ordersKeys } from '@/hooks/queries/useOrdersQuery';
 import type { OrderRow } from '@/hooks/queries/useOrdersQuery';
-import { ShoppingBag, Package, ChevronLeft, ImageIcon, Layers } from 'lucide-react';
+import { ShoppingBag, Package, ChevronLeft, ImageIcon, Layers, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useCart } from '@/contexts/CartContext';
+import { resolveReorder, type ReorderSourceItem } from '@/lib/reorder';
 import { toast } from '@/hooks/use-toast';
 import { playNotificationSound } from '@/lib/notificationSound';
 import SEOHead from '@/components/SEOHead';
@@ -28,8 +30,42 @@ const MyOrders = () => {
   const { user, role } = useAuth();
   const queryClient = useQueryClient();
   const { services } = useServices();
+  const { addItem } = useCart();
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
 
   const catalog = useMemo(() => buildCatalog(services), [services]);
+
+  // One-tap re-order: re-add the order's template items to the cart at CURRENT
+  // prices, then go to the cart. Deleted/unavailable templates are surfaced.
+  const handleReorder = useCallback(async (e: React.MouseEvent, order: OrderRow) => {
+    e.stopPropagation(); // don't trigger the card's navigate-to-tracking
+    if (reorderingId) return;
+    const source: ReorderSourceItem[] = order._items
+      .filter(it => it.template_id)
+      .map(it => ({ templateId: it.template_id, quantity: it.details?.quantity, cellophane: it.details?.cellophane }));
+    if (source.length === 0) return;
+
+    setReorderingId(order.id);
+    try {
+      const { items: reItems, skipped } = await resolveReorder(source);
+      if (reItems.length === 0) {
+        toast({ title: 'تعذّرت إعادة الطلب', description: 'المنتجات لم تعد متوفرة', variant: 'destructive' });
+        return;
+      }
+      reItems.forEach(addItem);
+      toast({
+        title: 'أُضيفت المنتجات إلى السلة ✓',
+        description: skipped.length > 0
+          ? `تعذّر إضافة ${skipped.length} ${skipped.length === 1 ? 'منتج لم يعد متوفراً' : 'منتجات لم تعد متوفرة'}`
+          : undefined,
+      });
+      navigate('/cart');
+    } catch {
+      toast({ title: 'حدث خطأ', description: 'تعذّرت إعادة الطلب، حاول مرة أخرى', variant: 'destructive' });
+    } finally {
+      setReorderingId(null);
+    }
+  }, [reorderingId, addItem, navigate]);
 
   // React Query — base order list (no signed URLs)
   const { data: ordersBase, isLoading: loading } = useMyOrdersQuery(user?.id, role === 'admin');
@@ -143,6 +179,9 @@ const MyOrders = () => {
               const serviceLabel = serviceType ? (SERVICE_LABELS[serviceType] || '') : '';
               const quantity = (items[0]?.details?.quantity ?? order.details?.quantity) as number | undefined;
               const total = orderTotal(order);
+              const canReorder = items.some(it => it.template_id);
+              const isDelivered = order.status === 'delivered';
+              const isReordering = reorderingId === order.id;
 
               return (
                 <motion.div
@@ -218,6 +257,22 @@ const MyOrders = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Reorder — re-add this order's template items to the cart */}
+                  {canReorder && (
+                    <div className="px-3.5 pb-3.5">
+                      <Button
+                        variant="outline"
+                        onClick={(e) => handleReorder(e, order)}
+                        disabled={isReordering}
+                        className={`w-full h-11 rounded-xl gap-2 font-bold text-sm ${isDelivered ? 'border-success/40 text-success hover:bg-success/10 hover:text-success' : 'hover:border-primary/40 hover:text-primary'}`}
+                      >
+                        {isReordering
+                          ? <><Loader2 className="w-4 h-4 animate-spin" /> جارٍ الإضافة...</>
+                          : <><RotateCcw className="w-4 h-4" /> إعادة الطلب</>}
+                      </Button>
+                    </div>
+                  )}
                 </motion.div>
               );
             })}

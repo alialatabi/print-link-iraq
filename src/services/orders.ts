@@ -237,6 +237,86 @@ export function patchOrderDetails(orderId: string, details: Json) {
 }
 
 // ---------------------------------------------------------------------------
+// Checkout — idempotent cart order creation (CheckoutPage)
+//
+// Customers order on flaky mobile networks. The cart-submit flow reuses
+// client-generated ids across retries so an interrupted submit can be re-run
+// without creating duplicate orders/items, and uploads all attachments BEFORE
+// creating the order so a submit never half-completes.
+// ---------------------------------------------------------------------------
+
+/**
+ * True when a Postgres error is a unique-violation (23505). The cart-submit flow reuses a
+ * client-generated id across retries, so a duplicate-key on insert means "this row was already
+ * created by a previous (network-interrupted) attempt" — i.e. success, not a real failure.
+ */
+export function isDuplicateKeyError(error: unknown): boolean {
+  return (error as { code?: string } | null | undefined)?.code === '23505';
+}
+
+/**
+ * True when a storage upload failed because the object already exists. With stable, retry-safe
+ * upload paths that means a prior attempt already stored the file (its public URL is still valid),
+ * so the caller can treat it as a successful upload. The `order-attachments` bucket has no UPDATE
+ * policy (no `upsert` possible), so detecting the existing object is how retried uploads stay
+ * idempotent instead of erroring out.
+ */
+export function isAlreadyExistsError(error: unknown): boolean {
+  const e = error as { statusCode?: string | number; error?: string; message?: string } | null | undefined;
+  if (!e) return false;
+  if (String(e.statusCode) === '409') return true;
+  const text = `${e.error ?? ''} ${e.message ?? ''}`.toLowerCase();
+  return text.includes('already exists') || text.includes('duplicate') || text.includes('resource already');
+}
+
+/**
+ * Create ONE cart order in 'submitted' status using a client-supplied id (the idempotency key).
+ * Reusing the same id across retries makes re-submits after a dropped response safe: the second
+ * insert fails with 23505 instead of creating a duplicate order. Returns the raw supabase result.
+ */
+export function createCartOrder(orderId: string, userId: string, details: Json) {
+  return supabase
+    .from('orders')
+    .insert({ id: orderId, customer_id: userId, status: 'submitted', details })
+    .select('id')
+    .single();
+}
+
+/**
+ * Insert one cart order_item in 'submitted' status using a client-supplied id (idempotency key).
+ * `templateId` is null for AI-designed items. Returns the raw supabase result so the caller can
+ * treat 23505 (duplicate) as an already-created item on retry.
+ */
+export function insertCartOrderItem(args: {
+  id: string;
+  orderId: string;
+  templateId: string | null;
+  details: Json;
+}) {
+  return supabase
+    .from('order_items')
+    .insert({
+      id: args.id,
+      order_id: args.orderId,
+      template_id: args.templateId,
+      details: args.details,
+      status: 'submitted',
+    })
+    .select('id')
+    .single();
+}
+
+/**
+ * Upload one customer attachment for a cart order to the public `order-attachments` bucket.
+ * The caller passes a STABLE path so a retried upload targets the same object; a second upload of
+ * an already-stored file returns an "already exists" error the caller treats as success (the bucket
+ * has no UPDATE policy, so `upsert` is not available). Returns the raw storage result.
+ */
+export function uploadCartAttachment(path: string, file: File) {
+  return supabase.storage.from('order-attachments').upload(path, file);
+}
+
+// ---------------------------------------------------------------------------
 // Queries / mutations — DeliveryAddressPage
 // ---------------------------------------------------------------------------
 
