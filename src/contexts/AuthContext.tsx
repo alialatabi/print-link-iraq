@@ -159,6 +159,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Drop this device's push token first so a shared phone stops delivering the
+    // previous user's order notifications. Native-only + best-effort; push cleanup
+    // must never block or fail the sign-out.
+    try { await import('@/lib/push').then(m => m.unregisterPush()); } catch { /* ignore */ }
     // Biometric credentials are stored separately and survive sign-out, so a normal
     // (global) sign-out is fine — biometric login re-authenticates from scratch.
     setUser(null);

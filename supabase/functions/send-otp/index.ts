@@ -106,10 +106,17 @@ Deno.serve(async (req) => {
       return json({ error: "خدمة الرسائل غير مهيأة" }, 500);
     }
     const provider = Deno.env.get("OTPIQ_PROVIDER") || "auto";
+    // Custom body instead of OTPIQ's canned "verification" template so the SMS can end with
+    // the origin-bound WebOTP line (WICG sms-one-time-codes format: human-readable text first,
+    // LAST line "@host #code" — https://developer.chrome.com/docs/identity/web-apis/web-otp).
+    // Android Chrome then one-tap auto-fills the code on /auth; browsers without WebOTP (iOS,
+    // the Capacitor WebView) simply show one extra line. 59 UCS-2 chars = one SMS segment.
+    // No senderId: it is optional per docs.otpiq.com and ours isn't provisioned/approved.
+    const customMessage = `رمز التحقق الخاص بك في مطبعتي: ${code}\n\n@matbaty.com #${code}`;
     const otpiqResponse = await fetch("https://api.otpiq.com/api/sms", {
       method: "POST",
       headers: { Authorization: `Bearer ${otpiqApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ phoneNumber: normalizedPhone, smsType: "verification", verificationCode: code, provider }),
+      body: JSON.stringify({ phoneNumber: normalizedPhone, smsType: "custom", customMessage, provider }),
     });
     if (!otpiqResponse.ok) {
       const otpiqData = await otpiqResponse.json().catch(() => ({}));

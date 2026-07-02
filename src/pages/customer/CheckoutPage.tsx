@@ -19,11 +19,9 @@ import { useServices } from '@/hooks/useServices';
 import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
 import { retryAsync } from '@/lib/retry';
 import {
-  createCartOrder,
-  insertCartOrderItem,
+  createCartOrderWithItems,
   uploadCartAttachment,
   getOrderAttachmentPublicUrl,
-  isDuplicateKeyError,
   isAlreadyExistsError,
 } from '@/services/orders';
 import { isNativeApp } from '@/lib/platform';
@@ -219,24 +217,19 @@ const CheckoutPage = () => {
         return; // stay on page; form state (files/brief) is preserved for retry
       }
 
-      // 2. Create ONE order for the entire cart (idempotent by explicit id: a duplicate-key on a
-      //    retry means the order was already created by an interrupted attempt — treat as success).
-      await retryAsync(async () => {
-        const { error } = await createCartOrder(orderId, user.id, {
-          item_count: items.length,
-          ...(appliedCoupon ? { coupon_code: appliedCoupon.code, coupon_percentage: appliedCoupon.percentage } : {}),
-        } as unknown as Json);
-        if (error && !isDuplicateKeyError(error)) throw error;
-      });
-
-      // 3. Create every order_item (idempotent by explicit id). Uploads already succeeded, so each
-      //    item is inserted ONCE with its final attachment URLs — no insert-then-update, no partial
-      //    rows. If an item can't be inserted after retries the error propagates below (we neither
-      //    clear the cart nor navigate), and a retry reconciles the same order without duplicating.
-      for (let index = 0; index < items.length; index++) {
-        const item = items[index];
-        const itemDetails: Json = item.aiDesign
-          ? (buildAiOrderItemDetails({
+      // 2. Build every item's details, then create the order + ALL its items in ONE atomic,
+      //    idempotent RPC call. Uploads already succeeded, so each item carries its final
+      //    attachment URLs — no insert-then-update, no partial rows. Because the whole write is a
+      //    single transaction, a persistent failure can no longer leave a half-created 'submitted'
+      //    order the customer can't delete; and the same client-supplied UUIDs + server-side
+      //    ON CONFLICT make a retry after a dropped response reconcile the SAME order/items without
+      //    duplicating. If it still can't be created after retries the error propagates below (we
+      //    neither clear the cart nor navigate) and the form state is preserved for another retry.
+      const orderItems = items.map((item, index) => ({
+        id: itemIds[index],
+        templateId: item.aiDesign ? null : item.templateId,
+        details: (item.aiDesign
+          ? buildAiOrderItemDetails({
               brief: item.aiDesign.brief,
               productType: item.aiDesign.productType,
               productLabel: item.aiDesign.productLabel,
@@ -246,27 +239,30 @@ const CheckoutPage = () => {
               sizeLabel: item.aiDesign.sizeLabel,
               unitPrice: item.unitPrice,
               discountPct: couponPct,
-            }) as unknown as Json)
-          : ({
+            })
+          : {
               details: composeDetails(item),
               attachment_urls: urlsByItem[index],
               quantity: item.quantity,
               cellophane: item.cellophane || null,
               pricing: buildPricingSnapshot(catalog, item.serviceType, item.quantity, { discountPct: couponPct, priceOverride: item.unitPrice }),
-            } as unknown as Json);
+            }) as unknown as Json,
+      }));
 
-        await retryAsync(async () => {
-          const { error } = await insertCartOrderItem({
-            id: itemIds[index],
-            orderId,
-            templateId: item.aiDesign ? null : item.templateId,
-            details: itemDetails,
-          });
-          if (error && !isDuplicateKeyError(error)) throw error;
+      await retryAsync(async () => {
+        const { error } = await createCartOrderWithItems({
+          orderId,
+          userId: user.id,
+          details: {
+            item_count: items.length,
+            ...(appliedCoupon ? { coupon_code: appliedCoupon.code, coupon_percentage: appliedCoupon.percentage } : {}),
+          } as unknown as Json,
+          items: orderItems,
         });
-      }
+        if (error) throw error;
+      });
 
-      // 4. Consume the coupon, tied to this order (server enforces the cap atomically). Best-effort:
+      // 3. Consume the coupon, tied to this order (server enforces the cap atomically). Best-effort:
       //    a coupon failure must never block a fully-created order from completing.
       if (appliedCoupon) {
         try { await redeemCoupon(appliedCoupon.id, orderId); } catch { /* non-fatal */ }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { getDesignSignedUrl } from '@/lib/storage';
+import { notifyOrderStatusPush } from '@/lib/orderStatusNotify';
 import { ROLE_LABELS } from '@/lib/constants';
 import { STATUS_LABELS } from '@/data/mockData';
 import type { OrderStatus } from '@/data/mockData';
@@ -237,25 +238,6 @@ const AdminPanel = () => {
     triggerDownload(`${url}${sep}download=${encodeURIComponent(filename)}`);
   };
 
-  // Customer-facing push copy per status (only these statuses notify; internal ones stay silent).
-  const STATUS_PUSH: Partial<Record<string, { title: string; body: string }>> = {
-    waiting_approval: { title: 'تصميمك جاهز ✨', body: 'صار تصميم طلبك جاهز للمراجعة — افتح التطبيق للموافقة' },
-    approved: { title: 'تمت الموافقة ✅', body: 'تمت الموافقة على طلبك وراح يدخل مرحلة الطباعة' },
-    print_ready: { title: 'جاهز للطباعة 🖨️', body: 'طلبك جاهز للطباعة' },
-    printed: { title: 'تمت الطباعة 🖨️', body: 'تمت طباعة طلبك ويتم تجهيزه للتوصيل' },
-    delivered: { title: 'تم التسليم 🎉', body: 'تم تسليم طلبك. شكراً لاختيارك مطبعتي' },
-    cancelled: { title: 'تم إلغاء الطلب', body: 'تم إلغاء طلبك. لأي استفسار تواصل معنا' },
-  };
-
-  // Best-effort push to the customer about their order status (never blocks the status update).
-  const notifyCustomer = (customerId: string | null | undefined, orderId: string, status: string) => {
-    const msg = STATUS_PUSH[status];
-    if (!customerId || !msg) return;
-    supabase.functions.invoke('send-push', {
-      body: { userId: customerId, title: msg.title, body: msg.body, data: { orderId, status } },
-    }).catch(() => { /* push is non-critical */ });
-  };
-
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const { error } = await supabase
       .from('orders')
@@ -264,7 +246,7 @@ const AdminPanel = () => {
     if (error) { toast.error('فشل تحديث الحالة'); return; }
     const order = orders.find(o => o.id === orderId);
     logActivity('change_order_status', order?.customer_id, { order_id: orderId, new_status: newStatus, actor_name: 'أدمن' });
-    notifyCustomer(order?.customer_id, orderId, newStatus);
+    notifyOrderStatusPush(orderId, order?.customer_id, newStatus);
     toast.success('تم تحديث الحالة');
     loadOrders();
   };

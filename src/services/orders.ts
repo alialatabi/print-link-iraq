@@ -237,22 +237,14 @@ export function patchOrderDetails(orderId: string, details: Json) {
 }
 
 // ---------------------------------------------------------------------------
-// Checkout — idempotent cart order creation (CheckoutPage)
+// Checkout — atomic, idempotent cart order creation (CheckoutPage)
 //
-// Customers order on flaky mobile networks. The cart-submit flow reuses
-// client-generated ids across retries so an interrupted submit can be re-run
-// without creating duplicate orders/items, and uploads all attachments BEFORE
-// creating the order so a submit never half-completes.
+// Customers order on flaky mobile networks. The cart-submit flow uploads all
+// attachments BEFORE any DB write (so an order never has missing files), then
+// creates the order and ALL its items in ONE atomic RPC using client-generated
+// ids reused across retries — so an interrupted submit re-runs against the SAME
+// order/items without duplicating them and never leaves a partial order behind.
 // ---------------------------------------------------------------------------
-
-/**
- * True when a Postgres error is a unique-violation (23505). The cart-submit flow reuses a
- * client-generated id across retries, so a duplicate-key on insert means "this row was already
- * created by a previous (network-interrupted) attempt" — i.e. success, not a real failure.
- */
-export function isDuplicateKeyError(error: unknown): boolean {
-  return (error as { code?: string } | null | undefined)?.code === '23505';
-}
 
 /**
  * True when a storage upload failed because the object already exists. With stable, retry-safe
@@ -270,40 +262,35 @@ export function isAlreadyExistsError(error: unknown): boolean {
 }
 
 /**
- * Create ONE cart order in 'submitted' status using a client-supplied id (the idempotency key).
- * Reusing the same id across retries makes re-submits after a dropped response safe: the second
- * insert fails with 23505 instead of creating a duplicate order. Returns the raw supabase result.
+ * Create ONE cart order together with ALL its items in a SINGLE atomic transaction, via the
+ * `create_order_with_items` SECURITY DEFINER RPC. This closes the last gap in the idempotent
+ * checkout flow: order and items used to be inserted in separate requests, so a persistent
+ * item-insert failure mid-submit could leave a partial 'submitted' order the customer can't delete
+ * (RLS only lets customers delete *draft* orders). The RPC inserts everything or nothing.
+ *
+ * Idempotency lives server-side: the same client-supplied UUIDs plus `ON CONFLICT (id) DO NOTHING`
+ * make a retry after a dropped response reconcile the SAME order/items and still report success —
+ * so the caller does NOT special-case duplicate-key errors, it simply retries on any error.
+ *
+ * The generated Supabase types don't know this RPC yet, hence the `as never` casts (same pattern
+ * as popular_templates / redeem_coupon). Returns the raw rpc result so the caller can check `error`.
  */
-export function createCartOrder(orderId: string, userId: string, details: Json) {
-  return supabase
-    .from('orders')
-    .insert({ id: orderId, customer_id: userId, status: 'submitted', details })
-    .select('id')
-    .single();
-}
-
-/**
- * Insert one cart order_item in 'submitted' status using a client-supplied id (idempotency key).
- * `templateId` is null for AI-designed items. Returns the raw supabase result so the caller can
- * treat 23505 (duplicate) as an already-created item on retry.
- */
-export function insertCartOrderItem(args: {
-  id: string;
+export function createCartOrderWithItems(args: {
   orderId: string;
-  templateId: string | null;
+  userId: string;
   details: Json;
+  items: Array<{ id: string; templateId: string | null; details: Json }>;
 }) {
-  return supabase
-    .from('order_items')
-    .insert({
-      id: args.id,
-      order_id: args.orderId,
-      template_id: args.templateId,
-      details: args.details,
-      status: 'submitted',
-    })
-    .select('id')
-    .single();
+  return supabase.rpc('create_order_with_items' as never, {
+    p_order_id: args.orderId,
+    p_customer_id: args.userId,
+    p_details: args.details,
+    p_items: args.items.map((it) => ({
+      id: it.id,
+      template_id: it.templateId,
+      details: it.details,
+    })),
+  } as never);
 }
 
 /**

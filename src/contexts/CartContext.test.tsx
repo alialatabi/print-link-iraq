@@ -2,13 +2,21 @@
  * Characterization tests for CartContext (add/remove/quantity/clear +
  * localStorage persistence).
  *
- * CartProvider has no Supabase dependency — no supabase mock required.
+ * CartProvider now consumes useAuth() for server-sync, so we mock it as a logged-OUT guest: in
+ * guest mode CartProvider does NO server I/O and behaves exactly as before (localStorage only),
+ * which is what these characterization tests cover. No Supabase mock is required.
  * Tests use renderHook + act for direct hook access.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { ReactNode } from 'react';
+
+// Guest auth: keeps CartProvider on the pure-localStorage path (no server sync).
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: null, loading: false }),
+}));
+
 import { CartProvider, useCart } from './CartContext';
 import type { CartItem } from './CartContext';
 

@@ -8,6 +8,7 @@ import { SERVICE_LABELS, type OrderStatus, type ServiceType } from '@/data/mockD
 import { toast } from '@/hooks/use-toast';
 import { getDesignSignedUrl } from '@/lib/storage';
 import { getUserFriendlyError } from '@/lib/errors';
+import { notifyOrderStatusPush } from '@/lib/orderStatusNotify';
 import type { OrderDetailsJson } from '@/types/db';
 import ResellerOrderPanel from './ResellerOrderPanel';
 import ItemlessOrderPanel from './ItemlessOrderPanel';
@@ -169,6 +170,9 @@ const DesignerOrderDetails = () => {
     const allWaiting = updatedItems.every(i => ['waiting_approval', 'approved', 'print_ready', 'printed', 'delivered'].includes(i.status));
     if (allWaiting) {
       await setOrderStatus(orderId, 'waiting_approval');
+      // The whole order is now ready for the customer to review — the single most
+      // important customer moment. Push them so they come approve it.
+      notifyOrderStatusPush(orderId, order?.customer_id, 'waiting_approval');
     }
 
     toast({ title: 'تم إرسال التصميم للموافقة' });
@@ -199,6 +203,8 @@ const DesignerOrderDetails = () => {
       throw new Error(message);
     }
     await setOrderItemStatus(itemId, 'print_ready');
+    // send-to-telegram flipped the ORDER to print_ready server-side — tell the customer.
+    notifyOrderStatusPush(orderId, order?.customer_id, 'print_ready');
   };
 
   // Primary path: send the already-approved design straight to the print group — no new file needed.
@@ -251,6 +257,8 @@ const DesignerOrderDetails = () => {
         throw new Error(message);
       }
       await setOrderItemStatus(item.id, 'print_ready');
+      // Direct approve+print (no customer round-trip): the order is now print_ready.
+      notifyOrderStatusPush(orderId, order?.customer_id, 'print_ready');
       toast({ title: '✅ تمت الموافقة وأُرسل التصميم للطبع' });
       loadDesigns();
       loadItems();
@@ -283,6 +291,10 @@ const DesignerOrderDetails = () => {
       const newStatus = result === 'approved' ? 'approved' : 'assigned';
       const { error } = await updateOrderStatusAndDetails(orderId, newStatus as OrderStatus, newDetails);
       if (error) throw error;
+
+      // Tell the customer the review outcome: approved (heading to print) vs. edits requested.
+      // Reject writes DB status `assigned`, so we push the logical `revision` key instead.
+      notifyOrderStatusPush(orderId, order.customer_id, result === 'approved' ? 'approved' : 'revision');
 
       if (result === 'approved') {
         // Send the approved design file(s) directly to the Telegram print group.
@@ -402,6 +414,8 @@ const DesignerOrderDetails = () => {
         }
         throw new Error(message);
       }
+      // send-to-telegram flipped the (item-less) order to print_ready server-side.
+      notifyOrderStatusPush(orderId, order?.customer_id, 'print_ready');
       toast({ title: '✅ تمت الموافقة وأُرسل التصميم للطبع' });
       loadDesigns();
       loadOrder();

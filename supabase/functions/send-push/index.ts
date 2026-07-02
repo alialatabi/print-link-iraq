@@ -1,8 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { CORS_HEADERS, json, getServiceClient } from "../_shared/helpers.ts";
 
-// Sends push notifications via Firebase Cloud Messaging (HTTP v1). Auth: an authenticated STAFF
-// member (admin/designer/reseller) — e.g. the admin changing an order's status. Input:
+// Sends push notifications via Firebase Cloud Messaging (HTTP v1). Auth (M6): the caller's JWT
+// must resolve to an admin, super-admin, or designer (super admins hold the `admin` role).
+// Resellers and customers are rejected — this is not a general messaging endpoint. Targets are
+// additionally validated: every target user must be the customer of some order, so staff can't
+// push to arbitrary users. Input:
 //   { userId?: string, userIds?: string[], title: string, body: string, data?: Record<string,string> }
 // Looks up the targets' device tokens, sends one message per token, and prunes tokens FCM reports
 // as unregistered. Needs the FCM_SERVICE_ACCOUNT secret (the full Firebase service-account JSON).
@@ -73,15 +76,27 @@ Deno.serve(async (req) => {
 
     const supabaseAdmin = getServiceClient();
 
-    // Only staff may send notifications.
+    // M6: only admins, super-admins, and designers may send notifications. A super admin
+    // always holds the `admin` role, so user_roles covers them. Resellers and customers are
+    // rejected — previously ANY staff-ish caller (incl. resellers) could push to ANY user.
     const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", user.id);
-    const isStaff = (roles || []).some((r: { role: string }) => ["admin", "designer", "reseller"].includes(r.role));
-    if (!isStaff) return json({ error: "هذه العملية للطاقم فقط" }, 403);
+    const canPush = (roles || []).some((r: { role: string }) => ["admin", "designer"].includes(r.role));
+    if (!canPush) return json({ error: "هذه العملية للأدمن والمصممين فقط" }, 403);
 
     const { userId, userIds, title, body, data } = await req.json();
     const targets: string[] = [...new Set([...(Array.isArray(userIds) ? userIds : []), ...(userId ? [userId] : [])])];
     if (targets.length === 0) return json({ error: "no target users" }, 400);
     if (!title || !body) return json({ error: "title and body required" }, 400);
+
+    // M6: staff may only push to users who are the customer of some order — blocks pushing to
+    // arbitrary users / other staff. AdminPanel and the designer flow always target
+    // order.customer_id, so a legitimate call is never rejected here.
+    const { data: custRows } = await supabaseAdmin
+      .from("orders").select("customer_id").in("customer_id", targets);
+    const orderCustomers = new Set((custRows || []).map((r: { customer_id: string }) => r.customer_id));
+    if (targets.some((t) => !orderCustomers.has(t))) {
+      return json({ error: "الهدف غير صالح" }, 403);
+    }
 
     const saRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
     if (!saRaw) return json({ error: "خدمة الإشعارات غير مهيأة" }, 500);

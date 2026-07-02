@@ -19,6 +19,18 @@ const RESEND_COOLDOWN = 60;
 type Step = 'phone' | 'code' | 'otp' | 'setpin';
 type Mode = 'setup' | 'recovery';
 
+/**
+ * Pull a 6-digit code out of a WebOTP credential-shaped object.
+ * Android Chrome resolves navigator.credentials.get({ otp }) with `{ code }` when the
+ * verification SMS ends with the origin-bound line "@matbaty.com #123456".
+ * Pure — exported for tests.
+ */
+export const extractWebOtpCode = (cred: unknown): string | null => {
+  if (typeof cred !== 'object' || cred === null) return null;
+  const { code } = cred as { code?: unknown };
+  return typeof code === 'string' && /^\d{6}$/.test(code) ? code : null;
+};
+
 const PinInput = ({ value, onChange, autoFocus }: { value: string; onChange: (v: string) => void; autoFocus?: boolean }) => (
   <div dir="ltr">
     <InputOTP maxLength={6} value={value} onChange={onChange} autoFocus={autoFocus} containerClassName="w-full">
@@ -45,6 +57,7 @@ const AuthPage = () => {
   const [bioForPhone, setBioForPhone] = useState(false); // entered phone is biometric-enrolled here
   const [showCodeEntry, setShowCodeEntry] = useState(false); // fall back to typing the PIN
   const [consent, setConsent] = useState(false); // explicit privacy/data consent (new accounts only)
+  const [otpRequestId, setOtpRequestId] = useState(0); // bumped per OTP send — (re)arms the WebOTP listener
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -89,6 +102,7 @@ const AuthPage = () => {
         setIsNewUser(!!data.isNewUser);
         setMode(force ? 'recovery' : 'setup');
         setOtp(''); setStep('otp'); setCountdown(RESEND_COOLDOWN);
+        setOtpRequestId(n => n + 1); // a fresh SMS is on its way — restart WebOTP listening
         toast({ title: 'تم إرسال رمز التحقق إلى هاتفك' });
       }
     } catch {
@@ -113,11 +127,17 @@ const AuthPage = () => {
   };
 
   // ── Step 2b: verify the OTP (first-time or recovery) → then set a PIN ──
-  const submitOtp = async () => {
-    if (otp.length < 6) return;
+  // `autoCode` lets the WebOTP listener submit the SMS code directly (state updates
+  // are async, so it can't rely on `otp`). verifyingRef guards a manual tap racing the
+  // auto-submit — the listener's closure sees a stale `submitting`, so a ref is needed.
+  const verifyingRef = useRef(false);
+  const submitOtp = async (autoCode?: string) => {
+    const code = autoCode ?? otp;
+    if (code.length < 6 || verifyingRef.current) return;
+    verifyingRef.current = true;
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('verify-otp', { body: { phone, code: otp } });
+      const { data, error } = await supabase.functions.invoke('verify-otp', { body: { phone, code } });
       if (error || data?.error) {
         toast({ title: 'خطأ', description: data?.error || error?.message || 'رمز غير صحيح', variant: 'destructive' });
         setOtp('');
@@ -133,8 +153,36 @@ const AuthPage = () => {
     } catch {
       toast({ title: 'خطأ غير متوقع', variant: 'destructive' });
     }
+    verifyingRef.current = false;
     setSubmitting(false);
   };
+
+  // ── WebOTP: auto-fill the code from the incoming SMS (Android Chrome 84+) ──
+  // Only fires when the SMS ends with the origin-bound line "@matbaty.com #123456"
+  // (send-otp appends it). Feature-detected: browsers without OTPCredential —
+  // desktop Chrome without a synced phone, iOS Safari, and the Capacitor Android
+  // WebView — skip silently and manual entry works exactly as before. Re-armed per
+  // send via otpRequestId; aborted when the step changes or the page unmounts.
+  useEffect(() => {
+    if (step !== 'otp' || !('OTPCredential' in window)) return;
+    const ac = new AbortController();
+    const options: CredentialRequestOptions & { otp: { transport: string[] } } = {
+      otp: { transport: ['sms'] },
+      signal: ac.signal,
+    };
+    navigator.credentials.get(options)
+      .then(cred => {
+        if (ac.signal.aborted) return;
+        const code = extractWebOtpCode(cred);
+        if (!code) return;
+        setOtp(code);         // show the digits in the boxes
+        void submitOtp(code); // and verify immediately
+      })
+      .catch(() => { /* aborted, dismissed, or unsupported — manual entry continues */ });
+    return () => ac.abort();
+    // submitOtp is recreated every render; arming exactly once per send is intentional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, otpRequestId]);
 
   // ── Step 3: choose / confirm the 6-digit code (becomes the account password) ──
   const submitSetPin = async () => {
@@ -336,7 +384,7 @@ const AuthPage = () => {
                   </div>
                 )}
                 <div className="space-y-4">
-                  <Button onClick={submitOtp} disabled={otp.length < 6 || submitting} size="lg" className="h-12 w-full text-base font-bold">
+                  <Button onClick={() => submitOtp()} disabled={otp.length < 6 || submitting} size="lg" className="h-12 w-full text-base font-bold">
                     {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'تأكيد'}
                   </Button>
                   <div className="flex items-center justify-center gap-1">

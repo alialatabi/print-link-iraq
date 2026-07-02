@@ -29,10 +29,8 @@ import {
   approveDesignVersion,
   updateOrderItemDetails,
   cancelOrder,
-  isDuplicateKeyError,
   isAlreadyExistsError,
-  createCartOrder,
-  insertCartOrderItem,
+  createCartOrderWithItems,
   uploadCartAttachment,
 } from './orders';
 
@@ -245,18 +243,8 @@ describe('cancelOrder', () => {
 });
 
 // ---------------------------------------------------------------------------
-// isDuplicateKeyError / isAlreadyExistsError (idempotency predicates)
+// isAlreadyExistsError (upload idempotency predicate)
 // ---------------------------------------------------------------------------
-
-describe('isDuplicateKeyError', () => {
-  it('is true only for Postgres unique-violation (23505)', () => {
-    expect(isDuplicateKeyError({ code: '23505' })).toBe(true);
-    expect(isDuplicateKeyError({ code: '23503' })).toBe(false);
-    expect(isDuplicateKeyError({ message: 'duplicate key value' })).toBe(false);
-    expect(isDuplicateKeyError(null)).toBe(false);
-    expect(isDuplicateKeyError(undefined)).toBe(false);
-  });
-});
 
 describe('isAlreadyExistsError', () => {
   it('detects storage "already exists" by 409 status', () => {
@@ -275,42 +263,95 @@ describe('isAlreadyExistsError', () => {
 });
 
 // ---------------------------------------------------------------------------
-// createCartOrder
+// createCartOrderWithItems — atomic order + items via SECURITY DEFINER RPC
 // ---------------------------------------------------------------------------
 
-describe('createCartOrder', () => {
-  it('inserts into the orders table and returns { data, error }', async () => {
-    mockSupabaseState.queryData = { id: 'order-1' };
-    const result = await createCartOrder('order-1', 'user-1', { item_count: 2 });
-    expect(mockSupabase.from).toHaveBeenCalledWith('orders');
-    expect(result).toHaveProperty('error');
-    expect(result.data?.id).toBe('order-1');
+describe('createCartOrderWithItems', () => {
+  it('calls the create_order_with_items RPC with the mapped order + items payload', async () => {
+    const rpcSpy = vi.fn(async () => ({ data: 'order-1', error: null }));
+    (mockSupabase as Record<string, unknown>).rpc = rpcSpy;
+
+    const { error } = await createCartOrderWithItems({
+      orderId: 'order-1',
+      userId: 'user-1',
+      details: { item_count: 2, coupon_code: 'SAVE10', coupon_percentage: 10 },
+      items: [
+        { id: 'item-1', templateId: 't1', details: { details: 'brief' } },
+        { id: 'item-2', templateId: null, details: { is_ai_design: true } },
+      ],
+    });
+
+    // Exact RPC name + arg shape the migration expects. p_customer_id is forwarded for the
+    // server-side auth.uid() equality check; each item's camelCase templateId is mapped to the
+    // snake_case template_id column (null marks an AI-designed item).
+    expect(rpcSpy).toHaveBeenCalledWith('create_order_with_items', {
+      p_order_id: 'order-1',
+      p_customer_id: 'user-1',
+      p_details: { item_count: 2, coupon_code: 'SAVE10', coupon_percentage: 10 },
+      p_items: [
+        { id: 'item-1', template_id: 't1', details: { details: 'brief' } },
+        { id: 'item-2', template_id: null, details: { is_ai_design: true } },
+      ],
+    });
+    expect(error).toBeNull();
   });
 
-  it('surfaces a duplicate-key error so the caller can treat it as already-created', async () => {
-    mockSupabaseState.queryData = null;
-    mockSupabaseState.queryError = { code: '23505' };
-    const { error } = await createCartOrder('order-1', 'user-1', { item_count: 1 });
-    expect(isDuplicateKeyError(error)).toBe(true);
-  });
-});
+  it('maps a null templateId (AI-designed item) to template_id: null', async () => {
+    const rpcSpy = vi.fn(async () => ({ data: 'order-ai', error: null }));
+    (mockSupabase as Record<string, unknown>).rpc = rpcSpy;
 
-// ---------------------------------------------------------------------------
-// insertCartOrderItem
-// ---------------------------------------------------------------------------
+    await createCartOrderWithItems({
+      orderId: 'order-ai',
+      userId: 'user-1',
+      details: { item_count: 1 },
+      items: [{ id: 'item-ai', templateId: null, details: { is_ai_design: true } }],
+    });
 
-describe('insertCartOrderItem', () => {
-  it('inserts into the order_items table and returns { data, error }', async () => {
-    mockSupabaseState.queryData = { id: 'item-1' };
-    const result = await insertCartOrderItem({ id: 'item-1', orderId: 'order-1', templateId: 't1', details: { details: 'x' } });
-    expect(mockSupabase.from).toHaveBeenCalledWith('order_items');
-    expect(result.data?.id).toBe('item-1');
+    expect(rpcSpy).toHaveBeenCalledWith('create_order_with_items', expect.objectContaining({
+      p_items: [{ id: 'item-ai', template_id: null, details: { is_ai_design: true } }],
+    }));
   });
 
-  it('accepts a null templateId (AI-designed items)', async () => {
-    mockSupabaseState.queryData = { id: 'item-ai' };
-    const result = await insertCartOrderItem({ id: 'item-ai', orderId: 'order-1', templateId: null, details: { is_ai_design: true } });
-    expect(result.data?.id).toBe('item-ai');
+  it('surfaces the RPC error so the caller (retryAsync) can retry', async () => {
+    const rpcSpy = vi.fn(async () => ({ data: null, error: { message: 'network down' } }));
+    (mockSupabase as Record<string, unknown>).rpc = rpcSpy;
+
+    const { error } = await createCartOrderWithItems({
+      orderId: 'order-1',
+      userId: 'user-1',
+      details: { item_count: 1 },
+      items: [{ id: 'i1', templateId: null, details: { details: '' } }],
+    });
+
+    expect(error).toEqual({ message: 'network down' });
+  });
+
+  it('is idempotent for retries: re-calling with the SAME ids sends the SAME payload and still succeeds', async () => {
+    // A dropped response makes the client retry. Because the server uses ON CONFLICT (id) DO NOTHING,
+    // the retry converges to success; the service must forward the identical idempotency keys both times.
+    const rpcSpy = vi.fn(async () => ({ data: 'order-1', error: null }));
+    (mockSupabase as Record<string, unknown>).rpc = rpcSpy;
+
+    const args = {
+      orderId: 'order-1',
+      userId: 'user-1',
+      details: { item_count: 1 },
+      items: [{ id: 'i1', templateId: 't1', details: { details: 'x' } }],
+    };
+    const { error: firstError } = await createCartOrderWithItems(args);
+    const { error: secondError } = await createCartOrderWithItems(args);
+
+    expect(firstError).toBeNull();
+    expect(secondError).toBeNull();
+    expect(rpcSpy).toHaveBeenCalledTimes(2);
+    const expectedPayload = {
+      p_order_id: 'order-1',
+      p_customer_id: 'user-1',
+      p_details: { item_count: 1 },
+      p_items: [{ id: 'i1', template_id: 't1', details: { details: 'x' } }],
+    };
+    expect(rpcSpy).toHaveBeenNthCalledWith(1, 'create_order_with_items', expectedPayload);
+    expect(rpcSpy).toHaveBeenNthCalledWith(2, 'create_order_with_items', expectedPayload);
   });
 });
 
