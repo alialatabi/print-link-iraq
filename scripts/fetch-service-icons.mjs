@@ -1,101 +1,107 @@
-// Downloads a consistent, colorful icon per catalog service (Microsoft Fluent Emoji — flat
-// variant, MIT licensed) from the Iconify API, rasterizes to 256px PNG with sharp, and writes
-// them to public/service-icons/{serviceId}.png (served from matbaty.com — icon_url points there
-// via migration 20260703200000_service_icon_urls.sql, which this script also generates).
-// Rerunnable; fails loudly if any icon name is unknown so mappings stay correct.
+// Downloads a consistent icon per catalog service — Material Design Icons (Apache 2.0) via the
+// Iconify API, tinted in the brand cyan and rasterized to a padded 256px PNG (icon at ~70% so it
+// breathes inside the UI's rounded containers). Writes public/service-icons/{serviceId}.png; the
+// icon_url values (migration 20260703200000) already point at these paths, so regenerating +
+// deploying is enough to refresh every icon. Rerunnable; fails loudly on unknown icon names.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import sharp from 'sharp';
 
-const SITE = 'https://matbaty.com';
 const OUT_DIR = 'public/service-icons';
-const SET = 'fluent-emoji-flat';
+const SET = 'mdi';
+const COLOR = '%2310B0E0'; // brand cyan #10B0E0
+const CANVAS = 256;
+const INNER = 176; // icon size inside the canvas (~69% => comfortable padding)
 
-// serviceId -> fluent-emoji-flat icon name (mirrors the approved emoji meanings)
+// serviceId -> mdi icon name (semantic print-trade concepts, not emoji lookalikes)
 const ICONS = {
-  // categories (parents) — consistent style across the whole browse tree
-  cards: 'credit-card',
-  office: 'file-folder',
-  receipt_book: 'receipt',
-  stamps: 'postbox',
-  stickers: 'label',
-  packaging: 'shopping-bags',
-  advertising: 'megaphone',
-  banners: 'placard',
+  // categories (parents)
+  cards: 'card-account-details',
+  office: 'briefcase-outline',
+  receipt_book: 'receipt-text-outline',
+  stamps: 'stamper',
+  stickers: 'sticker-circle-outline',
+  packaging: 'package-variant',
+  advertising: 'bullhorn-outline',
+  banners: 'billboard',
   // كروت
-  card_iq_1: 'identification-card',
-  card_iq_2: 'credit-card',
-  card_turkish: 'crown',
-  card_ivory_1: 'white-heart',
-  card_ivory_2: 'diamond-with-a-dot',
+  card_iq_1: 'card-account-details-outline',
+  card_iq_2: 'card-multiple',
+  card_turkish: 'card-account-details-star',
+  card_ivory_1: 'card-bulleted-outline',
+  card_ivory_2: 'card-multiple-outline',
   // مطبوعات إدارية
-  master_folder: 'open-file-folder',
-  file_folder: 'card-index-dividers',
-  letterhead: 'page-facing-up',
-  doctor_rx: 'stethoscope',
-  // وصولات
-  receipt_a4: 'receipt',
-  receipt_a5: 'clipboard',
-  receipt_a6: 'spiral-notepad',
-  receipt_dl: 'bookmark-tabs',
-  // أختام
-  stamp_rect_6x4: 'blue-square',
-  stamp_rect_5x3: 'blue-square',
-  stamp_rect_47x18: 'blue-square',
-  stamp_rect_35x14: 'blue-square',
-  stamp_sq_5x5: 'radio-button',
-  stamp_sq_4x4: 'radio-button',
-  stamp_sq_3x3: 'radio-button',
-  stamp_sq_2x2: 'radio-button',
-  stamp_oval_3x45: 'hollow-red-circle',
-  stamp_oval_35x55: 'hollow-red-circle',
-  stamp_pocket_35x14: 'clutch-bag',
-  stamp_pocket_47x18: 'clutch-bag',
-  stamp_color: 'rainbow',
+  master_folder: 'folder-star-outline',
+  file_folder: 'file-cabinet',
+  letterhead: 'file-document-outline',
+  doctor_rx: 'prescription',
+  // وصولات (size in the label; the book icon differentiates the category)
+  receipt_a4: 'receipt-text',
+  receipt_a5: 'receipt-text-outline',
+  receipt_a6: 'notebook-outline',
+  receipt_dl: 'book-open-outline',
+  // أختام — the real rubber-stamp icon everywhere; palette marks the color stamp
+  stamp_rect_6x4: 'stamper',
+  stamp_rect_5x3: 'stamper',
+  stamp_rect_47x18: 'stamper',
+  stamp_rect_35x14: 'stamper',
+  stamp_sq_5x5: 'stamper',
+  stamp_sq_4x4: 'stamper',
+  stamp_sq_3x3: 'stamper',
+  stamp_sq_2x2: 'stamper',
+  stamp_oval_3x45: 'stamper',
+  stamp_oval_35x55: 'stamper',
+  stamp_pocket_35x14: 'stamper',
+  stamp_pocket_47x18: 'stamper',
+  stamp_color: 'palette',
   // ملصقات
-  sticker_round_3: 'white-circle',
-  sticker_round_4: 'blue-circle',
-  sticker_round_5: 'green-circle',
-  sticker_round_6: 'yellow-circle',
-  sticker_rect_card: 'label',
-  // تغليف
-  bag_16x25_500: 'shopping-bags',
-  bag_20x30_500: 'shopping-bags',
-  bag_25x35_500: 'shopping-bags',
-  bag_30x40_500: 'shopping-bags',
-  bag_37x50_500: 'shopping-bags',
-  bag_16x25_1000: 'handbag',
-  bag_20x30_1000: 'handbag',
-  bag_25x35_1000: 'handbag',
-  bag_30x40_1000: 'handbag',
-  bag_37x50_1000: 'handbag',
+  sticker_round_3: 'sticker-circle-outline',
+  sticker_round_4: 'sticker-circle-outline',
+  sticker_round_5: 'sticker-circle-outline',
+  sticker_round_6: 'sticker-circle-outline',
+  sticker_rect_card: 'sticker-outline',
+  // تغليف — solid bag for the 500 packs, outline for the 1000 packs
+  bag_16x25_500: 'shopping',
+  bag_20x30_500: 'shopping',
+  bag_25x35_500: 'shopping',
+  bag_30x40_500: 'shopping',
+  bag_37x50_500: 'shopping',
+  bag_16x25_1000: 'shopping-outline',
+  bag_20x30_1000: 'shopping-outline',
+  bag_25x35_1000: 'shopping-outline',
+  bag_30x40_1000: 'shopping-outline',
+  bag_37x50_1000: 'shopping-outline',
   // مواد إعلانية
-  brochure_a4: 'newspaper',
-  brochure_a5: 'rolled-up-newspaper',
-  brochure_4c_1: 'page-with-curl',
-  brochure_4c_2: 'open-book',
-  menu: 'fork-and-knife-with-plate',
+  brochure_a4: 'newspaper-variant',
+  brochure_a5: 'newspaper-variant-outline',
+  brochure_4c_1: 'file-document-multiple-outline',
+  brochure_4c_2: 'book-open-page-variant-outline',
+  menu: 'silverware-fork-knife',
   pen: 'pen',
   // لوحات وإعلانات
-  rollup: 'scroll',
-  flex: 'framed-picture',
+  rollup: 'presentation',
+  flex: 'billboard',
 };
 
 mkdirSync(OUT_DIR, { recursive: true });
-const svgCache = new Map();
+const pngCache = new Map();
 let ok = 0;
 const failures = [];
+const pad = Math.round((CANVAS - INNER) / 2);
 
 for (const [serviceId, icon] of Object.entries(ICONS)) {
   try {
-    let svg = svgCache.get(icon);
-    if (!svg) {
-      const res = await fetch(`https://api.iconify.design/${SET}/${icon}.svg?width=256&height=256`);
+    let png = pngCache.get(icon);
+    if (!png) {
+      const res = await fetch(`https://api.iconify.design/${SET}/${icon}.svg?color=${COLOR}&width=${INNER}&height=${INNER}`);
       const body = await res.text();
       if (!res.ok || !body.includes('<svg')) throw new Error(`iconify ${res.status}: ${body.slice(0, 80)}`);
-      svg = body;
-      svgCache.set(icon, svg);
+      png = await sharp(Buffer.from(body))
+        .resize(INNER, INNER, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .extend({ top: pad, bottom: pad, left: pad, right: pad, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer();
+      pngCache.set(icon, png);
     }
-    const png = await sharp(Buffer.from(svg)).resize(256, 256, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
     writeFileSync(`${OUT_DIR}/${serviceId}.png`, png);
     ok += 1;
   } catch (e) {
@@ -107,15 +113,4 @@ if (failures.length) {
   console.error('FAILED:\n' + failures.join('\n'));
   process.exit(1);
 }
-
-// Generate the icon_url migration.
-const lines = [
-  '-- Real image icons for the launch catalog: Microsoft Fluent Emoji (flat, MIT) rendered to',
-  '-- 256px PNGs in public/service-icons/ (see scripts/fetch-service-icons.mjs), served from the',
-  '-- site itself. The emoji `icon` column stays as the fallback while the deploy propagates.',
-];
-for (const serviceId of Object.keys(ICONS)) {
-  lines.push(`UPDATE public.services SET icon_url = '${SITE}/service-icons/${serviceId}.png' WHERE id = '${serviceId}';`);
-}
-writeFileSync('supabase/migrations/20260703200000_service_icon_urls.sql', lines.join('\n') + '\n');
-console.log(`icons written: ${ok}/${Object.keys(ICONS).length} → ${OUT_DIR}; migration generated.`);
+console.log(`icons written: ${ok}/${Object.keys(ICONS).length} → ${OUT_DIR} (padded ${INNER}/${CANVAS}, ${SET}, brand cyan)`);
