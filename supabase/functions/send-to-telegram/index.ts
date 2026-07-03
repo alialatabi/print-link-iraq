@@ -131,27 +131,61 @@ ${cellophane ? `✨ *السلوفان:* ${cellophane}\n` : ''}💰 *الكلفة
       }
       const priceOfItem = (it: Record<string, unknown>): number => {
         const d = it.details || {}
+        // Prefer the immutable pricing snapshot written at checkout — it's the authoritative
+        // amount the customer saw. Recompute from the live catalog only for legacy items.
+        const snap = Number(d.pricing?.line_total)
+        if (Number.isFinite(snap) && snap > 0) return snap
         const qty = Number(d.quantity) || 1
         if (d.is_ai_design) return (Number(d.unit_price) || 0) * qty
         const svc = svcMap.get(it.templates?.service_type)
         if (!svc) return 0
         return Math.ceil(svc.price * (qty / (svc.min_quantity || 1000)))
       }
-      const itemsTotal = items.reduce((sum, it) => sum + priceOfItem(it), 0)
-      const grandTotal = itemsTotal + DELIVERY_FEE
+      let itemsTotal = items.reduce((sum, it) => sum + priceOfItem(it), 0)
 
       // The specific item this file belongs to (by id, else inferred from the file path).
       const current = items.find((i) => i.id === orderItemId)
         || items.find((i) => typeof designFilePath === 'string' && designFilePath.includes(i.id))
         || items[0]
       const cd = current?.details || {}
-      const itemName = cd.service_label || current?.templates?.name || 'تصميم'
-      const sizeLabel = cd.size_label ? ` — ${cd.size_label}` : ''
-      const itemQty = Number(cd.quantity) || 1
+      let itemName: string = cd.service_label || current?.templates?.name || ''
+      let itemQty = Number(cd.quantity) || 0
+      let sizeLabelRaw: unknown = cd.size_label
+
+      // Item-less orders (vault reorder / ready-design): there are NO order_items rows — the
+      // product, quantity and pricing snapshot all live on the ORDER's own details JSON.
+      // Without this fallback the caption showed "تصميم / الكمية: 1" and a total equal to the
+      // delivery fee alone.
+      if (items.length === 0) {
+        itemsTotal = Number(details.pricing?.line_total) || 0
+        itemQty = Number(details.quantity) || 0
+        sizeLabelRaw = details.size_label
+        itemName = details.service_label || ''
+        if (!itemName && details.service_type) {
+          // The service label lives in the catalog (services.id values like 'vip_card' → كارت وجهين).
+          const { data: svc } = await supabase
+            .from('services').select('label').eq('id', String(details.service_type)).maybeSingle()
+          itemName = (svc as { label?: string } | null)?.label || ''
+        }
+        if (!itemName) itemName = order.templates?.name || ''
+      }
+      if (!itemName) itemName = 'تصميم'
+      if (!itemQty) itemQty = 1
+
+      const grandTotal = itemsTotal + DELIVERY_FEE
+      const sizeLabel = sizeLabelRaw ? ` — ${sizeLabelRaw}` : ''
       const idx = current ? items.findIndex((i) => i.id === current.id) + 1 : 0
       const isMulti = items.length > 1
 
-      const deliveryPhone = details.delivery_phone || details.phone || '—'
+      // Show the pickup phone in the local Iraqi format the print shop dials
+      // (9647712253264 → 07712253264); numbers already starting with 0 pass through.
+      const formatLocalPhone = (p: unknown): string => {
+        const s = String(p ?? '').trim()
+        if (!s) return '—'
+        const digits = s.replace(/^\+/, '')
+        return digits.startsWith('964') ? `0${digits.slice(3)}` : s
+      }
+      const deliveryPhone = formatLocalPhone(details.delivery_phone || details.phone)
       const deliveryProvince = details.delivery_province || '—'
       const deliveryArea = details.delivery_area || '—'
       const deliveryLandmark = details.delivery_landmark || ''
