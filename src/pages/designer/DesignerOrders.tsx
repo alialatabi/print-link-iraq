@@ -9,11 +9,23 @@ import {
   queryDesignerOrderItemsBatch,
   countDesignerArchivedOrders,
   queryDesignerActiveOrders,
+  queryDesignerActiveOrderCounts,
   queryDesignerArchivedOrders,
+  aggregateActiveCounts,
+  oldestActiveAgeDays,
+  overdueFirst,
+  orderHasRevision,
+  isNewAssignedOrder,
+  isOrderOverdue,
+  parseSortKey,
+  type ActiveQueueCounts,
+  type CountableOrder,
+  type RevisionItemLike,
+  type DesignerSortKey,
 } from '@/services/designer';
 import StatusBadge from '@/components/StatusBadge';
 import { SERVICE_LABELS, OrderStatus, ServiceType } from '@/data/mockData';
-import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox, Printer, Package, Edit2, Search, AlertTriangle, Loader2, X } from 'lucide-react';
+import { FileText, Eye, Clock, CheckCircle2, Upload, Inbox, Printer, Package, Edit2, Search, AlertTriangle, Loader2, X, ArrowDownUp, Hourglass } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +62,14 @@ interface DesignerOrder {
   _items: DesignerOrderItem[];
 }
 
+/** Row shape returned by the lightweight count query (DESIGNER_COUNT_SELECT). */
+interface CountResponseRow {
+  status: OrderStatus;
+  created_at: string;
+  updated_at: string | null;
+  order_items: RevisionItemLike[] | null;
+}
+
 // ---------------------------------------------------------------------------
 // Constants & pure helpers (module scope — not re-created on every render)
 // ---------------------------------------------------------------------------
@@ -57,7 +77,14 @@ const PAGE_SIZE = 20;
 const COMPLETED_STATUSES: OrderStatus[] = ['print_ready', 'printed', 'delivered'];
 // Completed orders live in the "archive" tab; keep them out of the active query.
 const ACTIVE_EXCLUDE = '(print_ready,printed,delivered)';
-const OVERDUE_MS = 24 * 60 * 60 * 1000;
+// Safety cap for the un-paginated count query — a real active queue is dozens.
+const COUNT_CAP = 500;
+const SORT_STORAGE_KEY = 'designer.orders.sort';
+const SORT_OPTIONS: { key: DesignerSortKey; label: string }[] = [
+  { key: 'newest', label: 'الأحدث' },
+  { key: 'oldest', label: 'الأقدم أولاً' },
+  { key: 'overdue', label: 'المتأخرة أولاً' },
+];
 
 /** Short, human-referenceable code derived from the order UUID (no order_number column exists). */
 const formatOrderRef = (id: string) => `#${id.slice(-6).toUpperCase()}`;
@@ -78,17 +105,18 @@ const timeAgo = (iso: string) => {
   return formatDate(iso);
 };
 
-const hasRevisionItems = (order: DesignerOrder) =>
-  (order._items || []).some((item) => {
-    const revisions = item.details?.revisions;
-    return item.status === 'assigned' && Array.isArray(revisions) && revisions.length > 0;
-  });
+// Thin adapters over the pure, unit-tested bucket helpers in services/designer.
+// so the list, the tab badges and the workload strip can never disagree.
+const hasRevisionItems = (order: DesignerOrder) => orderHasRevision(order._items);
 
-const isNewAssigned = (order: DesignerOrder) => order.status === 'assigned' && !hasRevisionItems(order);
+const isNewAssigned = (order: DesignerOrder) => isNewAssignedOrder(order.status, order._items);
 
 /** Awaiting the designer's first action for more than a day. */
 const isOverdue = (order: DesignerOrder) =>
-  isNewAssigned(order) && Date.now() - new Date(order.updated_at || order.created_at).getTime() > OVERDUE_MS;
+  isOrderOverdue(
+    { status: order.status, created_at: order.created_at, updated_at: order.updated_at, items: order._items },
+    Date.now(),
+  );
 
 const matchesQuery = (order: DesignerOrder, q: string) => {
   if (!q) return true;
@@ -288,6 +316,23 @@ const DesignerOrders = () => {
   const [archiveLimit, setArchiveLimit] = useState(PAGE_SIZE);
   const [activeHasMore, setActiveHasMore] = useState(false);
   const [archiveHasMore, setArchiveHasMore] = useState(false);
+  // True (un-paginated) counts for the tab badges + workload strip.
+  const [counts, setCounts] = useState<ActiveQueueCounts>({
+    all: 0,
+    assigned: 0,
+    revisions: 0,
+    waiting_approval: 0,
+    approved: 0,
+    overdue: 0,
+  });
+  const [oldestAgeDays, setOldestAgeDays] = useState<number | null>(null);
+  const [sort, setSort] = useState<DesignerSortKey>(() => {
+    try {
+      return parseSortKey(localStorage.getItem(SORT_STORAGE_KEY));
+    } catch {
+      return 'newest';
+    }
+  });
 
   // IDs of orders owned by this designer — used to guard the order_items realtime channel.
   const ownedOrderIds = useRef<Set<string>>(new Set());
@@ -328,7 +373,10 @@ const DesignerOrders = () => {
 
   const loadActive = useCallback(async () => {
     if (!user) return;
-    const { data, error: qErr } = await queryDesignerActiveOrders(user.id, ACTIVE_EXCLUDE, activeLimit);
+    // Oldest-first for "الأقدم أولاً" and "المتأخرة أولاً" so overdue (old) orders
+    // are always inside the page cap; newest-first is the default.
+    const ascending = sort !== 'newest';
+    const { data, error: qErr } = await queryDesignerActiveOrders(user.id, ACTIVE_EXCLUDE, activeLimit, ascending);
 
     if (qErr) {
       setError('تعذّر تحميل الطلبات. تأكد من الاتصال وحاول مرة أخرى.');
@@ -341,7 +389,24 @@ const DesignerOrders = () => {
     setOrders(rows);
     setActiveHasMore((data?.length || 0) === activeLimit);
     setLoading(false);
-  }, [user, activeLimit, hydrate]);
+  }, [user, activeLimit, sort, hydrate]);
+
+  // True per-status counts from the whole active queue (not the page). Best-effort:
+  // a count failure never blocks the list. Parallelised with loadActive.
+  const loadCounts = useCallback(async () => {
+    if (!user) return;
+    const { data, error: qErr } = await queryDesignerActiveOrderCounts(user.id, ACTIVE_EXCLUDE, COUNT_CAP);
+    if (qErr) return;
+    const rows: CountableOrder[] = ((data as unknown as CountResponseRow[] | null) ?? []).map((o) => ({
+      status: o.status,
+      created_at: o.created_at,
+      updated_at: o.updated_at,
+      items: o.order_items ?? [],
+    }));
+    const now = Date.now();
+    setCounts(aggregateActiveCounts(rows, now));
+    setOldestAgeDays(oldestActiveAgeDays(rows, now));
+  }, [user]);
 
   const loadArchive = useCallback(async () => {
     if (!user) return;
@@ -366,6 +431,11 @@ const DesignerOrders = () => {
     loadActive();
   }, [loadActive]);
 
+  // True active-queue counts (tab badges + workload strip).
+  useEffect(() => {
+    loadCounts();
+  }, [loadCounts]);
+
   // Archive count badge.
   useEffect(() => {
     refreshArchiveCount();
@@ -379,6 +449,7 @@ const DesignerOrders = () => {
   // Keep the realtime reload pointing at the latest loaders/state.
   reloadRef.current = () => {
     loadActive();
+    loadCounts();
     refreshArchiveCount();
     if (archivedLoaded) loadArchive();
   };
@@ -425,23 +496,51 @@ const DesignerOrders = () => {
     { key: 'archive', label: 'مكتملة', icon: Package, color: 'text-muted-foreground' },
   ];
 
+  // Badges read the TRUE queue counts (from loadCounts), never the paginated page.
   const getCount = (key: string) => {
-    if (key === 'archive') return archiveCount;
-    if (key === 'all') return orders.length;
-    if (key === 'assigned') return orders.filter(isNewAssigned).length;
-    if (key === 'revisions') return orders.filter(hasRevisionItems).length;
-    return orders.filter((o) => o.status === key).length;
+    switch (key) {
+      case 'archive':
+        return archiveCount;
+      case 'all':
+        return counts.all;
+      case 'assigned':
+        return counts.assigned;
+      case 'revisions':
+        return counts.revisions;
+      case 'waiting_approval':
+        return counts.waiting_approval;
+      case 'approved':
+        return counts.approved;
+      default:
+        return 0;
+    }
   };
+
+  const changeSort = useCallback((next: DesignerSortKey) => {
+    setSort(next);
+    try {
+      localStorage.setItem(SORT_STORAGE_KEY, next);
+    } catch {
+      /* storage unavailable — keep the in-memory choice */
+    }
+  }, []);
+
+  // The server already returns newest/oldest order; "overdue first" is the only
+  // client-side step, floating overdue rows to the top of the loaded (oldest-first) page.
+  const sortedActive = useMemo(
+    () => (sort === 'overdue' ? overdueFirst(orders, isOverdue) : orders),
+    [orders, sort],
+  );
 
   const filteredOrders = useMemo(() => {
     let src: DesignerOrder[];
     if (activeTab === 'archive') src = archived;
-    else if (activeTab === 'all') src = orders;
-    else if (activeTab === 'assigned') src = orders.filter(isNewAssigned);
-    else if (activeTab === 'revisions') src = orders.filter(hasRevisionItems);
-    else src = orders.filter((o) => o.status === activeTab);
+    else if (activeTab === 'all') src = sortedActive;
+    else if (activeTab === 'assigned') src = sortedActive.filter(isNewAssigned);
+    else if (activeTab === 'revisions') src = sortedActive.filter(hasRevisionItems);
+    else src = sortedActive.filter((o) => o.status === activeTab);
     return src.filter((o) => matchesQuery(o, query));
-  }, [activeTab, orders, archived, query]);
+  }, [activeTab, sortedActive, archived, query]);
 
   const isArchive = activeTab === 'archive';
   const showLoadMore = isArchive ? archiveHasMore : activeHasMore;
@@ -475,6 +574,84 @@ const DesignerOrders = () => {
               <X className="w-4 h-4" />
             </button>
           )}
+        </div>
+
+        {/* Workload strip (F4) — real counts + oldest waiting order age. One subtle RTL row. */}
+        {!loading && !error && counts.all > 0 && (
+          <div
+            dir="rtl"
+            className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs mb-4 px-3.5 py-2.5 rounded-xl border border-border bg-muted/30"
+          >
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Upload className="w-3.5 h-3.5 text-cmyk-magenta" aria-hidden />
+              المعينة
+              <span className="font-bold text-foreground">{counts.assigned}</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Edit2 className="w-3.5 h-3.5 text-destructive" aria-hidden />
+              التعديلات
+              <span className="font-bold text-foreground">{counts.revisions}</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Clock className="w-3.5 h-3.5 text-cmyk-yellow" aria-hidden />
+              بانتظار الموافقة
+              <span className="font-bold text-foreground">{counts.waiting_approval}</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <AlertTriangle
+                className={cn(
+                  'w-3.5 h-3.5',
+                  counts.overdue > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground/50'
+                )}
+                aria-hidden
+              />
+              المتأخرة
+              <span
+                className={cn(
+                  'font-bold',
+                  counts.overdue > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'
+                )}
+              >
+                {counts.overdue}
+              </span>
+            </span>
+            {oldestAgeDays !== null && (
+              <span className="flex items-center gap-1.5 text-muted-foreground sm:ms-auto">
+                <Hourglass className="w-3.5 h-3.5" aria-hidden />
+                أقدم طلب بانتظارك:
+                <span className="font-bold text-foreground">
+                  {oldestAgeDays === 0 ? 'اليوم' : `منذ ${oldestAgeDays} يوم`}
+                </span>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Sort control (item 2) — segmented, choice persisted to localStorage */}
+        <div className="flex items-center gap-2 mb-4" dir="rtl">
+          <ArrowDownUp className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
+          <div
+            role="group"
+            aria-label="ترتيب الطلبات"
+            className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => changeSort(opt.key)}
+                aria-pressed={sort === opt.key}
+                className={cn(
+                  'px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors',
+                  sort === opt.key
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Section Navbar */}

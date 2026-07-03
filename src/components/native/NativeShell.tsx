@@ -23,7 +23,7 @@ interface NativeTab {
 }
 
 // Full-screen flows: hide the bottom tab bar and show a back-only top bar.
-const FULLSCREEN = ['/auth', '/staff-login', '/designer/login', '/complete-profile'];
+const FULLSCREEN = ['/auth', '/staff-login', '/complete-profile'];
 
 // Optional short screen titles shown beside the back button on non-root screens.
 const TITLES: Record<string, string> = {

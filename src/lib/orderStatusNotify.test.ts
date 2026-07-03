@@ -19,8 +19,10 @@ vi.mock('@/integrations/supabase/client', async () => {
 import {
   STATUS_PUSH,
   CUSTOMER_ACTION_PUSH,
+  CLARIFICATION_PUSH,
   notifyOrderStatusPush,
   notifyDesignerOfCustomerAction,
+  notifyCustomerOfClarification,
 } from './orderStatusNotify';
 
 beforeEach(() => {
@@ -148,6 +150,38 @@ describe('notifyDesignerOfCustomerAction', () => {
     mockSupabase.functions.invoke.mockRejectedValueOnce(new Error('network down'));
     expect(() => notifyDesignerOfCustomerAction('order-1', 'designer-1', 'approved')).not.toThrow();
     // let the internal .catch() settle
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+});
+
+describe('notifyCustomerOfClarification', () => {
+  it('has non-empty Arabic title + body', () => {
+    expect(CLARIFICATION_PUSH.title.trim().length).toBeGreaterThan(0);
+    expect(CLARIFICATION_PUSH.body.trim().length).toBeGreaterThan(0);
+  });
+
+  it('invokes send-push with the clarification copy targeting the customer', () => {
+    notifyCustomerOfClarification('order-1', 'cust-1');
+    expect(mockSupabase.functions.invoke).toHaveBeenCalledWith('send-push', {
+      body: {
+        userId: 'cust-1',
+        title: CLARIFICATION_PUSH.title,
+        body: CLARIFICATION_PUSH.body,
+        data: { orderId: 'order-1', event: 'clarification' },
+      },
+    });
+  });
+
+  it('no-ops when the order or customer id is missing', () => {
+    notifyCustomerOfClarification(null, 'cust-1');
+    notifyCustomerOfClarification('order-1', undefined);
+    expect(mockSupabase.functions.invoke).not.toHaveBeenCalled();
+  });
+
+  it('swallows a rejected invoke (push is non-critical)', async () => {
+    mockSupabase.functions.invoke.mockRejectedValueOnce(new Error('boom'));
+    expect(() => notifyCustomerOfClarification('order-1', 'cust-1')).not.toThrow();
     await Promise.resolve();
     await Promise.resolve();
   });

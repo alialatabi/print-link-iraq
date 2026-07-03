@@ -150,7 +150,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         </div>
 
         {/* Services sub-navbar - circular icons (hidden for designers) */}
-        {!hideShopChrome && !pathname.startsWith('/auth') && !pathname.startsWith('/staff-login') && !pathname.startsWith('/designer/login') && (
+        {!hideShopChrome && !pathname.startsWith('/auth') && !pathname.startsWith('/staff-login') && (
         <div className="bg-card/50 dark:bg-white/50 dark:text-[hsl(222,47%,11%)] backdrop-blur-sm border-b border-border/30">
           <div className="container">
             <div className="flex items-end justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto scrollbar-hide pt-5 pb-3 px-1 min-h-[100px]">

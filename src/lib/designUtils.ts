@@ -56,3 +56,54 @@ export const getDesignSignedUrl = async (filePath: string, downloadName?: string
   }
   return data.signedUrl;
 };
+
+// ─── Direct approve→print eligibility (designer) ──────────────────────────────
+
+export interface DirectPrintEligibility {
+  /** Show the direct "approve & send to print" action at all. */
+  canDirectPrint: boolean;
+  /** Blocked specifically because it's an AI draft with no designer-uploaded final. */
+  blockedAiDraft: boolean;
+}
+
+/**
+ * Decide whether a designer may approve an item and send it straight to print, and — for AI
+ * items — whether it is blocked because only the AI *draft* exists.
+ *
+ * Rules:
+ *  - The item's status must allow work (`canWork`).
+ *  - AI-design items may ONLY be printed from a designer-uploaded final. The image the customer
+ *    attached is an AI DRAFT (needs Arabic typesetting / print prep) and must never be dispatched
+ *    to the print group — so attachments do NOT unlock direct print for AI items.
+ *  - Non-AI items may be printed from an uploaded design OR a customer-attached print-ready file.
+ *
+ * Pure — no I/O — so the guard is unit-tested independently of the component.
+ */
+export function evaluateDirectPrint(opts: {
+  canWork: boolean;
+  isAiDesign: boolean;
+  hasUploadedDesign: boolean;
+  attachmentCount: number;
+}): DirectPrintEligibility {
+  const { canWork, isAiDesign, hasUploadedDesign, attachmentCount } = opts;
+  if (!canWork) return { canDirectPrint: false, blockedAiDraft: false };
+  if (isAiDesign) {
+    return { canDirectPrint: hasUploadedDesign, blockedAiDraft: !hasUploadedDesign };
+  }
+  return { canDirectPrint: hasUploadedDesign || attachmentCount > 0, blockedAiDraft: false };
+}
+
+// ─── Human-readable file size ─────────────────────────────────────────────────
+
+/**
+ * Format a byte count as a short human string (e.g. `1.4MB`, `820KB`, `512B`). Uses en-US digits
+ * (matmaa shows file sizes LTR next to filenames). Pure — unit-tested.
+ */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '';
+  if (bytes < 1024) return `${bytes}B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)}KB`;
+  const mb = kb / 1024;
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)}MB`;
+}

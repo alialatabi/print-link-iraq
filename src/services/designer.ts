@@ -69,19 +69,54 @@ export function countDesignerArchivedOrders(
 /**
  * Fetch a page of active (non-completed) orders assigned to a designer.
  * The `excludeStatuses` string must be in PostgREST `in` value format: `(a,b,c)`.
+ *
+ * `ascending` controls the `created_at` order: `false` (default) = newest first,
+ * `true` = oldest first. Oldest-first is used by the "الأقدم أولاً" and
+ * "المتأخرة أولاً" sort modes so the oldest (hence overdue) orders always land
+ * inside the page cap instead of hiding beyond it.
  */
 export function queryDesignerActiveOrders(
   userId: string,
   excludeStatuses: string,
   limit: number,
+  ascending = false,
 ) {
   return supabase
     .from('orders')
     .select(DESIGNER_ORDER_SELECT)
     .eq('designer_id', userId)
     .not('status', 'in', excludeStatuses)
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending })
     .limit(limit);
+}
+
+/**
+ * Lightweight projection used to compute TRUE tab counts + the workload strip,
+ * independent of the paginated list. Selects only the columns needed to bucket
+ * each active order (order status/timestamps + each item's status & revision
+ * signal) so the counts never lie once the queue exceeds one page.
+ */
+export const DESIGNER_COUNT_SELECT =
+  'id, status, created_at, updated_at, order_items(status, details)';
+
+/**
+ * Fetch the lightweight count dataset for ALL of a designer's active orders
+ * (up to `cap`, a safety valve — a real queue is dozens, never thousands).
+ * Ordered oldest-first so the oldest order is always retained when capped
+ * (keeps the "أقدم طلب" age accurate). Parallelise this with the list fetch.
+ */
+export function queryDesignerActiveOrderCounts(
+  userId: string,
+  excludeStatuses: string,
+  cap: number,
+) {
+  return supabase
+    .from('orders')
+    .select(DESIGNER_COUNT_SELECT)
+    .eq('designer_id', userId)
+    .not('status', 'in', excludeStatuses)
+    .order('created_at', { ascending: true })
+    .limit(cap);
 }
 
 /**
@@ -273,4 +308,131 @@ export function updateOrderStatusAndDetails(
  */
 export function invokeSendToTelegram(body: Record<string, unknown>) {
   return supabase.functions.invoke('send-to-telegram', { body });
+}
+
+// ---------------------------------------------------------------------------
+// Active-queue counting & sorting — PURE helpers (no Supabase, unit-tested)
+//
+// Shared by DesignerOrders for BOTH the paginated list (card rendering +
+// client-side "overdue first" ordering) and the un-paginated count dataset
+// (true tab badges + workload strip). Keeping the bucket logic here means the
+// list and the badges can never disagree.
+// ---------------------------------------------------------------------------
+
+/** A day-and-a-bit old, still awaiting the designer's first action → "متأخر". */
+const OVERDUE_MS = 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Minimal item shape needed to detect a pending (customer-requested) revision. */
+export interface RevisionItemLike {
+  status: string | null;
+  details: { revisions?: unknown } | null;
+}
+
+/** Minimal order shape needed to bucket an active order. */
+export interface CountableOrder {
+  status: string;
+  created_at: string;
+  updated_at: string | null;
+  items: RevisionItemLike[];
+}
+
+/** Persisted sort choices for the active queue. */
+export const DESIGNER_SORT_KEYS = ['newest', 'oldest', 'overdue'] as const;
+export type DesignerSortKey = (typeof DESIGNER_SORT_KEYS)[number];
+
+/** Coerce an untrusted (localStorage) value to a valid sort key. */
+export function parseSortKey(raw: string | null | undefined): DesignerSortKey {
+  return (DESIGNER_SORT_KEYS as readonly string[]).includes(raw ?? '')
+    ? (raw as DesignerSortKey)
+    : 'newest';
+}
+
+/**
+ * True when the order has at least one item that is back in `assigned` with a
+ * non-empty revision history — i.e. the customer asked for a change. A revision
+ * only flips the ITEM status (the order row is untouched), so this cannot be
+ * derived from `orders.status` alone.
+ */
+export function orderHasRevision(items: readonly RevisionItemLike[] | null | undefined): boolean {
+  return (items ?? []).some((it) => {
+    const revs = it.details?.revisions;
+    return it.status === 'assigned' && Array.isArray(revs) && revs.length > 0;
+  });
+}
+
+/** A freshly assigned order still awaiting its first upload (excludes revisions). */
+export function isNewAssignedOrder(
+  status: string,
+  items: readonly RevisionItemLike[] | null | undefined,
+): boolean {
+  return status === 'assigned' && !orderHasRevision(items);
+}
+
+/** A new-assigned order left untouched for more than a day. */
+export function isOrderOverdue(order: CountableOrder, now: number): boolean {
+  if (!isNewAssignedOrder(order.status, order.items)) return false;
+  const ts = new Date(order.updated_at || order.created_at).getTime();
+  return now - ts > OVERDUE_MS;
+}
+
+export interface ActiveQueueCounts {
+  all: number;
+  assigned: number;
+  revisions: number;
+  waiting_approval: number;
+  approved: number;
+  overdue: number;
+}
+
+/** Bucket the full active dataset into the tab/strip counts in one pass. */
+export function aggregateActiveCounts(
+  orders: readonly CountableOrder[],
+  now: number,
+): ActiveQueueCounts {
+  const counts: ActiveQueueCounts = {
+    all: 0,
+    assigned: 0,
+    revisions: 0,
+    waiting_approval: 0,
+    approved: 0,
+    overdue: 0,
+  };
+  for (const o of orders) {
+    counts.all += 1;
+    if (orderHasRevision(o.items)) counts.revisions += 1;
+    if (isNewAssignedOrder(o.status, o.items)) counts.assigned += 1;
+    if (o.status === 'waiting_approval') counts.waiting_approval += 1;
+    if (o.status === 'approved') counts.approved += 1;
+    if (isOrderOverdue(o, now)) counts.overdue += 1;
+  }
+  return counts;
+}
+
+/** Whole-day age of the oldest active order (by created_at); null when empty. */
+export function oldestActiveAgeDays(
+  orders: readonly { created_at: string }[],
+  now: number,
+): number | null {
+  let oldest = Infinity;
+  for (const o of orders) {
+    const t = new Date(o.created_at).getTime();
+    if (Number.isFinite(t) && t < oldest) oldest = t;
+  }
+  if (oldest === Infinity) return null;
+  return Math.max(0, Math.floor((now - oldest) / DAY_MS));
+}
+
+/**
+ * Stable partition that floats overdue rows to the top while preserving the
+ * incoming order within each group. Server-side ordering already handles
+ * newest/oldest; this is the only client-side step, applied over the loaded
+ * page for the "overdue first" mode (which fetches oldest-first, so overdue
+ * items are guaranteed to be inside the page).
+ */
+export function overdueFirst<T>(orders: readonly T[], isOverdue: (o: T) => boolean): T[] {
+  const hot: T[] = [];
+  const cold: T[] = [];
+  for (const o of orders) (isOverdue(o) ? hot : cold).push(o);
+  return [...hot, ...cold];
 }

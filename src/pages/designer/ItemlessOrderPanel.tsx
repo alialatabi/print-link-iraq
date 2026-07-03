@@ -1,11 +1,12 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  Upload, FileText, Image, Trash2, CheckCircle2, RefreshCw,
-  Eye, Printer, MapPin,
+  Upload, FileText, Image, CheckCircle2, RefreshCw,
+  Printer, MapPin,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AttachmentGallery from './AttachmentGallery';
+import DesignVersionList from '@/components/designer/DesignVersionList';
 import type { OrderDetailsJson } from '@/types/db';
 import type { DesignVersion } from './DesignItemCard';
 
@@ -24,7 +25,6 @@ interface ItemlessOrderPanelProps {
   fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   onSendToPrint: () => Promise<void>;
-  onViewDesign: (filePath: string) => Promise<void>;
   onDeleteDesign: (design: DesignVersion) => Promise<void>;
 }
 
@@ -41,7 +41,6 @@ const ItemlessOrderPanel = ({
   fileInputRef,
   onFileSelect,
   onSendToPrint,
-  onViewDesign,
   onDeleteDesign,
 }: ItemlessOrderPanelProps) => {
   const canUpload = ['submitted', 'assigned', 'design_uploaded'].includes(orderStatus);
@@ -160,43 +159,14 @@ const ItemlessOrderPanel = ({
           </div>
         )}
 
-        {/* Uploaded design versions */}
+        {/* Uploaded design versions — shared list: in-app lightbox + forced download per version */}
         {orderDesigns.length > 0 && (
-          <div className="space-y-2 mb-4">
-            {orderDesigns.map((design, i) => (
-              <div
-                key={design.id}
-                className={cn(
-                  'rounded-lg p-3 flex items-center justify-between gap-3',
-                  i === 0 ? 'bg-primary/5 border border-primary/20' : 'bg-muted/50 border border-border',
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className={cn('w-4 h-4', i === 0 ? 'text-primary' : 'text-muted-foreground')} />
-                  <div>
-                    <p className="font-medium text-foreground text-sm">
-                      الإصدار {design.version}{' '}
-                      {i === 0 && <span className="text-primary text-xs mr-1">(الأحدث)</span>}
-                    </p>
-                    <p className="text-muted-foreground text-[11px]">
-                      {new Date(design.uploaded_at).toLocaleDateString('ar')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {design.file_url && (
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onViewDesign(design.file_url!)}>
-                      <Eye className="w-3 h-3 ml-1" />عرض
-                    </Button>
-                  )}
-                  {canUpload && (
-                    <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => onDeleteDesign(design)}>
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div className="mb-4">
+            <DesignVersionList
+              designs={orderDesigns}
+              canDelete={() => canUpload}
+              onDelete={onDeleteDesign}
+            />
           </div>
         )}
 

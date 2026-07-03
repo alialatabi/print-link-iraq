@@ -12,7 +12,6 @@ import Layout from "@/components/Layout";
 import ScrollToTop from "@/components/ScrollToTop";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PageSkeleton from "@/components/system/PageSkeleton";
-import { isNativeApp } from "@/lib/platform";
 const Index = lazy(() => import("./pages/Index"));
 
 // Lazy-loaded routes for code splitting
@@ -26,7 +25,6 @@ const OrderSuccess = lazy(() => import("./pages/customer/OrderSuccess"));
 const OrderTracking = lazy(() => import("./pages/customer/OrderTracking"));
 const MyOrders = lazy(() => import("./pages/customer/MyOrders"));
 const ProfilePage = lazy(() => import("./pages/customer/ProfilePage"));
-const DesignerLogin = lazy(() => import("./pages/designer/DesignerLogin"));
 const DesignerOrders = lazy(() => import("./pages/designer/DesignerOrders"));
 const DesignerOrderDetails = lazy(() => import("./pages/designer/DesignerOrderDetails"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
@@ -103,7 +101,7 @@ const App = () => (
                 <Route path="/my-coupons" element={<ProtectedRoute><MyCoupons /></ProtectedRoute>} />
 
                 {/* Designer routes */}
-                <Route path="/designer/login" element={isNativeApp ? <Navigate to="/" replace /> : <DesignerLogin />} />
+                <Route path="/designer/login" element={<Navigate to="/staff-login" replace />} />
                 <Route path="/designer/orders" element={<ProtectedRoute requiredRole="designer"><DesignerOrders /></ProtectedRoute>} />
                 <Route path="/designer/orders/:orderId" element={<ProtectedRoute requiredRole="designer"><DesignerOrderDetails /></ProtectedRoute>} />
 

@@ -23,20 +23,30 @@ export function attachmentFilename(url: string, index: number): string {
   return `مرفق-${index + 1}`;
 }
 
+/**
+ * Force a real download of a (possibly cross-origin) storage URL: fetch → blob → object URL, since
+ * the `download` attribute is ignored cross-origin. Throws on failure so callers that download many
+ * files in sequence (تنزيل كل المرفقات) can decide whether to keep going. `blobDownload` is the raw
+ * helper; `downloadAttachment` wraps it with busy state + a per-file fallback toast.
+ */
+export async function blobDownload(url: string, filename: string): Promise<void> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 async function downloadAttachment(url: string, filename: string, onBusy: (busy: boolean) => void) {
   onBusy(true);
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = objectUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(objectUrl);
+    await blobDownload(url, filename);
   } catch {
     // CORS/network hiccup — at least open the original so the designer can save manually.
     toast({ title: 'تعذّر التنزيل المباشر', description: 'تم فتح الملف في تبويب جديد', variant: 'destructive' });

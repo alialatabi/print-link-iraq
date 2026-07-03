@@ -85,3 +85,40 @@ export function notifyDesignerOfCustomerAction(
     })
     .catch(() => { /* push is non-critical */ });
 }
+
+/**
+ * Customer-facing push copy when the DESIGNER asks the customer a clarifying question about
+ * their order (the "اطلب توضيحاً من الزبون" action on DesignerOrderDetails). Kept SEPARATE from
+ * STATUS_PUSH — that map is strictly the order-STATUS set and is asserted key-for-key in tests;
+ * a clarification is not a status change (the order status stays put).
+ */
+export const CLARIFICATION_PUSH = {
+  title: 'المصمم يحتاج توضيحاً منك 💬',
+  body: 'افتح الطلب للرد على سؤال المصمم',
+} as const;
+
+/**
+ * Best-effort push to the customer when the designer requests a clarification. Never blocks or
+ * throws (push is non-critical) and no-ops when the order/customer id is missing. Staff→customer
+ * pushes are authorized server-side in the `send-push` edge function (a customer of some order is
+ * always a valid target), so no function change is needed.
+ *
+ * @param orderId    the order the push deep-links to (`data.orderId`)
+ * @param customerId recipient user id (`order.customer_id`)
+ */
+export function notifyCustomerOfClarification(
+  orderId: string | null | undefined,
+  customerId: string | null | undefined,
+): void {
+  if (!orderId || !customerId) return;
+  supabase.functions
+    .invoke('send-push', {
+      body: {
+        userId: customerId,
+        title: CLARIFICATION_PUSH.title,
+        body: CLARIFICATION_PUSH.body,
+        data: { orderId, event: 'clarification' },
+      },
+    })
+    .catch(() => { /* push is non-critical */ });
+}

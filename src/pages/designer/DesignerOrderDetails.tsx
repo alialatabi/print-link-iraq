@@ -2,13 +2,17 @@ import { useParams, Link } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MessageSquare, Phone, Send } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { SERVICE_LABELS, type OrderStatus, type ServiceType } from '@/data/mockData';
 import { toast } from '@/hooks/use-toast';
-import { getDesignSignedUrl } from '@/lib/storage';
 import { getUserFriendlyError } from '@/lib/errors';
-import { notifyOrderStatusPush } from '@/lib/orderStatusNotify';
+import { retryAsync } from '@/lib/retry';
+import { isAlreadyExistsError } from '@/services/orders';
+import { notifyOrderStatusPush, notifyCustomerOfClarification } from '@/lib/orderStatusNotify';
+import { getCustomerPhoneForDesigner, resolveDetailsPhone } from '@/lib/designerCustomer';
 import type { OrderDetailsJson } from '@/types/db';
 import ResellerOrderPanel from './ResellerOrderPanel';
 import ItemlessOrderPanel from './ItemlessOrderPanel';
@@ -51,6 +55,15 @@ const DesignerOrderDetails = () => {
   const [designs, setDesigns] = useState<DesignVersion[]>([]);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [uploadingItem, setUploadingItem] = useState<string | null>(null);
+  // In-flight upload metadata + the File whose upload failed (drives the inline retry in the card).
+  const [uploadInfo, setUploadInfo] = useState<{ name: string; size: number } | null>(null);
+  const [failedUploads, setFailedUploads] = useState<Record<string, File | null>>({});
+  // Customer contact (account phone via assigned-designer RPC, else the order's details phone).
+  const [customerPhone, setCustomerPhone] = useState<string | null>(null);
+  // "اطلب توضيحاً من الزبون" mini-form.
+  const [clarifOpen, setClarifOpen] = useState(false);
+  const [clarifText, setClarifText] = useState('');
+  const [clarifSending, setClarifSending] = useState(false);
   const [sendingItem, setSendingItem] = useState<string | null>(null);
   const [approvalFormItem, setApprovalFormItem] = useState<string | null>(null);
   const [designerMessages, setDesignerMessages] = useState<Record<string, string>>({});
@@ -111,24 +124,35 @@ const DesignerOrderDetails = () => {
 
   const getItemDesigns = (itemId: string) => designs.filter(d => d.order_item_id === itemId);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, itemId: string) => {
-    const file = e.target.files?.[0];
-    if (!file || !orderId) return;
+  // Customer contact: account phone via the assigned-designer RPC, falling back to whatever
+  // phone the order's details JSON carries (delivery/reseller contact). Best-effort.
+  useEffect(() => {
+    if (!order) return;
+    let cancelled = false;
+    (async () => {
+      const account = await getCustomerPhoneForDesigner(order.customer_id);
+      if (!cancelled) setCustomerPhone(account || resolveDetailsPhone(order.details));
+    })();
+    return () => { cancelled = true; };
+  }, [order]);
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: 'الملف كبير جداً', description: 'الحد الأقصى 10MB', variant: 'destructive' });
-      return;
-    }
-
+  // Core upload used by both the file input and the inline retry. Uploads with retryAsync
+  // (flaky-network resilience); a retry that lands after a lost-response success hits the
+  // storage "already exists" error, which we treat as success (upsert is deliberately false).
+  const performItemUpload = async (itemId: string, file: File) => {
+    if (!orderId) return;
     setUploadingItem(itemId);
+    setUploadInfo({ name: file.name, size: file.size });
     try {
       const itemDesigns = getItemDesigns(itemId);
       const nextVersion = itemDesigns.length > 0 ? itemDesigns[0].version + 1 : 1;
       const ext = file.name.split('.').pop();
       const filePath = `${orderId}/${itemId}/v${nextVersion}.${ext}`;
 
-      const { error: uploadError } = await uploadDesignFile(filePath, file);
-      if (uploadError) throw uploadError;
+      await retryAsync(async () => {
+        const { error: uploadError } = await uploadDesignFile(filePath, file);
+        if (uploadError && !isAlreadyExistsError(uploadError)) throw uploadError;
+      }, { attempts: 3 });
 
       const { error: insertError } = await insertDesignVersion(orderId, itemId, nextVersion, filePath);
       if (insertError) throw insertError;
@@ -136,51 +160,119 @@ const DesignerOrderDetails = () => {
       // Update item status
       await setOrderItemStatus(itemId, 'design_uploaded');
 
+      setFailedUploads(prev => ({ ...prev, [itemId]: null }));
       toast({ title: 'تم رفع التصميم بنجاح', description: `الإصدار ${nextVersion}` });
       loadDesigns();
       loadItems();
     } catch (e: unknown) {
+      // Keep the File so the card can offer a one-tap إعادة المحاولة without re-picking.
+      setFailedUploads(prev => ({ ...prev, [itemId]: file }));
       toast({ title: 'فشل رفع الملف', description: getUserFriendlyError(e), variant: 'destructive' });
     } finally {
       setUploadingItem(null);
+      setUploadInfo(null);
       const ref = fileInputRefs.current[itemId];
       if (ref) ref.value = '';
     }
   };
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, itemId: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'الملف كبير جداً', description: 'الحد الأقصى 10MB', variant: 'destructive' });
+      return;
+    }
+    await performItemUpload(itemId, file);
+  };
+
+  const handleRetryUpload = (itemId: string) => {
+    const file = failedUploads[itemId];
+    if (file) void performItemUpload(itemId, file);
+  };
+
   const handleSendForApproval = async (itemId: string) => {
     if (!orderId) return;
     setSendingItem(itemId);
-    const item = orderItems.find(i => i.id === itemId);
-    const currentDetails = item?.details || {};
-    const messages = currentDetails.designer_messages || [];
-    const msg = designerMessages[itemId]?.trim();
-    if (msg) {
-      const itemDesigns = getItemDesigns(itemId);
-      messages.push({ text: msg, date: new Date().toISOString(), version: itemDesigns[0]?.version || 0 });
+    try {
+      const item = orderItems.find(i => i.id === itemId);
+      const currentDetails = item?.details || {};
+      const messages = [...(currentDetails.designer_messages || [])];
+      const msg = designerMessages[itemId]?.trim();
+      if (msg) {
+        const itemDesigns = getItemDesigns(itemId);
+        messages.push({ text: msg, date: new Date().toISOString(), version: itemDesigns[0]?.version || 0 });
+      }
+
+      const { error: itemError } = await setOrderItemStatusAndDetails(itemId, 'waiting_approval', {
+        ...currentDetails,
+        designer_messages: messages,
+      });
+      if (itemError) throw itemError;
+
+      // Check if all items are now waiting_approval or beyond
+      const updatedItems = orderItems.map(i => i.id === itemId ? { ...i, status: 'waiting_approval' as OrderStatus } : i);
+      const allWaiting = updatedItems.every(i => ['waiting_approval', 'approved', 'print_ready', 'printed', 'delivered'].includes(i.status));
+      if (allWaiting) {
+        const { error: orderError } = await setOrderStatus(orderId, 'waiting_approval');
+        if (orderError) throw orderError;
+        // The whole order is now ready for the customer to review — the single most
+        // important customer moment. Push them so they come approve it.
+        notifyOrderStatusPush(orderId, order?.customer_id, 'waiting_approval');
+      }
+
+      // Success side-effects ONLY after every write landed — a failed send must not
+      // claim the customer was notified (the old version toasted success unconditionally).
+      toast({ title: 'تم إرسال التصميم للموافقة' });
+      setDesignerMessages(prev => ({ ...prev, [itemId]: '' }));
+      setApprovalFormItem(null);
+      loadItems();
+      loadOrder();
+    } catch (e: unknown) {
+      toast({ title: 'فشل إرسال التصميم للموافقة', description: getUserFriendlyError(e), variant: 'destructive' });
+    } finally {
+      setSendingItem(null);
     }
+  };
 
-    await setOrderItemStatusAndDetails(itemId, 'waiting_approval', {
-      ...currentDetails,
-      designer_messages: messages,
-    });
-
-    // Check if all items are now waiting_approval or beyond
-    const updatedItems = orderItems.map(i => i.id === itemId ? { ...i, status: 'waiting_approval' as OrderStatus } : i);
-    const allWaiting = updatedItems.every(i => ['waiting_approval', 'approved', 'print_ready', 'printed', 'delivered'].includes(i.status));
-    if (allWaiting) {
-      await setOrderStatus(orderId, 'waiting_approval');
-      // The whole order is now ready for the customer to review — the single most
-      // important customer moment. Push them so they come approve it.
-      notifyOrderStatusPush(orderId, order?.customer_id, 'waiting_approval');
+  // "اطلب توضيحاً من الزبون": persists the question where the customer already reads designer
+  // messages (the expanded/first item's designer_messages; order-level details for item-less
+  // orders) and pushes them. No status change — the order keeps flowing.
+  const handleSendClarification = async () => {
+    const text = clarifText.trim();
+    if (!text || !orderId || !order) return;
+    setClarifSending(true);
+    try {
+      if (orderItems.length > 0) {
+        const target = orderItems.find(i => i.id === expandedItem) || orderItems[0];
+        const details = target.details || {};
+        const messages = [
+          ...(details.designer_messages || []),
+          { text, date: new Date().toISOString(), version: getItemDesigns(target.id)[0]?.version || 0, type: 'clarification' },
+        ];
+        const { error } = await setOrderItemStatusAndDetails(target.id, target.status, { ...details, designer_messages: messages });
+        if (error) throw error;
+      } else {
+        const details = order.details || {};
+        const messages = [
+          ...((details.designer_messages as { text: string; date: string }[] | undefined) || []),
+          { text, date: new Date().toISOString(), type: 'clarification' },
+        ];
+        const { error } = await updateOrderStatusAndDetails(orderId, order.status as OrderStatus, { ...details, designer_messages: messages });
+        if (error) throw error;
+      }
+      notifyCustomerOfClarification(orderId, order.customer_id);
+      toast({ title: 'أُرسل سؤالك للزبون 💬' });
+      setClarifText('');
+      setClarifOpen(false);
+      loadItems();
+      loadOrder();
+    } catch (e: unknown) {
+      toast({ title: 'فشل إرسال السؤال', description: getUserFriendlyError(e), variant: 'destructive' });
+    } finally {
+      setClarifSending(false);
     }
-
-    toast({ title: 'تم إرسال التصميم للموافقة' });
-    setDesignerMessages(prev => ({ ...prev, [itemId]: '' }));
-    setApprovalFormItem(null);
-    loadItems();
-    loadOrder();
-    setSendingItem(null);
   };
 
   // Core: send a design file (already in the `designs` bucket) to the Telegram print group and
@@ -326,12 +418,6 @@ const DesignerOrderDetails = () => {
     }
   };
 
-  const handleViewDesign = async (filePath: string) => {
-    const url = await getDesignSignedUrl(filePath);
-    if (url) window.open(url, '_blank');
-    else toast({ title: 'فشل فتح الملف', variant: 'destructive' });
-  };
-
   const handleDeleteDesign = async (design: DesignVersion) => {
     if (!orderId || !design.file_url) return;
     try {
@@ -449,16 +535,64 @@ const DesignerOrderDetails = () => {
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           {/* Header */}
-          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold text-foreground">تفاصيل الطلب</h1>
               <p className="text-muted-foreground text-sm mt-1">
                 {order.profiles?.display_name || '-'}
                 {hasItems && <span className="mr-2">• {orderItems.length} عناصر</span>}
               </p>
+              {/* Customer contact + clarification — available on ALL order types */}
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                {customerPhone && (
+                  <Button asChild variant="outline" size="sm" className="h-8 rounded-lg text-xs">
+                    <a href={`tel:${customerPhone}`}>
+                      <Phone className="w-3.5 h-3.5 ml-1.5 text-primary" />
+                      <span dir="ltr">{customerPhone}</span>
+                    </a>
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-lg text-xs"
+                  onClick={() => setClarifOpen(o => !o)}
+                >
+                  <MessageSquare className="w-3.5 h-3.5 ml-1.5 text-primary" />
+                  اطلب توضيحاً من الزبون
+                </Button>
+              </div>
             </div>
             <StatusBadge status={order.status as OrderStatus} />
           </div>
+
+          {/* Clarification mini-form */}
+          {clarifOpen && (
+            <div className="bg-card rounded-xl border border-border p-4 mb-6 space-y-3">
+              <p className="text-sm font-bold text-foreground flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-primary" />
+                سؤال توضيحي للزبون
+              </p>
+              <Textarea
+                value={clarifText}
+                onChange={e => setClarifText(e.target.value)}
+                placeholder="مثال: ما هو الرقم الصحيح الذي تريده على الكارت؟"
+                className="rounded-xl min-h-[70px]"
+                maxLength={500}
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={handleSendClarification}
+                  disabled={clarifSending || !clarifText.trim()}
+                  className="rounded-lg"
+                >
+                  <Send className="w-3.5 h-3.5 ml-1.5" />
+                  {clarifSending ? 'جاري الإرسال...' : 'إرسال السؤال'}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Reseller order: design review flow */}
           {isReseller ? (
@@ -484,6 +618,8 @@ const DesignerOrderDetails = () => {
                   onToggle={() => setExpandedItem(expandedItem === item.id ? null : item.id)}
                   itemDesigns={getItemDesigns(item.id)}
                   uploadingItem={uploadingItem}
+                  uploadInfo={uploadingItem === item.id ? uploadInfo : null}
+                  failedUpload={failedUploads[item.id] ?? null}
                   sendingItem={sendingItem}
                   printingItem={printingItem}
                   approvalFormItem={approvalFormItem}
@@ -492,10 +628,10 @@ const DesignerOrderDetails = () => {
                   setDesignerMessages={setDesignerMessages}
                   fileInputRefs={fileInputRefs}
                   onFileSelect={handleFileSelect}
+                  onRetryUpload={handleRetryUpload}
                   onSendForApproval={handleSendForApproval}
                   onApproveAndPrint={handleApproveAndPrint}
                   onSendExistingToPrint={handleSendExistingToPrint}
-                  onViewDesign={handleViewDesign}
                   onDeleteDesign={handleDeleteDesign}
                 />
               ))}
@@ -515,7 +651,6 @@ const DesignerOrderDetails = () => {
               fileInputRef={orderFileInputRef}
               onFileSelect={handleItemlessFileSelect}
               onSendToPrint={handleItemlessSendToPrint}
-              onViewDesign={handleViewDesign}
               onDeleteDesign={handleDeleteDesign}
             />
           )}

@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { m as motion } from 'framer-motion';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import ImageLightbox from '@/components/ImageLightbox';
+import RevisionImages from '@/components/RevisionImages';
 import {
   CheckCircle, Clock, FileText, Palette, Printer, Truck,
   Eye, MessageSquare, RefreshCw, ImagePlus, X, ChevronDown, ChevronUp, Timer,
@@ -13,7 +14,6 @@ import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import type { OrderStatus } from '@/data/mockData';
 import type { OrderDetailsJson } from '@/types/db';
 import { getDesignSignedUrl } from '@/lib/storage';
-import { createRevisionSignedUrl } from '@/services/orders';
 import { IMAGE_ACCEPT } from '@/lib/uploadValidation';
 
 export interface DesignVersion {
@@ -51,37 +51,6 @@ interface ServiceMeta {
   id: string;
   completion_days: number;
 }
-
-// ── RevisionImages ─────────────────────────────────────────────────────────
-
-const RevisionImages = ({ paths, onView }: { paths: string[]; onView: (url: string) => void }) => {
-  const [urls, setUrls] = useState<string[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      const results = await Promise.all(paths.map(p => createRevisionSignedUrl(p)));
-      if (!cancelled) setUrls(results.filter(Boolean) as string[]);
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [paths]);
-  if (urls.length === 0) return null;
-  return (
-    <div className="flex gap-2 flex-wrap mt-2">
-      {urls.map((url, i) => (
-        <img
-          key={i}
-          src={url}
-          alt={`مرفق ${i + 1}`}
-          draggable={false}
-          onContextMenu={e => e.preventDefault()}
-          className="w-16 h-16 rounded-lg object-cover border border-border/60 cursor-pointer select-none"
-          onClick={() => onView(url)}
-        />
-      ))}
-    </div>
-  );
-};
 
 // ── ITEM_STEPS ─────────────────────────────────────────────────────────────
 
