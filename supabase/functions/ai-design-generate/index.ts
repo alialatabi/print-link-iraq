@@ -30,8 +30,10 @@ const COST_RATES = {
 };
 
 // H8 — bound the cost/size of a single generation by capping free-text inputs.
+// Directives cap raised 600→2500: since 20260703140000 every service's ai_directives
+// carries the full PRINT RULES + OUTPUT FORMAT block (~1,300 chars) and must not truncate.
 const MAX_BRIEF_CHARS = 2000;
-const MAX_DIRECTIVES_CHARS = 600;
+const MAX_DIRECTIVES_CHARS = 2500;
 
 // H9 — neutralise prompt-injection: strip control chars and any sequence that could let
 // user content break out of the delimited block it's embedded in, then hard-cap the length.
@@ -102,11 +104,18 @@ async function rewritePrompt(apiKey: string, brief: string, productLabel: string
   const system =
     "You are a pre-press print-design prompt engineer. Convert the customer's brief (often Arabic) " +
     "into ONE concise English image-generation prompt for a print-ready design. Output ONLY the prompt text — " +
-    "no preamble, no quotes, no explanation. Rules: flat 2D vector-style, front-facing (no 3D/mockup/perspective/" +
-    "shadows/reflections); 300 DPI; use ONLY CMYK offset-safe colors (no neon, fluorescent, or RGB-only colors); " +
-    "high contrast; clear safe margins and bleed. Render every piece of the customer's text EXACTLY as written, " +
+    "no preamble, no quotes, no explanation. Rules: a single FLAT 2D graphic design, straight-on view, filling " +
+    "the full frame — NOT a mockup (no 3D perspective, no card/paper floating on a table, no paper texture, no " +
+    "shadows around the piece, no hands, no background scene: the design IS the entire image); 300 DPI; " +
+    "prefer CMYK offset-printable colors — vivid or saturated tones are allowed whenever they benefit the design; " +
+    "high contrast; no thin hairlines and no text below an 8pt equivalent at the printed size; the background must " +
+    "fill the ENTIRE canvas edge to edge, and NEVER draw bleed lines, crop marks, trim marks, dashed borders, " +
+    "guide lines, rulers, or measurement annotations — the image contains ONLY the artwork itself; keep text and " +
+    "badges at least a 5mm equivalent inside the edges without visually marking that margin. The final printed " +
+    "piece is exactly the stated target size — compose the proportions and typography scale for that physical " +
+    "size. Render every piece of the customer's text EXACTLY as written, " +
     "fully legible, with Arabic letters properly connected. Keep it under 1200 characters. Preserve the customer's " +
-    "intent, language of the on-design text, colors (unless CMYK-unsafe), and style. " +
+    "intent, language of the on-design text, colors, and style. " +
     "CRITICAL: avoid very dark or predominantly black designs — never flood large areas with black or very dark colors; " +
     "favor light, clean backgrounds with strong contrast. " +
     "Make ALL text large, correctly spelled, sharply legible, and the visual priority of the design. " +
@@ -327,9 +336,14 @@ Deno.serve(async (req) => {
       const r1 = await rewritePrompt(apiKey, safeBrief, label, sizeText, safeDirectives);
       textUsage = r1.usage;
       effectivePrompt = r1.prompt ||
-        `Professional print-ready ${label}, flat 2D vector style, front-facing (no 3D/mockup/shadows), 300 DPI, ` +
-        `CMYK offset-safe colors only (no neon/fluorescent), clear margins. Render all text exactly as written, ` +
-        `Arabic letters properly connected. Size ${sizeText}.${safeDirectives ? " Design directives: " + safeDirectives + "." : ""} Brief:\n${safeBrief}`;
+        `Professional print-ready ${label}, a single flat 2D graphic design, straight-on view filling the full ` +
+        `frame — NOT a mockup (no 3D, no paper texture, no shadows, no hands, no scene: the design IS the entire ` +
+        `image), 300 DPI. Prefer CMYK offset-printable colors (vivid tones allowed when they benefit the design; ` +
+        `never a predominantly dark/black design). Background fills the entire canvas edge to edge; never draw ` +
+        `bleed/crop/trim marks, dashed borders, guides, or rulers. No thin hairlines or tiny text; keep text a 5mm ` +
+        `equivalent inside the edges without marking the margin. Render all text exactly as written, ` +
+        `Arabic letters properly connected. Physical print size: ${sizeText} — compose proportions and typography ` +
+        `scale for it.${safeDirectives ? " Design directives: " + safeDirectives + "." : ""} Brief:\n${safeBrief}`;
 
       // With reference/logo images → use the edits endpoint so they're composited into the design.
       const r2 = refImages.length > 0

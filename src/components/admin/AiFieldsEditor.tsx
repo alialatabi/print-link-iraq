@@ -58,6 +58,25 @@ const isOrientation = (opts: AiOptionRow[]) =>
 
 const newOptionId = () => `o_${Math.random().toString(36).slice(2, 8)}`;
 
+/**
+ * Canonical PRINT RULES + OUTPUT FORMAT block (spec 2026-07-03). One click appends it to a
+ * NEW product's directives so every AI product ships the same pre-press rules; per the owner,
+ * these rules live in each service's توجيهات (not hardcoded in the edge function). Keep in
+ * sync with migration 20260703140000_ai_directives_print_rules.sql.
+ * NOTE: ai-design-generate caps directives at 2500 chars — leave room for the product sentence.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- utility constant co-located with this editor component
+export const PRINT_RULES_BLOCK = `PRINT RULES:
+- Colors: prefer CMYK offset-printable colors; vivid or saturated tones are allowed whenever they benefit the design — but NEVER a very dark or predominantly black design or background.
+- No thin hairlines, no tiny text (nothing below an 8pt equivalent at the printed size).
+- The background must fill the ENTIRE canvas edge to edge. Do NOT draw any bleed lines, crop marks, trim marks, dashed borders, guide lines, rulers, or measurement annotations — the image must contain ONLY the artwork itself.
+- Keep all text and badges safely away from the edges (at least a 5mm equivalent inside), but do not visually mark this margin.
+- Clear hierarchy top to bottom: business name → tagline → service badges → location → phone numbers.
+
+OUTPUT FORMAT:
+- A single FLAT 2D graphic design, straight-on view, filling the full frame.
+- NOT a mockup: no 3D perspective, no card floating on a table, no paper texture, no shadows around the design, no hands holding it, no background scene behind the design. The design IS the entire image.`;
+
 const CANVASES: Canvas[] = ['1024x1024', '1536x1024', '1024x1536'];
 const asCanvas = (v: unknown): Canvas =>
   typeof v === 'string' && (CANVASES as string[]).includes(v) ? (v as Canvas) : '1024x1024';
@@ -293,12 +312,29 @@ const AiFieldsEditor = ({ value, onChange }: Props) => {
       )}
 
       <div>
-        <label className="text-sm font-medium text-foreground mb-1 block">توجيهات التصميم (تُضاف إلى أمر الذكاء الاصطناعي)</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-sm font-medium text-foreground block">توجيهات التصميم (تُضاف إلى أمر الذكاء الاصطناعي)</label>
+          {!value.directives.includes('PRINT RULES:') && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-lg h-7 text-xs"
+              onClick={() => patch({
+                directives: (value.directives.trim() ? value.directives.trim() + '\n\n' : '') + PRINT_RULES_BLOCK,
+              })}
+            >
+              <Plus className="w-3 h-3 ml-1" />
+              أدرج قواعد الطباعة
+            </Button>
+          )}
+        </div>
         <Textarea
           value={value.directives}
           onChange={(e) => patch({ directives: e.target.value })}
           placeholder="مثال: ختم حبر باللون الأزرق فقط، نص كبير وواضح..."
           className="rounded-xl min-h-[70px]"
+          maxLength={2500}
         />
       </div>
     </div>
