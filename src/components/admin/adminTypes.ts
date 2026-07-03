@@ -23,6 +23,8 @@ export interface Service {
   print_enabled?: boolean;
   ai_enabled?: boolean;
   ai_fee?: number;
+  /** Printed faces per design version: 1 = single, 2 = front + back. */
+  faces?: number;
   ai_canvas?: string | null;
   ai_size_label?: string | null;
   ai_option_label?: string | null;
@@ -53,6 +55,8 @@ export interface ServiceFormState {
   print_enabled: boolean;
   ai_enabled: boolean;
   ai_fee: number;
+  /** Printed faces per design version: 1 = single, 2 = front + back (two-face products). */
+  faces: 1 | 2;
   aiFields: AiFieldsValue;
 }
 
@@ -87,6 +91,8 @@ export interface AdminDesign {
   version: number;
   file_url: string;
   approved: boolean | null;
+  /** Two-face products only: 'front' | 'back'. NULL for single-face designs. */
+  face?: 'front' | 'back' | null;
 }
 
 export interface DesignerProfile {

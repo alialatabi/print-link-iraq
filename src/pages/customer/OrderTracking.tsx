@@ -127,7 +127,11 @@ const OrderTracking = () => {
     if (!orderId) return;
     const itemDesigns = getItemDesigns(itemId);
     if (itemDesigns.length > 0) {
-      await approveDesignVersion(itemDesigns[0].id);
+      // Approve every row of the LATEST version. Single-face = one row; two-face = both faces
+      // (approval is per-version, not per-face) so the "معتمد" badge covers أمامي + خلفي.
+      const latestVersion = itemDesigns[0].version;
+      const latestRows = itemDesigns.filter(d => d.version === latestVersion);
+      for (const d of latestRows) await approveDesignVersion(d.id);
     }
     await updateOrderItemDetails(itemId, 'approved', {
       ...(orderItems.find(i => i.id === itemId)?.details || {}),

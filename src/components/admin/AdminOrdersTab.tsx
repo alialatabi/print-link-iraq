@@ -21,7 +21,7 @@ import {
   FileText, Download,
   XCircle, MapPin, Phone, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import type { AdminOrder, AdminDesign, DesignerProfile, DesignerWorkloadItem, QuickFilter } from './adminTypes';
+import type { AdminOrder, DesignerProfile, DesignerWorkloadItem, QuickFilter } from './adminTypes';
 import type { OrderDetailsJson } from '@/types/db';
 
 interface Props {
@@ -247,19 +247,25 @@ const AdminOrdersTab = ({
                 });
               });
             });
-            const latestByItem = new Map<string, AdminDesign>();
+            // Latest version per item (two-face items keep BOTH faces at that version).
+            const latestVersionByItem = new Map<string, number>();
             (order._designs || []).forEach((d) => {
               if (!d.file_url) return;
               const k = d.order_item_id || 'legacy';
-              const cur = latestByItem.get(k);
-              if (!cur || d.version > cur.version) latestByItem.set(k, d);
+              const cur = latestVersionByItem.get(k);
+              if (cur == null || d.version > cur) latestVersionByItem.set(k, d.version);
             });
-            [...latestByItem.values()].forEach((d) => {
+            (order._designs || []).forEach((d) => {
+              if (!d.file_url) return;
+              const k = d.order_item_id || 'legacy';
+              if (latestVersionByItem.get(k) !== d.version) return;
               const itemName = order._items?.find((it) => it.id === d.order_item_id)?.templates?.name;
+              const faceLabel = d.face === 'front' ? ' — الوجه الأمامي' : d.face === 'back' ? ' — الوجه الخلفي' : '';
+              const faceSuffix = d.face ? `-${d.face}` : '';
               designFiles.push({
                 id: d.id,
-                label: itemName ? `تصميم: ${itemName}` : `تصميم المصمم (إصدار ${d.version})`,
-                download: () => downloadDesignFromBucket(d.file_url, `design-${shortId}-v${d.version}.${extOf(String(d.file_url))}`),
+                label: (itemName ? `تصميم: ${itemName}` : `تصميم المصمم (إصدار ${d.version})`) + faceLabel,
+                download: () => downloadDesignFromBucket(d.file_url, `design-${shortId}-v${d.version}${faceSuffix}.${extOf(String(d.file_url))}`),
               });
             });
 

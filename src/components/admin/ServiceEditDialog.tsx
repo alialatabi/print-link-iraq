@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Upload, X, ImageIcon, Sparkles } from 'lucide-react';
+import { Upload, X, ImageIcon, Sparkles, Layers } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import AiFieldsEditor from '@/components/admin/AiFieldsEditor';
 import type { Service, Specialization, ServiceFormState } from '@/components/admin/adminTypes';
 
@@ -248,6 +249,33 @@ const ServiceEditDialog = ({
                     </div>
                   </>
                 )}
+
+                {/* Faces: single-face vs two-face (front/back) product */}
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-primary" /> عدد الأوجه
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([[1, 'وجه واحد'], [2, 'وجهان']] as const).map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, faces: val }))}
+                        className={cn(
+                          'h-11 rounded-xl border text-sm font-medium transition-all',
+                          form.faces === val
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-input bg-background text-muted-foreground hover:border-primary/40',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    الوجهان: يرفع المصمم ملفين (أمامي وخلفي) لكل إصدار، ويعتمد الزبون الوجهين معاً.
+                  </p>
+                </div>
 
                 {/* Channel: AI design */}
                 <div className="flex items-center justify-between bg-primary/5 border border-primary/15 rounded-xl px-3 py-2.5">

@@ -227,6 +227,55 @@ export function insertOrderDesignVersion(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Two-face (front/back) designs — one `designs` row per face, same version.
+// `face` is a column added by 20260703160000_two_face_services.sql; the generated
+// types don't know it yet, hence the `as never` cast (house pattern for new cols).
+// ---------------------------------------------------------------------------
+
+/** Insert one FACE of a two-face item design (front/back share the version number). */
+export function insertDesignFace(
+  orderId: string,
+  orderItemId: string,
+  version: number,
+  fileUrl: string,
+  face: 'front' | 'back',
+) {
+  return supabase.from('designs').insert({
+    order_id: orderId,
+    order_item_id: orderItemId,
+    version,
+    file_url: fileUrl,
+    face,
+  } as never);
+}
+
+/** Insert one FACE of a two-face ORDER-LEVEL design (item-less orders). */
+export function insertOrderDesignFace(
+  orderId: string,
+  version: number,
+  fileUrl: string,
+  face: 'front' | 'back',
+) {
+  return supabase.from('designs').insert({
+    order_id: orderId,
+    order_item_id: null,
+    version,
+    file_url: fileUrl,
+    face,
+  } as never);
+}
+
+/**
+ * Fetch service rows for a set of ids so the caller can read each row's `faces` count
+ * (1 = single, 2 = front+back). Selects `*` because `faces` is not in the generated types
+ * yet — the caller reads it via a cast (serviceFaceCount). Used to decide per-item / per-order
+ * whether to show two upload zones.
+ */
+export function getServiceFacesByIds(ids: string[]) {
+  return supabase.from('services').select('*').in('id', ids);
+}
+
 /**
  * Delete a design version record from the `designs` table.
  * Errors are handled by the caller.

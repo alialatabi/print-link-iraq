@@ -25,6 +25,9 @@ import {
   removeDesignFile,
   insertDesignVersion,
   insertOrderDesignVersion,
+  insertDesignFace,
+  insertOrderDesignFace,
+  getServiceFacesByIds,
   setOrderItemStatus,
   setOrderItemStatusAndDetails,
   setOrderStatus,
@@ -33,6 +36,19 @@ import {
   invokeSendToTelegram,
 } from '@/services/designer';
 import { listDesignsForOrder } from '@/services/orders';
+import { nextFaceUpload, serviceFaceCount, FACE_LABELS, type DesignFace } from '@/lib/designUtils';
+import type { FaceZoneState } from '@/components/designer/FaceUploadZones';
+
+/** Latest-version face files (front then back) for a two-face design set, ready for print dispatch. */
+function latestFaceFiles(designs: DesignVersion[]): { path: string; label: string }[] {
+  const withFace = designs.filter(d => d.file_url && (d.face === 'front' || d.face === 'back'));
+  if (withFace.length === 0) return [];
+  const latest = Math.max(...withFace.map(d => d.version));
+  const rows = withFace.filter(d => d.version === latest);
+  const rank: Record<string, number> = { front: 0, back: 1 };
+  rows.sort((a, b) => (rank[a.face ?? ''] ?? 9) - (rank[b.face ?? ''] ?? 9));
+  return rows.map(d => ({ path: d.file_url as string, label: FACE_LABELS[d.face as DesignFace] }));
+}
 
 interface OrderWithProfile {
   id: string;
@@ -56,8 +72,12 @@ const DesignerOrderDetails = () => {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [uploadingItem, setUploadingItem] = useState<string | null>(null);
   // In-flight upload metadata + the File whose upload failed (drives the inline retry in the card).
+  // Two-face uploads namespace their keys as `${itemId}:${face}` (single-face uses the bare itemId),
+  // so uploadingItem/failedUploads/fileInputRefs are shared across both flows.
   const [uploadInfo, setUploadInfo] = useState<{ name: string; size: number } | null>(null);
   const [failedUploads, setFailedUploads] = useState<Record<string, File | null>>({});
+  // service_type → face count (1 | 2). Drives which items/orders show two upload zones.
+  const [serviceFaces, setServiceFaces] = useState<Record<string, 1 | 2>>({});
   // Customer contact (account phone via assigned-designer RPC, else the order's details phone).
   const [customerPhone, setCustomerPhone] = useState<string | null>(null);
   // "اطلب توضيحاً من الزبون" mini-form.
@@ -124,6 +144,45 @@ const DesignerOrderDetails = () => {
 
   const getItemDesigns = (itemId: string) => designs.filter(d => d.order_item_id === itemId);
 
+  // Resolve how many faces each relevant service has (items' service_type + item-less order's
+  // service_type) in ONE query, so cards/panels know whether to render two upload zones.
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const it of orderItems) {
+      const st = it.templates?.service_type;
+      if (st) ids.add(st);
+    }
+    const orderServiceType = order?.details?.service_type;
+    if (orderServiceType) ids.add(String(orderServiceType));
+    if (ids.size === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await getServiceFacesByIds([...ids]);
+      if (cancelled || !data) return;
+      const map: Record<string, 1 | 2> = {};
+      for (const s of data as unknown as { id: string; faces?: number }[]) map[s.id] = serviceFaceCount(s);
+      setServiceFaces(map);
+    })();
+    return () => { cancelled = true; };
+  }, [orderItems, order]);
+
+  const itemFaces = (item: OrderItem): 1 | 2 => serviceFaces[item.templates?.service_type ?? ''] ?? 1;
+  const orderFaces: 1 | 2 = serviceFaces[String(order?.details?.service_type ?? '')] ?? 1;
+
+  // Build the per-face upload state a two-face card/panel needs (uploading/info/failed/hasExisting).
+  const faceZoneState = (designSet: DesignVersion[], keyPrefix: string): { front: FaceZoneState; back: FaceZoneState } => {
+    const zone = (face: DesignFace): FaceZoneState => {
+      const key = `${keyPrefix}:${face}`;
+      return {
+        uploading: uploadingItem === key,
+        info: uploadingItem === key ? uploadInfo : null,
+        failed: failedUploads[key] ?? null,
+        hasExisting: designSet.some(d => d.face === face && d.file_url),
+      };
+    };
+    return { front: zone('front'), back: zone('back') };
+  };
+
   // Customer contact: account phone via the assigned-designer RPC, falling back to whatever
   // phone the order's details JSON carries (delivery/reseller contact). Best-effort.
   useEffect(() => {
@@ -139,39 +198,51 @@ const DesignerOrderDetails = () => {
   // Core upload used by both the file input and the inline retry. Uploads with retryAsync
   // (flaky-network resilience); a retry that lands after a lost-response success hits the
   // storage "already exists" error, which we treat as success (upsert is deliberately false).
-  const performItemUpload = async (itemId: string, file: File) => {
+  // `face` set (two-face products) ⇒ one row per face sharing a version (see nextFaceUpload); the
+  // zone key is `${itemId}:${face}`. `face` omitted (single-face) keeps the exact original path.
+  const performItemUpload = async (itemId: string, file: File, face?: DesignFace) => {
     if (!orderId) return;
-    setUploadingItem(itemId);
+    const zoneKey = face ? `${itemId}:${face}` : itemId;
+    setUploadingItem(zoneKey);
     setUploadInfo({ name: file.name, size: file.size });
     try {
       const itemDesigns = getItemDesigns(itemId);
-      const nextVersion = itemDesigns.length > 0 ? itemDesigns[0].version + 1 : 1;
+      const nextVersion = face
+        ? nextFaceUpload(itemDesigns, face)
+        : (itemDesigns.length > 0 ? itemDesigns[0].version + 1 : 1);
       const ext = file.name.split('.').pop();
-      const filePath = `${orderId}/${itemId}/v${nextVersion}.${ext}`;
+      const filePath = face
+        ? `${orderId}/${itemId}/v${nextVersion}-${face}.${ext}`
+        : `${orderId}/${itemId}/v${nextVersion}.${ext}`;
 
       await retryAsync(async () => {
         const { error: uploadError } = await uploadDesignFile(filePath, file);
         if (uploadError && !isAlreadyExistsError(uploadError)) throw uploadError;
       }, { attempts: 3 });
 
-      const { error: insertError } = await insertDesignVersion(orderId, itemId, nextVersion, filePath);
+      const { error: insertError } = face
+        ? await insertDesignFace(orderId, itemId, nextVersion, filePath, face)
+        : await insertDesignVersion(orderId, itemId, nextVersion, filePath);
       if (insertError) throw insertError;
 
       // Update item status
       await setOrderItemStatus(itemId, 'design_uploaded');
 
-      setFailedUploads(prev => ({ ...prev, [itemId]: null }));
-      toast({ title: 'تم رفع التصميم بنجاح', description: `الإصدار ${nextVersion}` });
+      setFailedUploads(prev => ({ ...prev, [zoneKey]: null }));
+      toast({
+        title: 'تم رفع التصميم بنجاح',
+        description: face ? `${FACE_LABELS[face]} — الإصدار ${nextVersion}` : `الإصدار ${nextVersion}`,
+      });
       loadDesigns();
       loadItems();
     } catch (e: unknown) {
       // Keep the File so the card can offer a one-tap إعادة المحاولة without re-picking.
-      setFailedUploads(prev => ({ ...prev, [itemId]: file }));
+      setFailedUploads(prev => ({ ...prev, [zoneKey]: file }));
       toast({ title: 'فشل رفع الملف', description: getUserFriendlyError(e), variant: 'destructive' });
     } finally {
       setUploadingItem(null);
       setUploadInfo(null);
-      const ref = fileInputRefs.current[itemId];
+      const ref = fileInputRefs.current[zoneKey];
       if (ref) ref.value = '';
     }
   };
@@ -190,6 +261,22 @@ const DesignerOrderDetails = () => {
   const handleRetryUpload = (itemId: string) => {
     const file = failedUploads[itemId];
     if (file) void performItemUpload(itemId, file);
+  };
+
+  // Two-face item uploads: pick / retry a specific face.
+  const handleItemFaceSelect = async (e: React.ChangeEvent<HTMLInputElement>, itemId: string, face: DesignFace) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'الملف كبير جداً', description: 'الحد الأقصى 10MB', variant: 'destructive' });
+      return;
+    }
+    await performItemUpload(itemId, file, face);
+  };
+
+  const handleItemFaceRetry = (itemId: string, face: DesignFace) => {
+    const file = failedUploads[`${itemId}:${face}`];
+    if (file) void performItemUpload(itemId, file, face);
   };
 
   const handleSendForApproval = async (itemId: string) => {
@@ -278,8 +365,10 @@ const DesignerOrderDetails = () => {
   // Core: send a design file (already in the `designs` bucket) to the Telegram print group and
   // flip the item to print_ready. Throws on failure (so a failed send leaves the item approved
   // and retryable). State + toasts are handled by the callers below.
-  const sendDesignToPrint = async (itemId: string, filePath: string) => {
-    const { error: tgError } = await invokeSendToTelegram({ orderId, orderItemId: itemId, designFilePath: filePath });
+  // `payload` is the file part of the request: `{ designFilePath }` (single-face) or
+  // `{ designFiles: [{path,label}, ...] }` (two-face — both faces, labelled).
+  const sendDesignToPrint = async (itemId: string, payload: Record<string, unknown>) => {
+    const { error: tgError } = await invokeSendToTelegram({ orderId, orderItemId: itemId, ...payload });
     if (tgError) {
       // supabase-js collapses any non-2xx into a FunctionsHttpError whose generic message hides the
       // real reason (e.g. missing Telegram config). The raw Response is on `error.context` — read the
@@ -300,16 +389,26 @@ const DesignerOrderDetails = () => {
   };
 
   // Primary path: send the already-approved design straight to the print group — no new file needed.
+  // Two-face products send BOTH faces of the latest version, each labelled.
   const handleSendExistingToPrint = async (itemId: string) => {
     if (!orderId) return;
-    const latest = getItemDesigns(itemId).find(d => d.file_url);
-    if (!latest?.file_url) {
+    const itemDesigns = getItemDesigns(itemId);
+    const item = orderItems.find(i => i.id === itemId);
+    const twoFace = item ? itemFaces(item) === 2 : false;
+    const faceFiles = twoFace ? latestFaceFiles(itemDesigns) : [];
+    const latest = itemDesigns.find(d => d.file_url);
+    if (twoFace) {
+      if (faceFiles.length < 2) {
+        toast({ title: 'ارفع الوجهين قبل الإرسال للطبع', variant: 'destructive' });
+        return;
+      }
+    } else if (!latest?.file_url) {
       toast({ title: 'لا يوجد تصميم مرفوع لإرساله', variant: 'destructive' });
       return;
     }
     setPrintingItem(itemId);
     try {
-      await sendDesignToPrint(itemId, latest.file_url);
+      await sendDesignToPrint(itemId, twoFace ? { designFiles: faceFiles } : { designFilePath: latest!.file_url });
       toast({ title: '✅ تم إرسال التصميم للطبع' });
       loadDesigns();
       loadItems();
@@ -325,17 +424,27 @@ const DesignerOrderDetails = () => {
   // customer's attached AI image(s). Flips the item to print_ready (the edge function flips the order).
   const handleApproveAndPrint = async (item: OrderItem) => {
     if (!orderId) return;
-    const latest = getItemDesigns(item.id).find(d => d.file_url);
+    const itemDesigns = getItemDesigns(item.id);
+    const twoFace = itemFaces(item) === 2;
+    const faceFiles = twoFace ? latestFaceFiles(itemDesigns) : [];
+    const latest = itemDesigns.find(d => d.file_url);
     const attachments: string[] = Array.isArray(item.details?.attachment_urls) ? item.details.attachment_urls : [];
-    if (!latest?.file_url && attachments.length === 0) {
+    if (twoFace) {
+      if (faceFiles.length < 2) {
+        toast({ title: 'ارفع الوجهين قبل الإرسال للطبع', description: 'هذا المنتج بوجهين — ارفع الوجه الأمامي والخلفي', variant: 'destructive' });
+        return;
+      }
+    } else if (!latest?.file_url && attachments.length === 0) {
       toast({ title: 'لا يوجد تصميم لإرساله', description: 'ارفع ملف التصميم أو تأكد من وجود صورة مرفقة', variant: 'destructive' });
       return;
     }
     setPrintingItem(item.id);
     try {
-      const body: Record<string, unknown> = latest?.file_url
-        ? { orderId, orderItemId: item.id, designFilePath: latest.file_url }
-        : { orderId, orderItemId: item.id, designFileUrls: attachments };
+      const body: Record<string, unknown> = twoFace
+        ? { orderId, orderItemId: item.id, designFiles: faceFiles }
+        : latest?.file_url
+          ? { orderId, orderItemId: item.id, designFilePath: latest.file_url }
+          : { orderId, orderItemId: item.id, designFileUrls: attachments };
 
       const { error: tgError } = await invokeSendToTelegram(body);
       if (tgError) {
@@ -433,26 +542,29 @@ const DesignerOrderDetails = () => {
   // ── Item-less orders (template / ready-design): design lives on the order row ──
   // The designer uploads an order-level design (order_item_id IS NULL) and sends it to the
   // print group; the customer's item-less tracking view surfaces the same order-level design.
-  const handleItemlessFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !orderId) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: 'الملف كبير جداً', description: 'الحد الأقصى 10MB', variant: 'destructive' });
-      return;
-    }
-
-    setOrderUploading(true);
+  // Order-level upload. `face` set (two-face item-less orders) ⇒ one row per face sharing a version
+  // (nextFaceUpload) keyed `order:${face}` in the shared upload state; omitted keeps the original path.
+  const performItemlessUpload = async (file: File, face?: DesignFace) => {
+    if (!orderId) return;
+    const zoneKey = `order:${face ?? ''}`;
+    if (face) { setUploadingItem(zoneKey); setUploadInfo({ name: file.name, size: file.size }); }
+    else setOrderUploading(true);
     try {
       const orderDesigns = designs.filter(d => !d.order_item_id);
-      const nextVersion = orderDesigns.length > 0 ? orderDesigns[0].version + 1 : 1;
+      const nextVersion = face
+        ? nextFaceUpload(orderDesigns, face)
+        : (orderDesigns.length > 0 ? orderDesigns[0].version + 1 : 1);
       const ext = file.name.split('.').pop();
-      const filePath = `${orderId}/order/v${nextVersion}.${ext}`;
+      const filePath = face
+        ? `${orderId}/order/v${nextVersion}-${face}.${ext}`
+        : `${orderId}/order/v${nextVersion}.${ext}`;
 
       const { error: uploadError } = await uploadDesignFile(filePath, file);
       if (uploadError) throw uploadError;
 
-      const { error: insertError } = await insertOrderDesignVersion(orderId, nextVersion, filePath);
+      const { error: insertError } = face
+        ? await insertOrderDesignFace(orderId, nextVersion, filePath, face)
+        : await insertOrderDesignVersion(orderId, nextVersion, filePath);
       if (insertError) throw insertError;
 
       // Move the order forward so the customer sees progress (only from the pre-design states).
@@ -460,34 +572,81 @@ const DesignerOrderDetails = () => {
         await setOrderStatus(orderId, 'design_uploaded');
       }
 
-      toast({ title: 'تم رفع التصميم بنجاح', description: `الإصدار ${nextVersion}` });
+      if (face) setFailedUploads(prev => ({ ...prev, [zoneKey]: null }));
+      toast({
+        title: 'تم رفع التصميم بنجاح',
+        description: face ? `${FACE_LABELS[face]} — الإصدار ${nextVersion}` : `الإصدار ${nextVersion}`,
+      });
       loadDesigns();
       loadOrder();
     } catch (err: unknown) {
+      if (face) setFailedUploads(prev => ({ ...prev, [zoneKey]: file }));
       toast({ title: 'فشل رفع الملف', description: getUserFriendlyError(err), variant: 'destructive' });
     } finally {
-      setOrderUploading(false);
-      if (orderFileInputRef.current) orderFileInputRef.current.value = '';
+      if (face) {
+        setUploadingItem(null);
+        setUploadInfo(null);
+        const ref = fileInputRefs.current[zoneKey];
+        if (ref) ref.value = '';
+      } else {
+        setOrderUploading(false);
+        if (orderFileInputRef.current) orderFileInputRef.current.value = '';
+      }
     }
+  };
+
+  const handleItemlessFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !orderId) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'الملف كبير جداً', description: 'الحد الأقصى 10MB', variant: 'destructive' });
+      return;
+    }
+    await performItemlessUpload(file);
+  };
+
+  // Two-face item-less uploads: pick / retry a specific face.
+  const handleItemlessFaceSelect = async (e: React.ChangeEvent<HTMLInputElement>, face: DesignFace) => {
+    const file = e.target.files?.[0];
+    if (!file || !orderId) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'الملف كبير جداً', description: 'الحد الأقصى 10MB', variant: 'destructive' });
+      return;
+    }
+    await performItemlessUpload(file, face);
+  };
+
+  const handleItemlessFaceRetry = (face: DesignFace) => {
+    const file = failedUploads[`order:${face}`];
+    if (file) void performItemlessUpload(file, face);
   };
 
   const handleItemlessSendToPrint = async () => {
     if (!orderId) return;
     const orderDesigns = designs.filter(d => !d.order_item_id);
+    const twoFace = orderFaces === 2;
+    const faceFiles = twoFace ? latestFaceFiles(orderDesigns) : [];
     const latest = orderDesigns.find(d => d.file_url);
     const attachments: string[] = Array.isArray(order?.details?.attachment_urls) ? order!.details.attachment_urls : [];
-    if (!latest?.file_url && attachments.length === 0) {
+    if (twoFace) {
+      if (faceFiles.length < 2) {
+        toast({ title: 'ارفع الوجهين قبل الإرسال للطبع', variant: 'destructive' });
+        return;
+      }
+    } else if (!latest?.file_url && attachments.length === 0) {
       toast({ title: 'لا يوجد تصميم لإرساله', description: 'ارفع ملف التصميم أو تأكد من وجود ملف مرفق', variant: 'destructive' });
       return;
     }
     setOrderPrinting(true);
     try {
-      // Uploaded design lives in the private `designs` bucket (designFilePath); a customer's
-      // own attachment is a public order-attachments URL (designFileUrls). The edge function
-      // flips the order to print_ready on success.
-      const body: Record<string, unknown> = latest?.file_url
-        ? { orderId, designFilePath: latest.file_url }
-        : { orderId, designFileUrls: attachments };
+      // Uploaded design lives in the private `designs` bucket (designFilePath / designFiles); a
+      // customer's own attachment is a public order-attachments URL (designFileUrls). The edge
+      // function flips the order to print_ready on success.
+      const body: Record<string, unknown> = twoFace
+        ? { orderId, designFiles: faceFiles }
+        : latest?.file_url
+          ? { orderId, designFilePath: latest.file_url }
+          : { orderId, designFileUrls: attachments };
 
       const { error: tgError } = await invokeSendToTelegram(body);
       if (tgError) {
@@ -633,6 +792,10 @@ const DesignerOrderDetails = () => {
                   onApproveAndPrint={handleApproveAndPrint}
                   onSendExistingToPrint={handleSendExistingToPrint}
                   onDeleteDesign={handleDeleteDesign}
+                  faces={itemFaces(item)}
+                  faceState={itemFaces(item) === 2 ? faceZoneState(getItemDesigns(item.id), item.id) : null}
+                  onFaceFileSelect={handleItemFaceSelect}
+                  onFaceRetry={handleItemFaceRetry}
                 />
               ))}
             </div>
@@ -652,6 +815,11 @@ const DesignerOrderDetails = () => {
               onFileSelect={handleItemlessFileSelect}
               onSendToPrint={handleItemlessSendToPrint}
               onDeleteDesign={handleDeleteDesign}
+              faces={orderFaces}
+              faceState={orderFaces === 2 ? faceZoneState(designs.filter(d => !d.order_item_id), 'order') : null}
+              fileInputRefs={fileInputRefs}
+              onFaceFileSelect={handleItemlessFaceSelect}
+              onFaceRetry={handleItemlessFaceRetry}
             />
           )}
         </motion.div>

@@ -13,7 +13,7 @@ import ServiceEditDialog from '@/components/admin/ServiceEditDialog';
 const emptyForm = (): ServiceFormState => ({
   id: '', label: '', icon: '', description: '', price: 0, cost: 0,
   parent_id: '', completion_days: 0, min_quantity: 1, cellophane_type: 'none',
-  print_enabled: true, ai_enabled: false, ai_fee: 0, aiFields: emptyAiFields(),
+  print_enabled: true, ai_enabled: false, ai_fee: 0, faces: 1, aiFields: emptyAiFields(),
 });
 
 const AdminServicesSpecs = () => {
@@ -160,6 +160,7 @@ const AdminServicesSpecs = () => {
       print_enabled: 'price' in item ? ((item as Service).print_enabled ?? true) : true,
       ai_enabled: 'price' in item ? ((item as Service).ai_enabled ?? false) : false,
       ai_fee: 'price' in item ? ((item as Service).ai_fee ?? 0) : 0,
+      faces: 'price' in item && (item as Service).faces === 2 ? 2 : 1,
       aiFields: aiFieldsFromRow('price' in item ? (item as Service as unknown as Partial<AiFieldsRow>) : null),
     });
     setIconFile(null);
@@ -210,7 +211,9 @@ const AdminServicesSpecs = () => {
     setSaving(true);
     try {
       if (dialogType === 'service') {
-        const channelCols = { print_enabled: form.print_enabled, ai_enabled: form.ai_enabled, ai_fee: form.ai_fee, ...aiFieldsToRow(form.aiFields) };
+        // `faces` (two-face products) is not in the generated types yet; the insert/update objects
+        // below are already cast `as never`, so it rides along without extra casting.
+        const channelCols = { print_enabled: form.print_enabled, ai_enabled: form.ai_enabled, ai_fee: form.ai_fee, faces: form.faces, ...aiFieldsToRow(form.aiFields) };
         if (editing) {
           const iconUrl = await uploadIcon(editing.id);
           const { error } = await supabase

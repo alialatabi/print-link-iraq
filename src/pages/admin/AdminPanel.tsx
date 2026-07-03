@@ -116,15 +116,16 @@ const AdminPanel = () => {
     });
 
     // Fetch designer-produced design files (private 'designs' bucket) so admins can download them.
+    // `face` isn't in the generated types yet (migration 20260703160000) — cast the rows.
     const { data: designsData } = await supabase
       .from('designs')
-      .select('id, order_id, order_item_id, version, file_url, approved')
+      .select('id, order_id, order_item_id, version, file_url, approved, face')
       .in('order_id', orderIds)
       .order('version', { ascending: false });
     const designsByOrder = new Map<string, AdminDesign[]>();
-    (designsData || []).forEach((d) => {
+    ((designsData || []) as unknown as AdminDesign[]).forEach((d) => {
       const list = designsByOrder.get(d.order_id) || [];
-      list.push(d as unknown as AdminDesign);
+      list.push(d);
       designsByOrder.set(d.order_id, list);
     });
 

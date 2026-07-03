@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { m as motion } from 'framer-motion';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,14 @@ import ImageLightbox from '@/components/ImageLightbox';
 import RevisionImages from '@/components/RevisionImages';
 import {
   CheckCircle, Clock, FileText, Palette, Printer, Truck,
-  Eye, MessageSquare, RefreshCw, ImagePlus, X, ChevronDown, ChevronUp, Timer,
+  Eye, MessageSquare, RefreshCw, ImagePlus, X, ChevronDown, ChevronUp, Timer, Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import type { OrderStatus } from '@/data/mockData';
 import type { OrderDetailsJson } from '@/types/db';
 import { getDesignSignedUrl } from '@/lib/storage';
+import { FACE_LABELS, serviceFaceCount, type DesignFace } from '@/lib/designUtils';
 import { IMAGE_ACCEPT } from '@/lib/uploadValidation';
 
 export interface DesignVersion {
@@ -23,6 +24,8 @@ export interface DesignVersion {
   approved: boolean | null;
   uploaded_at: string;
   order_item_id: string | null;
+  /** Two-face products only: 'front' | 'back'. NULL/undefined for single-face designs. */
+  face?: DesignFace | null;
 }
 
 interface RevisionEntry {
@@ -50,7 +53,127 @@ export interface OrderItem {
 interface ServiceMeta {
   id: string;
   completion_days: number;
+  /** Printed faces (1 = single, 2 = front + back). */
+  faces?: number;
 }
+
+// ── Two-face customer review ──────────────────────────────────────────────────
+
+interface FaceGroup {
+  version: number;
+  uploaded_at: string;
+  approved: boolean;
+  front?: DesignVersion;
+  back?: DesignVersion;
+}
+
+function groupTwoFace(designs: DesignVersion[]): FaceGroup[] {
+  const byVersion = new Map<number, FaceGroup>();
+  for (const d of designs) {
+    const g = byVersion.get(d.version) ?? { version: d.version, uploaded_at: d.uploaded_at, approved: false };
+    if (d.face === 'front') g.front = d;
+    else if (d.face === 'back') g.back = d;
+    if (d.approved) g.approved = true;
+    if (new Date(d.uploaded_at) > new Date(g.uploaded_at)) g.uploaded_at = d.uploaded_at;
+    byVersion.set(d.version, g);
+  }
+  return [...byVersion.values()].sort((a, b) => b.version - a.version);
+}
+
+/** One face image with its Arabic label; loads its signed URL when the version is opened. */
+const FacePreview = ({
+  face,
+  design,
+  active,
+  onView,
+}: {
+  face: DesignFace;
+  design: DesignVersion | undefined;
+  active: boolean;
+  onView: (url: string) => void;
+}) => {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!active || url || !design?.file_url) return;
+    let cancelled = false;
+    getDesignSignedUrl(design.file_url).then(u => { if (!cancelled && u) setUrl(u); });
+    return () => { cancelled = true; };
+  }, [active, url, design]);
+
+  return (
+    <figure className="rounded-xl overflow-hidden border border-border/50 bg-muted/20">
+      <figcaption className="text-[11px] font-bold text-foreground bg-muted/40 px-2.5 py-1.5 flex items-center gap-1.5">
+        <Layers className="w-3.5 h-3.5 text-primary" />{FACE_LABELS[face]}
+      </figcaption>
+      {design?.file_url ? (
+        url ? (
+          <img
+            src={url}
+            alt={FACE_LABELS[face]}
+            draggable={false}
+            onContextMenu={e => e.preventDefault()}
+            onClick={() => onView(url)}
+            className="w-full object-contain cursor-zoom-in select-none"
+          />
+        ) : (
+          <div className="p-6 text-center text-xs text-muted-foreground">جاري التحميل...</div>
+        )
+      ) : (
+        <div className="p-6 text-center text-xs text-muted-foreground">لم يُرفع بعد</div>
+      )}
+    </figure>
+  );
+};
+
+/** A two-face version row: header + both faces side by side (stacked on mobile). Latest auto-opens. */
+const TwoFaceVersion = ({
+  group,
+  isLatest,
+  onView,
+}: {
+  group: FaceGroup;
+  isLatest: boolean;
+  onView: (url: string) => void;
+}) => {
+  const [open, setOpen] = useState(isLatest);
+  return (
+    <div className={cn('rounded-xl border', isLatest ? 'bg-primary/5 border-primary/20' : 'bg-muted/40 border-border/50')}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between gap-3 p-3 text-right min-h-[44px]"
+      >
+        <div className="flex items-center gap-2">
+          <FileText className={cn('w-4 h-4', isLatest ? 'text-primary' : 'text-muted-foreground')} />
+          <div>
+            <p className="font-medium text-foreground text-sm">
+              الإصدار {group.version}{' '}
+              {isLatest && <span className="text-primary text-[11px] mr-1">(الأحدث)</span>}
+            </p>
+            <p className="text-muted-foreground text-[11px]">{new Date(group.uploaded_at).toLocaleDateString('ar')}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {group.approved && (
+            <span className="text-[11px] bg-success/10 text-success px-2 py-0.5 rounded-lg flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" />معتمد
+            </span>
+          )}
+          {open ? <ChevronUp className="w-4 h-4 text-primary" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
+        </div>
+      </button>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 pt-0"
+        >
+          <FacePreview face="front" design={group.front} active={open} onView={onView} />
+          <FacePreview face="back" design={group.back} active={open} onView={onView} />
+        </motion.div>
+      )}
+    </div>
+  );
+};
 
 // ── ITEM_STEPS ─────────────────────────────────────────────────────────────
 
@@ -116,6 +239,9 @@ const OrderItemCard = ({
   const designerMessages: DesignerMessage[] = (itemDetails.designer_messages as DesignerMessage[]) || [];
   const currentStepIndex = ITEM_STEPS.findIndex(s => s.status === item.status);
   const showDesignReview = ['waiting_approval', 'design_uploaded'].includes(item.status) || itemDesigns.length > 0;
+  // Two-face products (كارت وجهين) render both faces per version; single-face is unchanged.
+  const faces = serviceFaceCount(allServices.find(s => s.id === item.templates?.service_type));
+  const isTwoFace = faces === 2;
 
   return (
     <>
@@ -195,7 +321,20 @@ const OrderItemCard = ({
               <div className="p-5">
                 <h4 className="font-bold text-foreground text-sm mb-4">التصميم</h4>
 
-                {itemDesigns.length > 0 && (
+                {itemDesigns.length > 0 && isTwoFace && (
+                  <div className="space-y-2 mb-4">
+                    {groupTwoFace(itemDesigns).map((group, i) => (
+                      <TwoFaceVersion
+                        key={group.version}
+                        group={group}
+                        isLatest={i === 0}
+                        onView={setLightboxUrl}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {itemDesigns.length > 0 && !isTwoFace && (
                   <div className="space-y-2 mb-4">
                     {itemDesigns.map((design, i) => {
                       const isSelected = previewUrls[`${item.id}_selected`] === design.id;

@@ -2,11 +2,13 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Upload, FileText, Image, CheckCircle2, RefreshCw,
-  Printer, MapPin,
+  Printer, MapPin, AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AttachmentGallery from './AttachmentGallery';
 import DesignVersionList from '@/components/designer/DesignVersionList';
+import FaceUploadZones, { type FaceZoneState } from '@/components/designer/FaceUploadZones';
+import { hasBothFaces, type DesignFace } from '@/lib/designUtils';
 import type { OrderDetailsJson } from '@/types/db';
 import type { DesignVersion } from './DesignItemCard';
 
@@ -26,6 +28,14 @@ interface ItemlessOrderPanelProps {
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   onSendToPrint: () => Promise<void>;
   onDeleteDesign: (design: DesignVersion) => Promise<void>;
+  /** 1 (default) = single upload zone; 2 = two labelled face zones (front/back). */
+  faces?: 1 | 2;
+  /** Two-face only: per-face upload state for the order-level upload. */
+  faceState?: { front: FaceZoneState; back: FaceZoneState } | null;
+  /** Two-face only: shared input refs (keyed `order:${face}`). */
+  fileInputRefs?: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
+  onFaceFileSelect?: (e: React.ChangeEvent<HTMLInputElement>, face: DesignFace) => Promise<void>;
+  onFaceRetry?: (face: DesignFace) => void;
 }
 
 const ItemlessOrderPanel = ({
@@ -42,10 +52,19 @@ const ItemlessOrderPanel = ({
   onFileSelect,
   onSendToPrint,
   onDeleteDesign,
+  faces = 1,
+  faceState = null,
+  fileInputRefs,
+  onFaceFileSelect,
+  onFaceRetry,
 }: ItemlessOrderPanelProps) => {
+  const isTwoFace = faces === 2;
   const canUpload = ['submitted', 'assigned', 'design_uploaded'].includes(orderStatus);
   const hasUploadedDesign = orderDesigns.some(d => d.file_url);
-  const canSendToPrint = canUpload && (hasUploadedDesign || attachments.length > 0);
+  const bothFaces = hasBothFaces(orderDesigns);
+  // Two-face needs both faces; single-face keeps the original (any upload OR a customer attachment).
+  const canSendToPrint = canUpload && (isTwoFace ? bothFaces : (hasUploadedDesign || attachments.length > 0));
+  const needsSecondFace = isTwoFace && canUpload && orderDesigns.length > 0 && !bothFaces;
   const hasDelivery = Boolean(od.delivery_province || od.delivery_phone);
 
   return (
@@ -124,8 +143,20 @@ const ItemlessOrderPanel = ({
 
       {/* Designer work area */}
       <div className="bg-card rounded-xl border border-border p-4">
-        {/* Upload */}
-        {canUpload && (
+        {/* Upload — two labelled face zones for two-face products, else the single dropzone */}
+        {canUpload && isTwoFace && faceState && fileInputRefs ? (
+          <div className="mb-4">
+            <FaceUploadZones
+              canUpload={canUpload}
+              keyPrefix="order"
+              front={faceState.front}
+              back={faceState.back}
+              inputRefs={fileInputRefs}
+              onFileSelect={(e, face) => { void onFaceFileSelect?.(e, face); }}
+              onRetry={(face) => onFaceRetry?.(face)}
+            />
+          </div>
+        ) : canUpload ? (
           <div className="mb-4">
             <input
               ref={fileInputRef}
@@ -157,6 +188,19 @@ const ItemlessOrderPanel = ({
               )}
             </div>
           </div>
+        ) : null}
+
+        {/* Two-face: remind the designer both faces are required before sending. */}
+        {needsSecondFace && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 mb-4">
+            <p className="text-sm font-bold text-foreground flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              ارفع الوجهين قبل الإرسال
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              هذا المنتج بوجهين — ارفع الوجه الأمامي والوجه الخلفي معاً قبل الإرسال للطبع.
+            </p>
+          </div>
         )}
 
         {/* Uploaded design versions — shared list: in-app lightbox + forced download per version */}
@@ -164,6 +208,7 @@ const ItemlessOrderPanel = ({
           <div className="mb-4">
             <DesignVersionList
               designs={orderDesigns}
+              faces={faces}
               canDelete={() => canUpload}
               onDelete={onDeleteDesign}
             />

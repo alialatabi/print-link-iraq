@@ -19,6 +19,8 @@ export interface DbService {
   print_enabled?: boolean;
   ai_enabled?: boolean;
   ai_fee?: number;
+  // Printed faces per design version: 1 = single file, 2 = front + back (two-face products).
+  faces?: number;
 }
 
 export interface DbSpecialization {

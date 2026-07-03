@@ -84,13 +84,89 @@ export function evaluateDirectPrint(opts: {
   isAiDesign: boolean;
   hasUploadedDesign: boolean;
   attachmentCount: number;
+  /** 2 for two-face (front/back) products; defaults to 1 (single-face — unchanged behaviour). */
+  faces?: 1 | 2;
+  /** Two-face only: whether BOTH faces of the latest version are uploaded. */
+  bothFacesUploaded?: boolean;
 }): DirectPrintEligibility {
-  const { canWork, isAiDesign, hasUploadedDesign, attachmentCount } = opts;
+  const { canWork, isAiDesign, hasUploadedDesign, attachmentCount, faces = 1, bothFacesUploaded = false } = opts;
   if (!canWork) return { canDirectPrint: false, blockedAiDraft: false };
+  // Two-face print needs BOTH final faces uploaded — a single-image draft or customer attachment
+  // can never stand in for two print files (front + back). The "ارفع الوجهين" hint (shown by the
+  // component when a face is missing) replaces the AI-draft block here, so blockedAiDraft stays false.
+  if (faces === 2) {
+    return { canDirectPrint: bothFacesUploaded, blockedAiDraft: false };
+  }
   if (isAiDesign) {
     return { canDirectPrint: hasUploadedDesign, blockedAiDraft: !hasUploadedDesign };
   }
   return { canDirectPrint: hasUploadedDesign || attachmentCount > 0, blockedAiDraft: false };
+}
+
+// ─── Two-face (front/back) products ───────────────────────────────────────────
+//
+// A two-face product (services.faces === 2, e.g. كارت وجهين) stores TWO design rows per version
+// — one `face: 'front'` (الوجه الأمامي) and one `face: 'back'` (الوجه الخلفي) — sharing the same
+// version number. Single-face products keep `face: null` and are never routed through these
+// helpers. All pure — unit-tested independently of the components.
+
+export type DesignFace = 'front' | 'back';
+
+/** Arabic labels for the two faces (UI copy + print-dispatch captions). */
+export const FACE_LABELS: Record<DesignFace, string> = {
+  front: 'الوجه الأمامي',
+  back: 'الوجه الخلفي',
+};
+
+/** Minimal design shape the face helpers need (a real `designs` row satisfies it). */
+export interface FaceDesignLike {
+  version: number;
+  /** optional so callers with `face?: DesignFace | null` rows (pre-migration types) satisfy it */
+  face?: DesignFace | null;
+}
+
+/** Coerce a `services` row's raw `faces` column (untyped in generated types) to 1 | 2. */
+export function serviceFaceCount(row: { faces?: number | null } | null | undefined): 1 | 2 {
+  return row?.faces === 2 ? 2 : 1;
+}
+
+/**
+ * Version number to assign when a designer uploads `face` for a two-face product.
+ *
+ * Model — the CURRENT (highest) version is "complete" once both faces exist:
+ *  - no designs yet                          → version 1.
+ *  - current version is missing THIS face    → same version (fills in the missing face).
+ *  - current version already HAS this face   → version + 1 (re-upload / complete version starts a
+ *                                               fresh version; a complete version always has this
+ *                                               face, so this single check covers both cases).
+ *
+ * Pure — unit-tested.
+ */
+export function nextFaceUpload(designs: readonly FaceDesignLike[], face: DesignFace): number {
+  if (designs.length === 0) return 1;
+  const currentVersion = Math.max(...designs.map((d) => d.version));
+  const hasThisFace = designs.some((d) => d.version === currentVersion && d.face === face);
+  return hasThisFace ? currentVersion + 1 : currentVersion;
+}
+
+/** Which faces the latest version already has; null when there are no designs. */
+export function latestVersionFaces(
+  designs: readonly FaceDesignLike[],
+): { version: number; hasFront: boolean; hasBack: boolean } | null {
+  if (designs.length === 0) return null;
+  const version = Math.max(...designs.map((d) => d.version));
+  const atVersion = designs.filter((d) => d.version === version);
+  return {
+    version,
+    hasFront: atVersion.some((d) => d.face === 'front'),
+    hasBack: atVersion.some((d) => d.face === 'back'),
+  };
+}
+
+/** True when the LATEST version of a two-face product carries BOTH faces (ready to send/print). */
+export function hasBothFaces(designs: readonly FaceDesignLike[]): boolean {
+  const latest = latestVersionFaces(designs);
+  return !!latest && latest.hasFront && latest.hasBack;
 }
 
 // ─── Human-readable file size ─────────────────────────────────────────────────

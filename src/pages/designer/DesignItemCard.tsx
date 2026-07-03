@@ -13,10 +13,11 @@ import AttachmentGallery from './AttachmentGallery';
 import DownloadAllButton from '@/components/designer/DownloadAllButton';
 import DesignVersionList from '@/components/designer/DesignVersionList';
 import DesignUploadZone from '@/components/designer/DesignUploadZone';
+import FaceUploadZones, { type FaceZoneState } from '@/components/designer/FaceUploadZones';
 import RevisionImages from '@/components/RevisionImages';
 import ImageLightbox from '@/components/ImageLightbox';
 import CopyButton from '@/components/CopyButton';
-import { evaluateDirectPrint, getDesignSignedUrl, isImageUrl } from '@/lib/designUtils';
+import { evaluateDirectPrint, getDesignSignedUrl, isImageUrl, hasBothFaces, type DesignFace } from '@/lib/designUtils';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import type { OrderStatus } from '@/data/mockData';
 import type { OrderDetailsJson } from '@/types/db';
@@ -28,6 +29,8 @@ export interface DesignVersion {
   approved: boolean | null;
   uploaded_at: string;
   order_item_id: string | null;
+  /** Two-face products only: 'front' | 'back'. NULL/undefined for single-face designs. */
+  face?: DesignFace | null;
 }
 
 export interface OrderItem {
@@ -70,6 +73,14 @@ interface DesignItemCardProps {
   onApproveAndPrint: (item: OrderItem) => Promise<void>;
   onSendExistingToPrint: (itemId: string) => Promise<void>;
   onDeleteDesign: (design: DesignVersion) => Promise<void>;
+  /** 1 (default) = single upload zone; 2 = two labelled face zones (front/back). */
+  faces?: 1 | 2;
+  /** Two-face only: per-face upload state (uploading/info/failed/hasExisting) for this item. */
+  faceState?: { front: FaceZoneState; back: FaceZoneState } | null;
+  /** Two-face only: pick a file for a specific face. */
+  onFaceFileSelect?: (e: React.ChangeEvent<HTMLInputElement>, itemId: string, face: DesignFace) => Promise<void>;
+  /** Two-face only: retry a failed face upload. */
+  onFaceRetry?: (itemId: string, face: DesignFace) => void;
 }
 
 /**
@@ -171,25 +182,39 @@ const DesignItemCard = ({
   onApproveAndPrint,
   onSendExistingToPrint,
   onDeleteDesign,
+  faces = 1,
+  faceState = null,
+  onFaceFileSelect,
+  onFaceRetry,
 }: DesignItemCardProps) => {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
+  const isTwoFace = faces === 2;
   const canUpload = ['submitted', 'assigned', 'design_uploaded'].includes(item.status);
-  const canSendApproval = canUpload && itemDesigns.length > 0;
+  // Two-face: both faces of the latest version must exist before sending. Single-face: unchanged.
+  const bothFaces = hasBothFaces(itemDesigns);
+  const canSendApproval = canUpload && (isTwoFace ? bothFaces : itemDesigns.length > 0);
   const itemDetails = item.details || {};
   const revisions: RevisionEntry[] = (itemDetails.revisions as RevisionEntry[]) || [];
   const aiAttachments: string[] = Array.isArray(itemDetails.attachment_urls) ? itemDetails.attachment_urls : [];
   const hasUploadedDesign = itemDesigns.some(d => d.file_url);
   const isAiDesign = Boolean(itemDetails.is_ai_design);
   const latestUploaded = itemDesigns.find(d => d.file_url);
+  // Distinct version count (a two-face version = two rows; count versions, not rows).
+  const versionCount = new Set(itemDesigns.map(d => d.version)).size;
+  // Show the "ارفع الوجهين" hint once at least one face is up but the pair isn't complete.
+  const needsSecondFace = isTwoFace && canUpload && itemDesigns.length > 0 && !bothFaces;
 
   // Direct approve→print eligibility. AI drafts can ONLY be printed from an uploaded final — the
   // attached AI image is a draft and must never reach the print group (see evaluateDirectPrint).
+  // Two-face products additionally require BOTH final faces uploaded.
   const { canDirectPrint, blockedAiDraft } = evaluateDirectPrint({
     canWork: canUpload,
     isAiDesign,
     hasUploadedDesign,
     attachmentCount: aiAttachments.length,
+    faces,
+    bothFacesUploaded: bothFaces,
   });
 
   return (
@@ -218,7 +243,7 @@ const DesignItemCard = ({
             <StatusBadge status={item.status} />
             {itemDesigns.length > 0 && (
               <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                {itemDesigns.length} تصميم
+                {isTwoFace ? `${versionCount} إصدار` : `${itemDesigns.length} تصميم`}
               </span>
             )}
             {isExpanded ? (
@@ -324,23 +349,51 @@ const DesignItemCard = ({
 
             {/* Upload Section */}
             <div className="p-4">
-              <DesignUploadZone
-                canUpload={canUpload}
-                uploading={uploadingItem === item.id}
-                uploadingInfo={uploadInfo}
-                failedFile={failedUpload}
-                hasExisting={itemDesigns.length > 0}
-                inputRef={el => { fileInputRefs.current[item.id] = el; }}
-                onFileSelect={e => onFileSelect(e, item.id)}
-                onPick={() => fileInputRefs.current[item.id]?.click()}
-                onRetry={() => onRetryUpload(item.id)}
-              />
+              {isTwoFace && faceState ? (
+                <div className="mb-4">
+                  <FaceUploadZones
+                    canUpload={canUpload}
+                    keyPrefix={item.id}
+                    front={faceState.front}
+                    back={faceState.back}
+                    inputRefs={fileInputRefs}
+                    onFileSelect={(e, face) => onFaceFileSelect?.(e, item.id, face)}
+                    onRetry={(face) => onFaceRetry?.(item.id, face)}
+                  />
+                </div>
+              ) : (
+                <DesignUploadZone
+                  canUpload={canUpload}
+                  uploading={uploadingItem === item.id}
+                  uploadingInfo={uploadInfo}
+                  failedFile={failedUpload}
+                  hasExisting={itemDesigns.length > 0}
+                  inputRef={el => { fileInputRefs.current[item.id] = el; }}
+                  onFileSelect={e => onFileSelect(e, item.id)}
+                  onPick={() => fileInputRefs.current[item.id]?.click()}
+                  onRetry={() => onRetryUpload(item.id)}
+                />
+              )}
+
+              {/* Two-face: remind the designer both faces are required before sending. */}
+              {needsSecondFace && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 mb-4">
+                  <p className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    ارفع الوجهين قبل الإرسال
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    هذا المنتج بوجهين — ارفع الوجه الأمامي والوجه الخلفي معاً قبل الإرسال للموافقة أو الطبع.
+                  </p>
+                </div>
+              )}
 
               {/* Design Versions — in-app preview + download (item 5) */}
               {itemDesigns.length > 0 && (
                 <div className="mb-4">
                   <DesignVersionList
                     designs={itemDesigns}
+                    faces={faces}
                     canDelete={(d) => canUpload && !d.approved}
                     onDelete={onDeleteDesign}
                   />

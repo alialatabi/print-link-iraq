@@ -32,7 +32,7 @@ function extFromPath(path: string): string {
   return clean.split('.').pop()?.toLowerCase() || ''
 }
 
-type DesignFile = { buffer: ArrayBuffer; ext: string }
+type DesignFile = { buffer: ArrayBuffer; ext: string; label?: string }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -75,11 +75,17 @@ Deno.serve(async (req) => {
     }
 
     // designFilePath  → a single path inside the private `designs` bucket (customer/template flow)
+    // designFiles     → MULTIPLE private-bucket paths, each with an optional label (two-face
+    //                   products: the front + back faces, labelled الوجه الأمامي / الوجه الخلفي)
     // designFileUrls  → public URLs (e.g. reseller uploads in `order-attachments`) fetched over HTTP
-    const { orderId, orderItemId, designFilePath, designFileUrls } = await req.json()
+    const { orderId, orderItemId, designFilePath, designFiles, designFileUrls } = await req.json()
     const fileUrls: string[] = Array.isArray(designFileUrls) ? designFileUrls.filter(Boolean) : []
-    if (!orderId || (!designFilePath && fileUrls.length === 0)) {
-      return new Response(JSON.stringify({ error: 'orderId and a design file (designFilePath or designFileUrls) are required' }), { status: 400, headers: CORS_HEADERS_PLATFORM })
+    const privateFiles: Array<{ path: string; label?: string }> = Array.isArray(designFiles)
+      ? designFiles.filter((f: unknown): f is { path: string; label?: string } =>
+          !!f && typeof (f as { path?: unknown }).path === 'string' && !!(f as { path: string }).path)
+      : []
+    if (!orderId || (!designFilePath && privateFiles.length === 0 && fileUrls.length === 0)) {
+      return new Response(JSON.stringify({ error: 'orderId and a design file (designFilePath, designFiles or designFileUrls) are required' }), { status: 400, headers: CORS_HEADERS_PLATFORM })
     }
 
     // Fetch order with template info
@@ -143,9 +149,11 @@ ${cellophane ? `✨ *السلوفان:* ${cellophane}\n` : ''}💰 *الكلفة
       }
       let itemsTotal = items.reduce((sum, it) => sum + priceOfItem(it), 0)
 
-      // The specific item this file belongs to (by id, else inferred from the file path).
+      // The specific item this file belongs to (by id, else inferred from the file path — for
+      // two-face orders the first face path also carries the item id).
+      const primaryPath = typeof designFilePath === 'string' ? designFilePath : (privateFiles[0]?.path || '')
       const current = items.find((i) => i.id === orderItemId)
-        || items.find((i) => typeof designFilePath === 'string' && designFilePath.includes(i.id))
+        || items.find((i) => primaryPath.includes(i.id))
         || items[0]
       const cd = current?.details || {}
       let itemName: string = cd.service_label || current?.templates?.name || ''
@@ -246,6 +254,16 @@ ${address}
         console.error('Failed to download design from storage:', dlError)
       }
     }
+    // Two-face products: download each labelled face from the private `designs` bucket (same trust
+    // model as designFilePath — these are bucket paths, NOT URLs, so the SSRF allowlist is N/A).
+    for (const f of privateFiles) {
+      const { data: fileData, error: dlError } = await supabase.storage.from('designs').download(f.path)
+      if (fileData && !dlError) {
+        files.push({ buffer: await fileData.arrayBuffer(), ext: extFromPath(f.path), label: f.label })
+      } else {
+        console.error('Failed to download two-face design from storage:', f.path, dlError)
+      }
+    }
     for (const url of fileUrls) {
       if (!isAllowedDesignUrl(url)) { console.error('Blocked non-allowlisted design URL:', url); continue }
       try {
@@ -275,11 +293,15 @@ ${address}
     let sentAny = false
     if (files.length > 0) {
       for (let i = 0; i < files.length; i++) {
-        const { buffer, ext } = files[i]
+        const { buffer, ext, label } = files[i]
         const mime = MIME_BY_EXT[ext] || 'application/octet-stream'
         const isTif = ['tif', 'tiff'].includes(ext)
         const suffix = files.length > 1 ? `-${i + 1}` : ''
-        const caption = i === 0 ? message : `📎 ملف ${i + 1} — طلب \`${shortId}\``
+        // The first file carries the full order caption (+ its label, e.g. الوجه الأمامي); each
+        // subsequent file carries its own label so the print shop can tell the faces apart.
+        const caption = i === 0
+          ? (label ? `${message}\n\n🖼 *${label}*` : message)
+          : (label ? `📎 *${label}* — طلب \`${shortId}\`` : `📎 ملف ${i + 1} — طلب \`${shortId}\``)
         const ok = await sendDocument(buffer, `design-${shortId}${suffix}.${ext}`, mime, caption)
         sentAny = sentAny || ok
 
