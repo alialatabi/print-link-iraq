@@ -181,15 +181,45 @@ ${cellophane ? `✨ *السلوفان:* ${cellophane}\n` : ''}💰 *الكلفة
       // (9647712253264 → 07712253264); numbers already starting with 0 pass through.
       const formatLocalPhone = (p: unknown): string => {
         const s = String(p ?? '').trim()
-        if (!s) return '—'
+        if (!s) return ''
         const digits = s.replace(/^\+/, '')
         return digits.startsWith('964') ? `0${digits.slice(3)}` : s
       }
-      const deliveryPhone = formatLocalPhone(details.delivery_phone || details.phone)
-      const deliveryProvince = details.delivery_province || '—'
-      const deliveryArea = details.delivery_area || '—'
-      const deliveryLandmark = details.delivery_landmark || ''
-      const address = `${deliveryProvince} — ${deliveryArea}${deliveryLandmark ? ` — ${deliveryLandmark}` : ''}`
+
+      // Delivery contact/address: the order's own details carry them ONLY after the customer
+      // completed the delivery-address step. Direct approve→print (and any dispatch fired
+      // before that step) has none — fall back to the customer's DEFAULT saved address, then
+      // to the profile's address/account phone, and only then admit it's pending.
+      let rawPhone: unknown = details.delivery_phone || details.phone
+      let deliveryProvince: string = String(details.delivery_province || '')
+      let deliveryArea: string = String(details.delivery_area || '')
+      let deliveryLandmark: string = String(details.delivery_landmark || '')
+      if (!rawPhone || !deliveryProvince) {
+        const [{ data: savedRows }, { data: prof }] = await Promise.all([
+          supabase
+            .from('saved_addresses')
+            .select('phone, province, area, landmark, is_default')
+            .eq('user_id', order.customer_id)
+            .order('is_default', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(1),
+          supabase
+            .from('profiles')
+            .select('phone, province, area, landmark')
+            .eq('user_id', order.customer_id)
+            .maybeSingle(),
+        ])
+        const saved = ((savedRows || []) as Array<Record<string, unknown>>)[0]
+        const profile = (prof || {}) as Record<string, unknown>
+        rawPhone = rawPhone || saved?.phone || profile.phone
+        deliveryProvince = deliveryProvince || String(saved?.province || profile.province || '')
+        deliveryArea = deliveryArea || String(saved?.area || profile.area || '')
+        deliveryLandmark = deliveryLandmark || String(saved?.landmark || profile.landmark || '')
+      }
+      const deliveryPhone = formatLocalPhone(rawPhone) || '—'
+      const address = deliveryProvince
+        ? `${deliveryProvince}${deliveryArea ? ` — ${deliveryArea}` : ''}${deliveryLandmark ? ` — ${deliveryLandmark}` : ''}`
+        : 'لم يُحدَّد بعد — يصل مع موافقة الزبون'
 
       message = `🖨 *طلب جاهز للطباعة*
 
