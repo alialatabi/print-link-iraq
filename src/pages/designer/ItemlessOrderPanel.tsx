@@ -2,9 +2,10 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Upload, FileText, Image, Trash2, CheckCircle2, RefreshCw,
-  Eye, ExternalLink, Printer, MapPin,
+  Eye, Printer, MapPin,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import AttachmentGallery from './AttachmentGallery';
 import type { OrderDetailsJson } from '@/types/db';
 import type { DesignVersion } from './DesignItemCard';
 
@@ -95,32 +96,8 @@ const ItemlessOrderPanel = ({
               <Image className="w-4 h-4 text-primary" />
               مرفقات الزبون ({attachments.length})
             </p>
-            <div className="grid grid-cols-3 gap-2">
-              {attachments.map((url, i) => {
-                const isImg = /\.(png|jpe?g|webp|gif)$/i.test(url);
-                return (
-                  <a
-                    key={url}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="relative rounded-xl overflow-hidden border border-border/60 aspect-square bg-muted/20 group hover:border-primary/40 transition-colors flex items-center justify-center"
-                  >
-                    {isImg ? (
-                      <img src={url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-center p-2">
-                        <FileText className="w-8 h-8 text-primary mx-auto mb-1" />
-                        <span className="text-[11px] text-muted-foreground">ملف {i + 1}</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <ExternalLink className="w-5 h-5 text-white" />
-                    </div>
-                  </a>
-                );
-              })}
-            </div>
+            {/* Full-size, uncropped images + download — the designer works from these files. */}
+            <AttachmentGallery urls={attachments} />
           </div>
         )}
       </div>

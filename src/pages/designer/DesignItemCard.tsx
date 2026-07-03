@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Upload, Send, FileText, Image, Trash2, CheckCircle2, RefreshCw,
-  Eye, MessageSquare, AlertTriangle, ExternalLink, Printer,
+  Eye, MessageSquare, AlertTriangle, Printer,
   ChevronDown, ChevronUp, Sparkles, Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import AttachmentGallery from './AttachmentGallery';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import type { OrderStatus } from '@/data/mockData';
 import type { OrderDetailsJson } from '@/types/db';
@@ -197,22 +198,8 @@ const DesignItemCard = ({
                   <Image className="w-4 h-4 text-primary" />
                   مرفقات ({itemDetails.attachment_urls.length})
                 </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {(itemDetails.attachment_urls as string[]).map((url: string, i: number) => (
-                    <a
-                      key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="relative rounded-xl overflow-hidden border border-border/60 aspect-square bg-muted/20 group hover:border-primary/40 transition-colors"
-                    >
-                      <img src={url} alt="" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <ExternalLink className="w-5 h-5 text-white" />
-                      </div>
-                    </a>
-                  ))}
-                </div>
+                {/* Full-size, uncropped images + download — the designer works from these files. */}
+                <AttachmentGallery urls={itemDetails.attachment_urls as string[]} />
               </div>
             )}
           </div>
