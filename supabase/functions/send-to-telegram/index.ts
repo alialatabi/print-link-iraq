@@ -290,8 +290,59 @@ ${address}
       return res.ok
     }
 
+    // A filename slug for a face label so the files are tellable-apart even when saved to disk.
+    const fileSlug = (label: string | undefined, i: number): string =>
+      label === 'الوجه الأمامي' ? '-front' : label === 'الوجه الخلفي' ? '-back' : `-${i + 1}`
+
+    // Multi-file sends (e.g. two-face front+back) go as ONE Telegram album (sendMediaGroup).
+    // The full order caption sits on the LAST item — when exactly one item of a media group has
+    // a caption, Telegram renders it below the whole album, i.e. the details appear under the
+    // second (back) file, and both files live in a single message.
+    const sendAsMediaGroup = async (groupFiles: DesignFile[], finalCaption: string) => {
+      const formData = new FormData()
+      formData.append('chat_id', TELEGRAM_CHAT_ID)
+      const media = groupFiles.map((f, i) => ({
+        type: 'document',
+        media: `attach://file${i}`,
+        ...(i === groupFiles.length - 1 ? { caption: finalCaption, parse_mode: 'Markdown' } : {}),
+      }))
+      formData.append('media', JSON.stringify(media))
+      groupFiles.forEach((f, i) => {
+        const mime = MIME_BY_EXT[f.ext] || 'application/octet-stream'
+        formData.append(`file${i}`, new Blob([f.buffer], { type: mime }), `design-${shortId}${fileSlug(f.label, i)}.${f.ext}`)
+      })
+      const res = await fetch(`${telegramUrl}/sendMediaGroup`, { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) console.error('Telegram sendMediaGroup failed:', data)
+      return res.ok
+    }
+
     let sentAny = false
-    if (files.length > 0) {
+
+    // Album path: 2..10 files in one message, details caption below the last file. Face labels
+    // are listed in the caption (in file order) and baked into the filenames (-front/-back).
+    if (files.length >= 2 && files.length <= 10) {
+      const labelsLine = files.some((f) => f.label)
+        ? `\n\n📎 *الملفات بالترتيب:* ${files.map((f, i) => f.label || `ملف ${i + 1}`).join('، ')}`
+        : ''
+      sentAny = await sendAsMediaGroup(files, `${message}${labelsLine}`)
+      if (sentAny) {
+        // TIF previews can't join the album (converted after the fact) — send them separately.
+        for (let i = 0; i < files.length; i++) {
+          const { buffer, ext, label } = files[i]
+          if (!['tif', 'tiff'].includes(ext)) continue
+          try {
+            const pngData = tifToPng(buffer)
+            await sendDocument(pngData, `design-${shortId}${fileSlug(label, i)}.png`, 'image/png', `📎 نسخة PNG${label ? ` — ${label}` : ''} — طلب \`${shortId}\``)
+          } catch (convErr) {
+            console.error('TIF to PNG conversion failed:', convErr)
+          }
+        }
+      }
+    }
+
+    // Single-file path + fallback if the album send failed.
+    if (!sentAny && files.length > 0) {
       for (let i = 0; i < files.length; i++) {
         const { buffer, ext, label } = files[i]
         const mime = MIME_BY_EXT[ext] || 'application/octet-stream'
