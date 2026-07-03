@@ -229,7 +229,7 @@ ${cellophane ? `✨ *السلوفان:* ${cellophane}\n` : ''}💰 *الكلفة
 📍 *عنوان الاستلام:*
 ${address}
 
-📞 *رقم الاستلام:* ${deliveryPhone}
+📞 *رقم الاستلام:* ${deliveryPhone === '—' ? '—' : `\`${deliveryPhone}\``}
 
 💰 *المجموع الكلي:* ${grandTotal.toLocaleString()} د.ع _(شامل التوصيل ${DELIVERY_FEE.toLocaleString()} د.ع)_
 
