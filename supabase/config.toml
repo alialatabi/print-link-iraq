@@ -50,6 +50,10 @@ verify_jwt = false
 [functions.sync-alwaseet-locations]
 verify_jwt = false
 
+# Authenticated customers only: lists/validates coupons; also validates the caller's JWT internally.
+[functions.validate-coupon]
+verify_jwt = true
+
 # Does its own staff-JWT check internally.
 [functions.send-push]
 verify_jwt = false

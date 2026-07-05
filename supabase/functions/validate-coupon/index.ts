@@ -15,14 +15,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify the user is authenticated
+    // Verify the user is authenticated. getUser() MUST be given the caller's JWT explicitly —
+    // a server-side client has no stored session, so a bare getUser() always fails (same
+    // pattern as sync-alwaseet-locations).
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { authorization: authHeader } } }
+      { auth: { autoRefreshToken: false, persistSession: false } },
     );
 
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(jwt);
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: "غير مصرح" }),

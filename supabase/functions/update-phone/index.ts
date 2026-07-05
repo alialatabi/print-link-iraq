@@ -26,13 +26,15 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     // Identify the caller from their JWT (verify_jwt is off; we validate manually).
+    // getUser() MUST be given the JWT explicitly — a server-side client has no stored
+    // session, so a bare getUser() always fails.
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "غير مصرح" }, 401);
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
     const supabaseAuth = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { data: userData, error: userErr } = await supabaseAuth.auth.getUser();
+    const { data: userData, error: userErr } = await supabaseAuth.auth.getUser(jwt);
     const user = userData?.user;
     if (userErr || !user) return json({ error: "غير مصرح" }, 401);
 
