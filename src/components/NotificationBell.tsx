@@ -1,76 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  loadUserNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
-} from '@/services/notifications';
-
-interface Notification {
-  id: string;
-  order_id: string | null;
-  link: string | null;
-  title: string;
-  message: string;
-  read: boolean;
-  created_at: string;
-}
+import { useNotificationsFeed } from '@/hooks/useNotificationsFeed';
 
 const NotificationBell = () => {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { notifications, markRead, markAllRead: markAllFeedRead } = useNotificationsFeed(user?.id);
   const [open, setOpen] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const loadNotifications = useCallback(async () => {
-    if (!user) return;
-    const { data } = await loadUserNotifications(user.id);
-    setNotifications((data as Notification[]) || []);
-  }, [user]);
-
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
-
-  // Realtime subscription
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel('user-notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          setNotifications(prev => [payload.new as Notification, ...prev].slice(0, 20));
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [user]);
-
   const markAllRead = async () => {
     if (!user || unreadCount === 0) return;
-    await markAllNotificationsRead(user.id);
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const markRead = async (id: string) => {
-    await markNotificationRead(id);
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    await markAllFeedRead();
   };
 
   if (!user) return null;
