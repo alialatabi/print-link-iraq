@@ -387,7 +387,9 @@ const TemplateDetails = () => {
     );
   }
 
-  const serviceLabel = SERVICE_LABELS[template.service_type as ServiceType] || 'تصميم';
+  // Prefer the live DB service name (covers DB-managed types like card_iq_1 that the
+  // static map doesn't know); fall back to the legacy map, then a generic label.
+  const serviceLabel = serviceData?.label || SERVICE_LABELS[template.service_type as ServiceType] || 'تصميم';
 
   return (
     <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>

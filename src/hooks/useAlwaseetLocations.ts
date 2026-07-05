@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeLocations } from '@/lib/locationName';
 
 /**
  * Al-Waseet location reference data (synced into public.alwaseet_cities / public.alwaseet_regions
@@ -26,7 +27,8 @@ export function useAlwaseetCities() {
         .from('alwaseet_cities' as never)
         .select('id, name')
         .order('name', { ascending: true });
-      return (data as unknown as AwLocation[]) ?? [];
+      // Display-level cleanup only — the DB rows (and the ids we save) stay untouched.
+      return sanitizeLocations((data as unknown as AwLocation[]) ?? []);
     },
     staleTime: LOCATIONS_STALE_TIME,
   });
@@ -45,7 +47,9 @@ export function useAlwaseetRegions(cityId: number | null) {
         .eq('city_id' as never, cityId as never)
         .order('name', { ascending: true })
         .limit(2000);
-      return (data as unknown as AwLocation[]) ?? [];
+      // The synced catalog has junk rows (digits-only, stray Latin, leading "_") —
+      // hide/clean them for display without mutating the DB.
+      return sanitizeLocations((data as unknown as AwLocation[]) ?? []);
     },
     enabled: !!cityId,
     staleTime: LOCATIONS_STALE_TIME,

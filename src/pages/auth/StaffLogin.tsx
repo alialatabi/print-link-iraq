@@ -27,7 +27,12 @@ const StaffLogin = () => {
     setSubmitting(true);
     const { error, isNewUser } = await phoneLogin(phone, password);
     if (error) {
-      toast({ title: 'خطأ في تسجيل الدخول', description: error.message, variant: 'destructive' });
+      // The shared phone-login function answers "الرمز غير صحيح" (it also serves the
+      // customer PIN flow) — on this password form that wording is wrong, so remap it.
+      const description = error.message.includes('الرمز غير صحيح')
+        ? 'كلمة المرور غير صحيحة'
+        : error.message;
+      toast({ title: 'خطأ في تسجيل الدخول', description, variant: 'destructive' });
     } else if (isNewUser) {
       toast({ title: 'تم إنشاء حسابك بنجاح!' });
       navigate('/complete-profile');

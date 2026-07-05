@@ -478,12 +478,29 @@ const AiDesignPage = () => {
                   />
                 </div>
 
-                {/* Auto-save to vault status */}
+                {/* Auto-save to vault — prominent banner so customers actually find the vault */}
                 {autoSaveState === 'saved' && (
-                  <Link to="/design-vault" className="flex items-center justify-center gap-1.5 text-xs font-semibold text-success bg-success/10 border border-success/20 rounded-xl py-2 px-3">
-                    <Check className="w-3.5 h-3.5" />
-                    تم الحفظ تلقائياً في خزنة التصاميم
-                  </Link>
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 rounded-xl border border-success/25 bg-success/10 p-3.5"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-success/15 flex items-center justify-center shrink-0">
+                      <Archive className="w-4 h-4 text-success" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-foreground flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5 text-success shrink-0" />
+                        تم حفظ التصميم في خزنة تصاميمك
+                      </p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        تلقائياً — ترجع له وتطلبه بأي وقت
+                      </p>
+                    </div>
+                    <Button asChild size="sm" variant="outline" className="rounded-lg shrink-0 border-success/30 text-success hover:bg-success/10 hover:text-success font-bold">
+                      <Link to="/design-vault">فتح الخزنة</Link>
+                    </Button>
+                  </motion.div>
                 )}
                 {autoSaveState === 'saving' && (
                   <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted/40 border border-border/50 rounded-xl py-2 px-3">

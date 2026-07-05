@@ -377,7 +377,8 @@ const CheckoutPage = () => {
                     </div>
                   </div>
                   <div className="text-left">
-                    <p className="text-xs text-muted-foreground">{SERVICE_LABELS[currentItem.serviceType as ServiceType]}</p>
+                    {/* Live DB service name first — the static map misses DB-managed types (e.g. card_iq_1) */}
+                    <p className="text-xs text-muted-foreground">{services.find(s => s.id === currentItem.serviceType)?.label || SERVICE_LABELS[currentItem.serviceType as ServiceType] || ''}</p>
                     <p className="text-sm font-medium text-foreground">{currentItem.quantity.toLocaleString('en-US')} نسخة</p>
                     {currentItem.cellophane && (
                       <p className="text-xs text-primary font-medium mt-0.5">
@@ -475,11 +476,11 @@ const CheckoutPage = () => {
           </div>
           </>)}
 
-          {/* Delivery-fee expectation — shown at the commit step; not a charge in any total */}
+          {/* Delivery-fee expectation — flat 5,000 IQD nationwide, paid on delivery; not a charge in any total */}
           {currentStep === totalSteps - 1 && (
             <div className="flex items-start gap-2 rounded-xl border border-border/50 bg-muted/30 p-3 text-muted-foreground">
               <Truck className="w-4 h-4 mt-0.5 shrink-0" />
-              <p className="text-xs leading-relaxed">رسوم التوصيل: تُحسب حسب المنطقة عند التوصيل</p>
+              <p className="text-xs leading-relaxed">رسوم التوصيل: 5,000 د.ع لجميع محافظات العراق — تُدفع عند الاستلام</p>
             </div>
           )}
 

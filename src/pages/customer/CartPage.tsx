@@ -8,6 +8,7 @@ import { ArrowRight, Minus, Plus, Trash2, ShoppingCart, Palette, ShieldCheck, Tr
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import SEOHead from '@/components/SEOHead';
+import { useServices } from '@/hooks/useServices';
 import { validateCoupon, Coupon } from '@/hooks/useDiscounts';
 import { toast } from 'sonner';
 import { isNativeApp } from '@/lib/platform';
@@ -19,6 +20,7 @@ const fadeUp = {
 
 const CartPage = () => {
   const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart();
+  const { services } = useServices();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [couponCode, setCouponCode] = useState('');
@@ -121,7 +123,9 @@ const CartPage = () => {
                       <span className="text-xs text-muted-foreground">
                         {item.aiDesign
                           ? `تصميم بالذكاء الاصطناعي${item.aiDesign.sizeLabel ? ' · ' + item.aiDesign.sizeLabel : ''}`
-                          : (SERVICE_LABELS[item.serviceType as ServiceType] || item.serviceType)}
+                          // Prefer the live DB service name (DB-managed types like card_iq_1
+                          // aren't in the static map — never show the raw id to customers).
+                          : (services.find(s => s.id === item.serviceType)?.label || SERVICE_LABELS[item.serviceType as ServiceType] || 'تصميم')}
                       </span>
                     </div>
                     <button
@@ -243,9 +247,9 @@ const CartPage = () => {
                 {finalPrice.toLocaleString('en-US')} <span className="text-sm font-bold text-success/70">د.ع</span>
               </span>
             </div>
-            {/* Delivery fee — secondary note; computed per region at delivery, not part of the total above */}
+            {/* Delivery fee — secondary note; flat 5,000 IQD nationwide, paid on delivery (never added to the total above) */}
             <p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
-              رسوم التوصيل: تُحسب حسب المنطقة عند التوصيل
+              رسوم التوصيل: 5,000 د.ع لجميع محافظات العراق — تُدفع عند الاستلام
             </p>
           </div>
 
