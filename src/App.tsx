@@ -12,6 +12,7 @@ import Layout from "@/components/Layout";
 import ScrollToTop from "@/components/ScrollToTop";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PageSkeleton from "@/components/system/PageSkeleton";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 const Index = lazy(() => import("./pages/Index"));
 
 // Lazy-loaded routes for code splitting
@@ -125,4 +126,11 @@ const App = () => (
   </LazyMotion>
 );
 
-export default App;
+const AppWithInsights = () => (
+  <>
+    <App />
+    <SpeedInsights />
+  </>
+);
+
+export default AppWithInsights;
