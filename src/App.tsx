@@ -118,6 +118,7 @@ const App = () => (
               </Suspense>
             </Layout>
           </BrowserRouter>
+          <SpeedInsights />
           </CartProvider>
         </AppProvider>
       </AuthProvider>
@@ -126,11 +127,4 @@ const App = () => (
   </LazyMotion>
 );
 
-const AppWithInsights = () => (
-  <>
-    <App />
-    <SpeedInsights />
-  </>
-);
-
-export default AppWithInsights;
+export default App;
