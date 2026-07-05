@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { m as motion } from 'framer-motion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -215,6 +215,9 @@ const AdminAdminsTab = ({
         <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle>إضافة حساب أدمن جديد</DialogTitle>
+            <DialogDescription>
+              أدخل بيانات الأدمن الجديد ليتمكن من الوصول إلى لوحة الإدارة.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>

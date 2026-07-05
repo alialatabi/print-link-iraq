@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useServices, buildLabelMap } from '@/hooks/useServices';
@@ -8,6 +9,7 @@ import { toast } from 'sonner';
 import { getDesignSignedUrl } from '@/lib/storage';
 import { notifyOrderStatusPush } from '@/lib/orderStatusNotify';
 import { ROLE_LABELS } from '@/lib/constants';
+import { toLocalPhone } from '@/lib/phoneUtils';
 import { STATUS_LABELS } from '@/data/mockData';
 import type { OrderStatus } from '@/data/mockData';
 import type { OrderDetailsJson, OrderStatusEnum, AppRole } from '@/types/db';
@@ -35,6 +37,12 @@ import AdminDesignersTab from '@/components/admin/AdminDesignersTab';
 import AdminUsersTab from '@/components/admin/AdminUsersTab';
 import AdminAdminsTab from '@/components/admin/AdminAdminsTab';
 
+/** Valid `?tab=` values — keep in sync with the TabsTrigger list below. */
+const ADMIN_TAB_KEYS: readonly string[] = [
+  'orders', 'accounts', 'templates', 'services', 'ai-designs', 'designers',
+  'customers', 'users', 'admins', 'resellers', 'discounts', 'activity',
+];
+
 const AdminPanel = () => {
   const { role, isSuperAdmin, user } = useAuth();
   const { services } = useServices();
@@ -44,7 +52,21 @@ const AdminPanel = () => {
   const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
   const [onlineCount, setOnlineCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('orders');
+  // Active tab persists in the URL (?tab=…) so reloads keep it and tabs are deep-linkable.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(() =>
+    tabParam && ADMIN_TAB_KEYS.includes(tabParam) ? tabParam : 'orders'
+  );
+  const changeTab = useCallback((v: string) => {
+    setActiveTab(v);
+    // replace (not push) so tab switches don't spam browser history
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', v);
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -161,7 +183,7 @@ const AdminPanel = () => {
       .from('profiles')
       .update({ is_active: !currentActive })
       .eq('user_id', userId);
-    if (error) { toast.error('فشل تحديث حالة المصمم'); return; }
+    if (error) { toast.error('فشل تحديث حالة المصمم', { description: error.message || error.code }); return; }
     const designer = designers.find(d => d.user_id === userId);
     logActivity('toggle_designer_active', userId, { target_name: designer?.display_name || designer?.phone || '-', new_status: !currentActive ? 'نشط' : 'معطّل', actor_name: 'أدمن' });
     toast.success(!currentActive ? 'تم تفعيل المصمم' : 'تم تعطيل المصمم');
@@ -244,7 +266,8 @@ const AdminPanel = () => {
       .from('orders')
       .update({ status: newStatus as OrderStatusEnum })
       .eq('id', orderId);
-    if (error) { toast.error('فشل تحديث الحالة'); return; }
+    // Surface the Supabase reason (message/code) so staff can diagnose, not just "failed".
+    if (error) { toast.error('فشل تحديث الحالة', { description: error.message || error.code }); return; }
     const order = orders.find(o => o.id === orderId);
     logActivity('change_order_status', order?.customer_id, { order_id: orderId, new_status: newStatus, actor_name: 'أدمن' });
     notifyOrderStatusPush(orderId, order?.customer_id, newStatus);
@@ -257,7 +280,7 @@ const AdminPanel = () => {
       .from('orders')
       .update({ status: 'cancelled' as OrderStatusEnum, designer_id: null })
       .eq('id', orderId);
-    if (error) { toast.error('فشل إلغاء الطلب'); return; }
+    if (error) { toast.error('فشل إلغاء الطلب', { description: error.message || error.code }); return; }
     logActivity('cancel_order', null, { order_id: orderId, actor_name: 'أدمن' });
     toast.success('تم إلغاء الطلب');
     loadOrders();
@@ -274,7 +297,7 @@ const AdminPanel = () => {
       .from('orders')
       .update(updateData)
       .eq('id', orderId);
-    if (error) { toast.error('فشل تعيين المصمم'); return; }
+    if (error) { toast.error('فشل تعيين المصمم', { description: error.message || error.code }); return; }
     const designer = designers.find(d => d.user_id === designerId);
     logActivity('assign_designer', designerId, { order_id: orderId, designer_name: designer?.display_name || 'مصمم', actor_name: 'أدمن' });
     toast.success('تم تعيين المصمم');
@@ -509,12 +532,25 @@ const AdminPanel = () => {
   }
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
-    filteredOrders = filteredOrders.filter(o =>
-      (o.profiles?.display_name || '').toLowerCase().includes(q) ||
-      (o.profiles?.phone || '').includes(q) ||
-      (o.templates?.name || '').toLowerCase().includes(q) ||
-      o.id.toLowerCase().includes(q)
-    );
+    // Phones are stored as 964…; canonicalize both sides so "0771…" finds "964771…".
+    const qPhone = /\d/.test(q) ? toLocalPhone(q) : '';
+    const matches = (v: unknown) => typeof v === 'string' && v.toLowerCase().includes(q);
+    filteredOrders = filteredOrders.filter(o => {
+      const details = (o.details || {}) as OrderDetailsJson;
+      return (
+        matches(o.profiles?.display_name) ||
+        (o.profiles?.phone || '').includes(q) ||
+        (qPhone !== '' && toLocalPhone(o.profiles?.phone).includes(qPhone)) ||
+        matches(o.templates?.name) ||
+        o.id.toLowerCase().includes(q) ||
+        // Delivery / address fields so staff can search e.g. by province ("بغداد")
+        matches(details.delivery_province) ||
+        matches(details.delivery_area) ||
+        matches(details.delivery_landmark) ||
+        matches(details.delivery_label) ||
+        matches(details.address)
+      );
+    });
   }
   if (sortBy === 'oldest') filteredOrders = [...filteredOrders].reverse();
 
@@ -543,7 +579,8 @@ const AdminPanel = () => {
             </h1>
             <p className="text-muted-foreground">إدارة شاملة للطلبات والمستخدمين</p>
           </div>
-          <div className="flex items-center gap-3">
+          {/* flex-wrap: badge + export button exceed narrow viewports (390px) side by side */}
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
             {/* Online visitors indicator */}
             <div className="flex items-center gap-2 bg-success/10 border border-success/20 rounded-xl px-4 py-2.5">
               <span className="relative flex h-2.5 w-2.5">
@@ -578,9 +615,9 @@ const AdminPanel = () => {
                 key={stat.label}
                 onClick={() => {
                   if (stat.filter === null) {
-                    setActiveTab('designers');
+                    changeTab('designers');
                   } else {
-                    setActiveTab('orders');
+                    changeTab('orders');
                     setQuickFilter(stat.filter === 'all' ? null : stat.filter);
                     setStatusFilter('all');
                   }
@@ -599,7 +636,7 @@ const AdminPanel = () => {
           })}
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setQuickFilter(null); }} dir="rtl">
+        <Tabs value={activeTab} onValueChange={(v) => { changeTab(v); setQuickFilter(null); }} dir="rtl">
           <div className="overflow-x-auto scrollbar-hide mb-6 -mx-1 px-1">
             <TabsList className="inline-flex w-auto min-w-full gap-1 bg-muted/50 p-1 rounded-xl">
               <TabsTrigger value="orders" className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap rounded-lg">
@@ -730,6 +767,7 @@ const AdminPanel = () => {
             <AdminUsersTab
               allUsers={allUsers}
               isSuperAdmin={isSuperAdmin}
+              currentUserId={user?.id}
               handleToggleRole={handleToggleRole}
               handleDeleteDesigner={handleDeleteDesigner}
               designerDialogOpen={designerDialogOpen}

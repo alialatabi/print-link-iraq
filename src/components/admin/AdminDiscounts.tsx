@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useDiscounts, useCoupons, Discount } from '@/hooks/useDiscounts';
+import { useDiscounts, useCoupons, Discount, Coupon } from '@/hooks/useDiscounts';
 import { useServices } from '@/hooks/useServices';
 import type { ServiceRow } from '@/types/db';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Plus, Trash2, Percent, Ticket, Copy, Tag } from 'lucide-react';
@@ -39,6 +39,9 @@ const AdminDiscounts = () => {
   // Coupon dialog
   const [couponDialog, setCouponDialog] = useState(false);
   const [couponForm, setCouponForm] = useState({ code: generateCode(), percentage: 10, max_uses: '' });
+  // Creating a coupon mass-notifies every customer — confirm with the real count first.
+  const [couponConfirm, setCouponConfirm] = useState<{ open: boolean; count: number }>({ open: false, count: 0 });
+  const [creatingCoupon, setCreatingCoupon] = useState(false);
 
   const parentServices = services.filter(s => !(s as ServiceRow).parent_id);
   const subServices = services.filter(s => (s as ServiceRow).parent_id);
@@ -52,7 +55,7 @@ const AdminDiscounts = () => {
       target_id: discountForm.type === 'global' ? null : discountForm.target_id,
       percentage: discountForm.percentage,
     });
-    if (error) { toast.error('فشل إنشاء الخصم'); return; }
+    if (error) { toast.error('فشل إنشاء الخصم', { description: error.message || error.code }); return; }
     toast.success('تم إنشاء الخصم');
     setDiscountDialog(false);
     setDiscountForm({ type: 'global', target_id: '', percentage: 10 });
@@ -60,62 +63,100 @@ const AdminDiscounts = () => {
   };
 
   const handleToggleDiscount = async (id: string, active: boolean) => {
-    await supabase.from('discounts').update({ is_active: !active }).eq('id', id);
+    const { error } = await supabase.from('discounts').update({ is_active: !active }).eq('id', id);
+    if (error) { toast.error('فشل تحديث الخصم', { description: error.message || error.code }); return; }
     reloadDiscounts();
   };
 
   const handleDeleteDiscount = async (id: string) => {
-    await supabase.from('discounts').delete().eq('id', id);
+    const { error } = await supabase.from('discounts').delete().eq('id', id);
+    if (error) { toast.error('فشل حذف الخصم', { description: error.message || error.code }); return; }
     toast.success('تم حذف الخصم');
     reloadDiscounts();
   };
 
-  const handleCreateCoupon = async () => {
+  // Step 1: validate the form, fetch the real customer count, then ask for confirmation
+  // (creating a coupon broadcasts a notification to every customer).
+  const handleRequestCreateCoupon = async () => {
     if (!couponForm.code.trim()) { toast.error('الكود مطلوب'); return; }
     if (couponForm.percentage < 1 || couponForm.percentage > 100) { toast.error('النسبة يجب أن تكون بين 1 و 100'); return; }
-
-    const { error } = await supabase.from('coupons').insert({
-      code: couponForm.code.trim().toUpperCase(),
-      percentage: couponForm.percentage,
-      max_uses: couponForm.max_uses ? parseInt(couponForm.max_uses) : null,
-    }).select('id').single();
-    if (error) {
-      if (error.code === '23505') toast.error('هذا الكود مستخدم مسبقاً');
-      else toast.error('فشل إنشاء الكوبون');
-      return;
-    }
-
-    // Send notification to all customers
-    const code = couponForm.code.trim().toUpperCase();
-    const pct = couponForm.percentage;
-    const { data: customerRoles } = await supabase
+    const { count, error } = await supabase
       .from('user_roles')
-      .select('user_id')
+      .select('*', { count: 'exact', head: true })
       .eq('role', 'customer');
-    if (customerRoles && customerRoles.length > 0) {
-      const notifs = customerRoles.map((r) => ({
-        user_id: r.user_id,
-        title: `🎉 كوبون خصم ${pct}%`,
-        message: `استخدم الكود ${code} للحصول على خصم ${pct}% على طلبك القادم!`,
-        link: '/my-coupons',
-      }));
-      await supabase.from('notifications').insert(notifs);
-    }
+    if (error) { toast.error('فشل جلب عدد الزبائن', { description: error.message || error.code }); return; }
+    setCouponConfirm({ open: true, count: count ?? 0 });
+  };
 
-    toast.success('تم إنشاء الكوبون وإرسال إشعار للزبائن');
-    setCouponDialog(false);
-    setCouponForm({ code: generateCode(), percentage: 10, max_uses: '' });
-    reloadCoupons();
+  // Step 2: actually create the coupon and notify all customers (after confirmation).
+  const handleCreateCoupon = async () => {
+    setCreatingCoupon(true);
+    try {
+      const { error } = await supabase.from('coupons').insert({
+        code: couponForm.code.trim().toUpperCase(),
+        percentage: couponForm.percentage,
+        max_uses: couponForm.max_uses ? parseInt(couponForm.max_uses) : null,
+      }).select('id').single();
+      if (error) {
+        if (error.code === '23505') toast.error('هذا الكود مستخدم مسبقاً');
+        else toast.error('فشل إنشاء الكوبون', { description: error.message || error.code });
+        return;
+      }
+
+      // Send notification to all customers
+      const code = couponForm.code.trim().toUpperCase();
+      const pct = couponForm.percentage;
+      const { data: customerRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'customer');
+      if (customerRoles && customerRoles.length > 0) {
+        const notifs = customerRoles.map((r) => ({
+          user_id: r.user_id,
+          title: `🎉 كوبون خصم ${pct}%`,
+          message: `استخدم الكود ${code} للحصول على خصم ${pct}% على طلبك القادم!`,
+          link: '/my-coupons',
+        }));
+        const { error: notifError } = await supabase.from('notifications').insert(notifs);
+        if (notifError) {
+          toast.error('تم إنشاء الكوبون لكن فشل إرسال الإشعارات', { description: notifError.message || notifError.code });
+        } else {
+          toast.success(`تم إنشاء الكوبون وإرسال إشعار إلى ${customerRoles.length} زبون`);
+        }
+      } else {
+        toast.success('تم إنشاء الكوبون');
+      }
+      setCouponDialog(false);
+      setCouponForm({ code: generateCode(), percentage: 10, max_uses: '' });
+      reloadCoupons();
+    } finally {
+      setCreatingCoupon(false);
+    }
   };
 
   const handleToggleCoupon = async (id: string, active: boolean) => {
-    await supabase.from('coupons').update({ is_active: !active }).eq('id', id);
+    const { error } = await supabase.from('coupons').update({ is_active: !active }).eq('id', id);
+    if (error) { toast.error('فشل تحديث الكوبون', { description: error.message || error.code }); return; }
     reloadCoupons();
   };
 
-  const handleDeleteCoupon = async (id: string) => {
-    await supabase.from('coupons').delete().eq('id', id);
-    toast.success('تم حذف الكوبون');
+  const handleDeleteCoupon = async (coupon: Coupon) => {
+    const { error } = await supabase.from('coupons').delete().eq('id', coupon.id);
+    if (error) { toast.error('فشل حذف الكوبون', { description: error.message || error.code }); return; }
+    // Also remove the announcement notifications broadcast for this coupon so they
+    // don't orphan (matched by code inside coupon-titled notifications). Needs the
+    // admin DELETE policy from migration 20260705110000_admin_delete_coupon_notifications.
+    const codePattern = coupon.code.replace(/[\\%_]/g, '\\$&');
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .delete()
+      .like('title', '%كوبون%')
+      .like('message', `%${codePattern}%`);
+    if (notifError) {
+      toast.error('تم حذف الكوبون لكن فشل حذف إشعاراته', { description: notifError.message || notifError.code });
+    } else {
+      toast.success('تم حذف الكوبون وإشعاراته');
+    }
     reloadCoupons();
   };
 
@@ -230,7 +271,8 @@ const AdminDiscounts = () => {
                       <p className="font-bold text-foreground text-sm">خصم {c.percentage}%</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-muted-foreground">
-                          مستخدم: {c.used_count}{c.max_uses ? ` / ${c.max_uses}` : ''}
+                          {/* dir=ltr: a bare "N / M" run gets bidi-reordered inside RTL text */}
+                          مستخدم: <span dir="ltr">{c.used_count}{c.max_uses ? ` / ${c.max_uses}` : ''}</span>
                         </span>
                         {c.expires_at && (
                           <span className="text-[10px] text-muted-foreground">
@@ -251,11 +293,11 @@ const AdminDiscounts = () => {
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>حذف الكوبون؟</AlertDialogTitle>
-                          <AlertDialogDescription>سيتم حذف هذا الكوبون نهائياً</AlertDialogDescription>
+                          <AlertDialogDescription>سيتم حذف هذا الكوبون نهائياً مع الإشعارات التي أُرسلت للزبائن عنه</AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteCoupon(c.id)}>حذف</AlertDialogAction>
+                          <AlertDialogAction onClick={() => handleDeleteCoupon(c)}>حذف</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
@@ -275,6 +317,9 @@ const AdminDiscounts = () => {
               <Percent className="w-5 h-5 text-primary" />
               إضافة خصم جديد
             </DialogTitle>
+            <DialogDescription>
+              حدد نوع الخصم ونسبته ليُطبق تلقائياً على أسعار القسم المختار.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
@@ -350,6 +395,9 @@ const AdminDiscounts = () => {
               <Ticket className="w-5 h-5 text-primary" />
               إنشاء كوبون خصم
             </DialogTitle>
+            <DialogDescription>
+              أنشئ كود خصم يستخدمه الزبائن عند إتمام الطلب، وسيصلهم إشعار به.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
@@ -395,12 +443,38 @@ const AdminDiscounts = () => {
               />
             </div>
 
-            <Button onClick={handleCreateCoupon} className="w-full rounded-xl h-11 font-bold">
+            <Button onClick={handleRequestCreateCoupon} className="w-full rounded-xl h-11 font-bold">
               إنشاء الكوبون
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Confirm Coupon Broadcast Dialog ── */}
+      <AlertDialog open={couponConfirm.open} onOpenChange={(open) => setCouponConfirm(c => ({ ...c, open }))}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد إنشاء الكوبون</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-1.5">
+              <span className="block">
+                سيتم إنشاء الكوبون <span dir="ltr" className="font-mono font-bold text-primary tracking-widest">{couponForm.code.trim().toUpperCase()}</span> بنسبة خصم <strong>{couponForm.percentage}%</strong>.
+              </span>
+              <span className="block font-semibold text-foreground">
+                سيتم إرسال إشعار إلى {couponConfirm.count} زبون.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel disabled={creatingCoupon}>تراجع</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={creatingCoupon}
+              onClick={() => { setCouponConfirm(c => ({ ...c, open: false })); handleCreateCoupon(); }}
+            >
+              {creatingCoupon ? 'جاري الإنشاء...' : 'نعم، إنشاء وإرسال'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

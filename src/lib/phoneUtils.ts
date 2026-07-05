@@ -42,7 +42,13 @@ export const formatPhoneDisplay = (phone: string | null): string => {
  */
 export const isSuperAdminPhone = (phone: string | null): boolean => {
   if (!phone) return false;
-  const norm = (p: string) =>
-    p.replace(/\D/g, '').replace(/^964/, '0').replace(/^00/, '0');
-  return norm(phone) === '07838774435';
+  return toLocalPhone(phone) === '07838774435';
 };
+
+/**
+ * Canonical local form for phone matching: digits only, `964`/`00` country
+ * prefix collapsed to `0`. Lets a search for `07712253264` match a stored
+ * `9647712253264` and vice versa.
+ */
+export const toLocalPhone = (p: string | null | undefined): string =>
+  (p ?? '').replace(/\D/g, '').replace(/^964/, '0').replace(/^00/, '0');

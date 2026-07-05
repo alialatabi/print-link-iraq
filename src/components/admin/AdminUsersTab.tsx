@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { m as motion } from 'framer-motion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,7 @@ interface DesignerForm {
 interface Props {
   allUsers: AdminUser[];
   isSuperAdmin: boolean;
+  currentUserId: string | undefined;
   handleToggleRole: (userId: string, role: string, hasRole: boolean) => void;
   handleDeleteDesigner: (userId: string) => void;
   designerDialogOpen: boolean;
@@ -35,6 +36,7 @@ interface Props {
 const AdminUsersTab = ({
   allUsers,
   isSuperAdmin,
+  currentUserId,
   handleToggleRole,
   handleDeleteDesigner,
   designerDialogOpen,
@@ -113,28 +115,31 @@ const AdminUsersTab = ({
                         </button>
                       );
                     })}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10">
-                          <Trash2 className="w-3 h-3 ml-1" />
-                          حذف
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent dir="rtl">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>حذف حساب المصمم</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            هل أنت متأكد من حذف حساب "{u.display_name || u.phone}"؟ سيتم حذف الحساب نهائياً.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteDesigner(u.user_id)} className="bg-destructive hover:bg-destructive/90">
-                            حذف نهائي
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    {/* Never offer delete for your own row or a super admin (mirrors the Admins tab guard). */}
+                    {!u.is_super_admin && u.user_id !== currentUserId && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10">
+                            <Trash2 className="w-3 h-3 ml-1" />
+                            حذف
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent dir="rtl">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>حذف حساب المصمم</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              هل أنت متأكد من حذف حساب "{u.display_name || u.phone}"؟ سيتم حذف الحساب نهائياً.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteDesigner(u.user_id)} className="bg-destructive hover:bg-destructive/90">
+                              حذف نهائي
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -148,6 +153,9 @@ const AdminUsersTab = ({
         <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle>إضافة حساب مصمم جديد</DialogTitle>
+            <DialogDescription>
+              أدخل بيانات المصمم ليتمكن من استلام الطلبات وتصميمها.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>

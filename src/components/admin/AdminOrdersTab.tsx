@@ -94,7 +94,7 @@ const AdminOrdersTab = ({
             <Input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="بحث بالاسم أو الهاتف..."
+              placeholder="بحث بالاسم أو الهاتف أو العنوان..."
               className="pr-9 rounded-lg"
             />
           </div>
