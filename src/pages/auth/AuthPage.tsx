@@ -112,10 +112,17 @@ const AuthPage = () => {
   };
 
   // ── Step 2a: returning user signs in with their 6-digit code ──
-  const submitCode = async () => {
-    if (pin.length < 6) return;
+  // `autoCode` lets the PIN input sign in the instant the 6th digit lands (state is
+  // async, so the completion handler can't read the fresh `pin`). signingInRef guards a
+  // manual "دخول" tap racing that auto-submit — mirrors verifyingRef on the OTP step.
+  const signingInRef = useRef(false);
+  const submitCode = async (autoCode?: string) => {
+    const code = autoCode ?? pin;
+    if (code.length < 6 || signingInRef.current) return;
+    signingInRef.current = true;
     setSubmitting(true);
-    const { error } = await phoneLogin(phone, pin);
+    const { error } = await phoneLogin(phone, code);
+    signingInRef.current = false;
     setSubmitting(false);
     if (error) {
       setPin('');
@@ -346,9 +353,15 @@ const AuthPage = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="mb-6"><PinInput value={pin} onChange={setPin} autoFocus /></div>
+                    <div className="mb-6">
+                      <PinInput
+                        value={pin}
+                        onChange={(v) => { setPin(v); if (v.length === 6) void submitCode(v); }}
+                        autoFocus
+                      />
+                    </div>
                     <div className="space-y-4">
-                      <Button onClick={submitCode} disabled={pin.length < 6 || submitting} size="lg" className="h-12 w-full text-base font-bold">
+                      <Button onClick={() => submitCode()} disabled={pin.length < 6 || submitting} size="lg" className="h-12 w-full text-base font-bold">
                         {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'دخول'}
                       </Button>
                       <div className="flex items-center justify-center gap-1">
