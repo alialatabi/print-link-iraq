@@ -305,12 +305,12 @@ const AiDesignPage = () => {
               <SelectTrigger className="rounded-xl text-right h-12" dir="rtl">
                 <SelectValue placeholder={productsLoading ? 'جاري التحميل...' : 'اختر نوع المطبوعة'} />
               </SelectTrigger>
-              <SelectContent dir="rtl">
+              <SelectContent dir="rtl" className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-1rem)]">
                 {products.map(p => (
                   <SelectItem key={p.id} value={p.id}>
                     <span className="font-medium">{p.label}</span>
-                    <span className="text-primary font-bold mr-1">— {priceOf(p).toLocaleString('en-US')} د.ع</span>
-                    {p.sizeLabel && <span className="text-muted-foreground text-xs mr-1">· {p.sizeLabel}</span>}
+                    <span className="text-primary font-bold mr-1 whitespace-nowrap">— {priceOf(p).toLocaleString('en-US')} د.ع</span>
+                    {p.sizeLabel && <span className="text-muted-foreground text-xs mr-1 whitespace-nowrap">· {p.sizeLabel}</span>}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -327,10 +327,10 @@ const AiDesignPage = () => {
                   <SelectTrigger className="rounded-xl text-right" dir="rtl">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent dir="rtl">
+                  <SelectContent dir="rtl" className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-1rem)]">
                     {selected.options.map(o => (
                       <SelectItem key={o.id} value={o.id}>
-                        {o.label} <span className="text-muted-foreground">— {o.sizeLabel}</span>
+                        {o.label} <span className="text-muted-foreground whitespace-nowrap">— {o.sizeLabel}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>

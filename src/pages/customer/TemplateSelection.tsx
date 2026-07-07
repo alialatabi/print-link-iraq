@@ -176,7 +176,7 @@ const TemplateSelection = () => {
                   <div className={`relative bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`} style={{ aspectRatio: '1/1' }}>
                     <DiscountBadge percentage={discountPercent} />
                     {template.preview_url ? (
-                      <img src={getOptimizedImageUrl(template.preview_url, { width: 400, height: 400 })} alt={template.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500" loading="lazy" width="400" height="400" />
+                      <img src={getOptimizedImageUrl(template.preview_url, { width: 400, height: 400, resize: 'contain' })} alt={template.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500" loading="lazy" width="400" height="400" />
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-2 p-4">
                         <img src={logoImg} alt="مطبعتي" className="w-16 h-16 object-contain opacity-40" />

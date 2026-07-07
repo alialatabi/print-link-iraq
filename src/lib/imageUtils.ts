@@ -7,11 +7,11 @@
  */
 export function getOptimizedImageUrl(
   url: string | null | undefined,
-  options: { width?: number; height?: number; quality?: number } = {}
+  options: { width?: number; height?: number; quality?: number; resize?: 'cover' | 'contain' | 'fill' } = {}
 ): string {
   if (!url) return '';
 
-  const { width, height, quality = 85 } = options;
+  const { width, height, quality = 85, resize } = options;
 
   // Only transform Supabase storage URLs
   if (!url.includes('supabase.co/storage/v1/object/public/')) {
@@ -28,6 +28,10 @@ export function getOptimizedImageUrl(
   if (width) params.set('width', String(width));
   if (height) params.set('height', String(height));
   params.set('quality', String(quality));
+  // Supabase defaults to 'cover' (crop-to-fill) when both width and height are set.
+  // Only opt into a different mode when the caller explicitly asks — omitting this
+  // keeps every existing call site's URL byte-identical to before.
+  if (resize) params.set('resize', resize);
 
   const separator = transformedUrl.includes('?') ? '&' : '?';
   return `${transformedUrl}${separator}${params.toString()}`;
