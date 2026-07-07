@@ -49,7 +49,7 @@ const AdminUsersTab = ({
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
               <Palette className="w-5 h-5 text-primary" />
@@ -57,7 +57,7 @@ const AdminUsersTab = ({
             </h3>
             <p className="text-sm text-muted-foreground">إضافة وحذف المصممين وتغيير صلاحياتهم</p>
           </div>
-          <Button onClick={() => setDesignerDialogOpen(true)} className="rounded-xl gap-1.5">
+          <Button onClick={() => setDesignerDialogOpen(true)} className="rounded-xl gap-1.5 w-full sm:w-auto">
             <Palette className="w-4 h-4" />
             إضافة مصمم جديد
           </Button>
@@ -104,7 +104,7 @@ const AdminUsersTab = ({
                         <button
                           key={role}
                           onClick={() => handleToggleRole(u.user_id, role, has)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:py-1 rounded-lg text-[11px] font-medium border transition-colors ${
                             has
                               ? 'bg-primary/10 border-primary/30 text-primary'
                               : 'bg-muted/50 border-border text-muted-foreground hover:border-primary/30'
@@ -119,7 +119,7 @@ const AdminUsersTab = ({
                     {!u.is_super_admin && u.user_id !== currentUserId && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="outline" className="text-xs h-8 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10">
+                          <Button size="sm" variant="outline" className="text-xs h-9 sm:h-8 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10">
                             <Trash2 className="w-3 h-3 ml-1" />
                             حذف
                           </Button>

@@ -695,7 +695,7 @@ const DesignerOrderDetails = () => {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           {/* Header */}
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <div>
+            <div className="min-w-0">
               <h1 className="text-2xl font-bold text-foreground">تفاصيل الطلب</h1>
               <p className="text-muted-foreground text-sm mt-1">
                 {order.profiles?.display_name || '-'}
@@ -704,7 +704,7 @@ const DesignerOrderDetails = () => {
               {/* Customer contact + clarification — available on ALL order types */}
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 {customerPhone && (
-                  <Button asChild variant="outline" size="sm" className="h-8 rounded-lg text-xs">
+                  <Button asChild variant="outline" size="sm" className="h-10 rounded-lg text-xs">
                     <a href={`tel:${customerPhone}`}>
                       <Phone className="w-3.5 h-3.5 ml-1.5 text-primary" />
                       <span dir="ltr">{customerPhone}</span>
@@ -714,7 +714,7 @@ const DesignerOrderDetails = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 rounded-lg text-xs"
+                  className="h-10 rounded-lg text-xs"
                   onClick={() => setClarifOpen(o => !o)}
                 >
                   <MessageSquare className="w-3.5 h-3.5 ml-1.5 text-primary" />

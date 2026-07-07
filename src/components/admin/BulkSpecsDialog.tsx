@@ -45,7 +45,7 @@ export function BulkSpecsDialog({
                   key={m.key}
                   type="button"
                   onClick={() => setBulkSpecMode(m.key)}
-                  className={`px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                  className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     bulkSpecMode === m.key
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -107,7 +107,7 @@ export function BulkSpecsDialog({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
             <Button onClick={applyBulkSpecs} disabled={applyingSpecs} className="flex-1 rounded-xl">
               {applyingSpecs ? 'جاري التطبيق...' : 'تطبيق'}
             </Button>

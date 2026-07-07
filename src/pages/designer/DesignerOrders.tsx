@@ -134,12 +134,12 @@ const matchesQuery = (order: DesignerOrder, q: string) => {
 const SkeletonCard = () => (
   <div className="rounded-xl p-5 border border-border bg-card">
     <div className="flex items-center gap-4">
-      <Skeleton className="w-12 h-12 rounded-lg" />
-      <div className="flex-1 space-y-2">
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="h-3 w-24" />
+      <Skeleton className="w-12 h-12 rounded-lg shrink-0" />
+      <div className="flex-1 min-w-0 space-y-2">
+        <Skeleton className="h-4 w-28 sm:w-40 max-w-full" />
+        <Skeleton className="h-3 w-20 sm:w-24 max-w-full" />
       </div>
-      <Skeleton className="h-6 w-20 rounded-lg" />
+      <Skeleton className="h-6 w-16 sm:w-20 rounded-lg shrink-0" />
     </div>
   </div>
 );
@@ -241,7 +241,7 @@ const OrderCard = ({ order, index, onOpen }: OrderCardProps) => {
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0">
           <div
             className={cn(
               'w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0',
@@ -254,7 +254,7 @@ const OrderCard = ({ order, index, onOpen }: OrderCardProps) => {
               <FileText className={cn('w-6 h-6', isApproved ? 'text-success' : 'text-primary')} />
             )}
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-bold text-foreground">
                 {order.profiles?.display_name || '-'}
@@ -628,12 +628,12 @@ const DesignerOrders = () => {
         )}
 
         {/* Sort control (item 2) — segmented, choice persisted to localStorage */}
-        <div className="flex items-center gap-2 mb-4" dir="rtl">
+        <div className="flex items-center gap-2 mb-4 overflow-x-auto scrollbar-hide" dir="rtl">
           <ArrowDownUp className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
           <div
             role="group"
             aria-label="ترتيب الطلبات"
-            className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5"
+            className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 shrink-0"
           >
             {SORT_OPTIONS.map((opt) => (
               <button

@@ -225,21 +225,21 @@ const DesignItemCard = ({
           onClick={onToggle}
           className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-right"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
               <span className="text-primary font-bold text-sm">{idx + 1}</span>
             </div>
-            <div>
-              <h3 className="font-bold text-foreground text-sm">
+            <div className="min-w-0">
+              <h3 className="font-bold text-foreground text-sm truncate">
                 {item.templates?.name || 'عنصر'}
               </h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground truncate">
                 {SERVICE_LABELS[item.templates?.service_type as ServiceType] || ''}
                 {itemDetails.quantity && ` • ${Number(itemDetails.quantity).toLocaleString()} نسخة`}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <StatusBadge status={item.status} />
             {itemDesigns.length > 0 && (
               <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">
@@ -283,14 +283,14 @@ const DesignItemCard = ({
                   </p>
                   {itemDetails.edit_request && (
                     <div className="mt-2 rounded-lg border border-accent/40 bg-accent/10 p-2.5">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                         <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
                           <Pencil className="w-3.5 h-3.5 text-accent-foreground" />
                           التعديلات المطلوبة من الزبون
                         </p>
                         <CopyButton value={itemDetails.edit_request} />
                       </div>
-                      <p className="text-sm text-foreground mt-1 whitespace-pre-wrap leading-relaxed">
+                      <p className="text-sm text-foreground mt-1 whitespace-pre-wrap break-words leading-relaxed">
                         {itemDetails.edit_request}
                       </p>
                     </div>
@@ -302,14 +302,14 @@ const DesignItemCard = ({
                   ) : null}
                   {itemDetails.ai_prompt && (
                     <div className="mt-2 rounded-lg border border-border/60 bg-background/60 p-2.5">
-                      <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                         <p className="text-[11px] font-bold text-muted-foreground">
                           الوصف المُرسل للذكاء الاصطناعي
                         </p>
                         <CopyButton value={itemDetails.ai_prompt} />
                       </div>
                       <p
-                        className="text-[11px] text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed"
+                        className="text-[11px] text-muted-foreground whitespace-pre-wrap break-words font-mono leading-relaxed"
                         dir="ltr"
                       >
                         {itemDetails.ai_prompt}
@@ -326,7 +326,7 @@ const DesignItemCard = ({
                 {itemDetails.details && <CopyButton value={itemDetails.details} />}
               </div>
               {itemDetails.details ? (
-                <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap bg-muted/30 rounded-xl p-4 border border-border/50">
+                <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap break-words bg-muted/30 rounded-xl p-4 border border-border/50">
                   {itemDetails.details}
                 </p>
               ) : (
@@ -334,7 +334,7 @@ const DesignItemCard = ({
               )}
               {aiAttachments.length > 0 && (
                 <div className="mt-3">
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                     <p className="text-xs font-bold text-foreground flex items-center gap-2">
                       <Image className="w-4 h-4 text-primary" />
                       مرفقات ({aiAttachments.length})
@@ -477,7 +477,7 @@ const DesignItemCard = ({
                     onClick={() => onApproveAndPrint(item)}
                     disabled={printingItem === item.id}
                     size="lg"
-                    className="w-full bg-success hover:bg-success/90 text-success-foreground rounded-xl"
+                    className="w-full whitespace-normal bg-success hover:bg-success/90 text-success-foreground rounded-xl"
                   >
                     <CheckCircle2 className="w-4 h-4 ml-2" />
                     {printingItem === item.id ? 'جاري الإرسال...' : 'الموافقة على التصميم وإرساله للطبع 🖨'}
@@ -560,7 +560,7 @@ const DesignItemCard = ({
                               {new Date(rev.date).toLocaleDateString('ar')}
                             </span>
                           </div>
-                          <p className="text-foreground text-sm whitespace-pre-wrap">{rev.note}</p>
+                          <p className="text-foreground text-sm whitespace-pre-wrap break-words">{rev.note}</p>
                           {rev.images && rev.images.length > 0 && (
                             <RevisionImages paths={rev.images} onView={setLightboxUrl} />
                           )}

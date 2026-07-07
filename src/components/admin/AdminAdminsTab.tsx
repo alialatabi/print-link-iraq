@@ -51,7 +51,7 @@ const AdminAdminsTab = ({
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-primary" />
@@ -59,7 +59,7 @@ const AdminAdminsTab = ({
             </h3>
             <p className="text-sm text-muted-foreground">هذه الصفحة متاحة فقط للسوبر أدمن</p>
           </div>
-          <Button onClick={() => setAdminDialogOpen(true)} className="rounded-xl gap-1.5">
+          <Button onClick={() => setAdminDialogOpen(true)} className="rounded-xl gap-1.5 w-full sm:w-auto">
             <ShieldCheck className="w-4 h-4" />
             إضافة أدمن جديد
           </Button>
@@ -107,7 +107,7 @@ const AdminAdminsTab = ({
                         <AlertDialogTrigger asChild>
                           <button
                             disabled={isSuperAdminUser && !isMe}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:py-1 rounded-lg text-[11px] font-medium border transition-colors ${
                               isSuperAdminUser
                                 ? 'bg-amber-500/10 border-amber-500/30 text-amber-600'
                                 : 'bg-muted/50 border-border text-muted-foreground hover:border-amber-500/30'
@@ -138,7 +138,7 @@ const AdminAdminsTab = ({
                               )}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
-                          <AlertDialogFooter className="flex-row-reverse gap-2">
+                          <AlertDialogFooter className="flex-col-reverse sm:flex-row-reverse gap-2">
                             <AlertDialogCancel>تراجع</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => handleToggleSuperAdmin(u.user_id, isSuperAdminUser)}
@@ -162,7 +162,7 @@ const AdminAdminsTab = ({
                             <button
                               key={role}
                               onClick={() => handleToggleRole(u.user_id, role, has)}
-                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                              className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:py-1 rounded-lg text-[11px] font-medium border transition-colors ${
                                 has
                                   ? 'bg-primary/10 border-primary/30 text-primary'
                                   : 'bg-muted/50 border-border text-muted-foreground hover:border-primary/30'
@@ -182,7 +182,7 @@ const AdminAdminsTab = ({
                     {!isSuperAdminUser && !isMe && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="outline" className="text-xs h-7 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10 gap-1">
+                          <Button size="sm" variant="outline" className="text-xs h-9 sm:h-7 rounded-lg text-destructive border-destructive/30 hover:bg-destructive/10 gap-1">
                             <Trash2 className="w-3 h-3" /> حذف
                           </Button>
                         </AlertDialogTrigger>
@@ -193,7 +193,7 @@ const AdminAdminsTab = ({
                               هل أنت متأكد من حذف حساب الأدمن <strong>{u.display_name || u.phone}</strong> نهائياً؟ لا يمكن التراجع عن هذا الإجراء.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
-                          <AlertDialogFooter className="flex-row-reverse gap-2">
+                          <AlertDialogFooter className="flex-col-reverse sm:flex-row-reverse gap-2">
                             <AlertDialogCancel>تراجع</AlertDialogCancel>
                             <AlertDialogAction onClick={() => handleDeleteAdmin(u.user_id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                               نعم، حذف نهائي

@@ -108,7 +108,7 @@ const ResellerOrderPanel = ({
             تم إرسال تعديل للزبون — بانتظار التعديل
           </p>
           {review.note && (
-            <p className="text-foreground text-sm mt-2 bg-card rounded-lg p-3 border border-border/50">
+            <p className="text-foreground text-sm mt-2 bg-card rounded-lg p-3 border border-border/50 break-words">
               {review.note}
             </p>
           )}
@@ -130,11 +130,11 @@ const ResellerOrderPanel = ({
             dir="rtl"
             maxLength={500}
           />
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button
               onClick={() => onReview('approved')}
               disabled={reviewSubmitting !== null}
-              className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
+              className="w-full sm:flex-1 bg-success hover:bg-success/90 text-success-foreground"
             >
               <CheckCircle2 className="w-4 h-4 ml-1" />
               {reviewSubmitting === 'approve' ? 'جاري...' : 'موافقة وإرسال للطباعة'}
@@ -143,7 +143,7 @@ const ResellerOrderPanel = ({
               onClick={() => onReview('rejected')}
               disabled={reviewSubmitting !== null}
               variant="outline"
-              className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+              className="w-full sm:flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
             >
               <Pencil className="w-4 h-4 ml-1" />
               {reviewSubmitting === 'reject' ? 'جاري...' : 'إرسال تعديل للزبون'}

@@ -303,7 +303,7 @@ const TemplateFieldEditor = ({ imageUrl, fields, onChange }: TemplateFieldEditor
 
           {isImageField ? (
             /* Image-specific controls */
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <label className="text-[10px] text-muted-foreground">العرض %</label>
                 <div className="flex items-center gap-2">
@@ -352,7 +352,7 @@ const TemplateFieldEditor = ({ imageUrl, fields, onChange }: TemplateFieldEditor
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] text-muted-foreground">لون الخط</label>
                   <div className="flex gap-1">

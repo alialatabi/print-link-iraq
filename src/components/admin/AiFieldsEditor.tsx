@@ -255,7 +255,7 @@ const AiFieldsEditor = ({ value, onChange }: Props) => {
                     value={o.label}
                     onChange={(e) => updateOption(idx, { label: e.target.value })}
                     placeholder="الاسم (مثال: مستطيل 6×4)"
-                    className="rounded-lg h-9 text-sm"
+                    className="rounded-lg h-9 text-sm min-w-0"
                   />
                   <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-destructive shrink-0" onClick={() => removeOption(idx)}>
                     <X className="w-4 h-4" />
@@ -266,7 +266,7 @@ const AiFieldsEditor = ({ value, onChange }: Props) => {
                     value={o.sizeLabel}
                     onChange={(e) => updateOption(idx, { sizeLabel: e.target.value })}
                     placeholder="القياس (مثال: 6×4 سم)"
-                    className="rounded-lg h-9 text-sm"
+                    className="rounded-lg h-9 text-sm min-w-0"
                   />
                   <select
                     value={o.canvas}
@@ -312,7 +312,7 @@ const AiFieldsEditor = ({ value, onChange }: Props) => {
       )}
 
       <div>
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
           <label className="text-sm font-medium text-foreground block">توجيهات التصميم (تُضاف إلى أمر الذكاء الاصطناعي)</label>
           {!value.directives.includes('PRINT RULES:') && (
             <Button

@@ -50,7 +50,7 @@ export function ExpenseDialogs({
                 className="rounded-xl"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-foreground mb-1 block">المبلغ (د.ع) *</label>
                 <Input

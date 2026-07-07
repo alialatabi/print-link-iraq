@@ -157,7 +157,7 @@ const AdminResellers = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
             <Store className="w-5 h-5 text-primary" />
@@ -165,7 +165,7 @@ const AdminResellers = () => {
           </h3>
           <p className="text-sm text-muted-foreground">إنشاء حسابات المطابع وضبط أسعار الجملة</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="rounded-xl gap-1.5">
+        <Button onClick={() => setDialogOpen(true)} className="rounded-xl gap-1.5 w-full sm:w-auto">
           <Plus className="w-4 h-4" />
           إضافة مطبعة جديدة
         </Button>
@@ -301,7 +301,7 @@ const AdminResellers = () => {
               <Input value={form.shop_address} onChange={e => setForm({ ...form, shop_address: e.target.value })} placeholder="بغداد - الكرادة" />
             </div>
           </div>
-          <DialogFooter className="flex-row-reverse gap-2">
+          <DialogFooter className="flex-col-reverse sm:flex-row-reverse gap-2">
             <Button onClick={handleCreate} disabled={creating}>
               {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'إنشاء الحساب'}
             </Button>
@@ -376,7 +376,7 @@ const ServiceOverrideRow = ({
                 <AlertDialogTitle>الرجوع للسعر الافتراضي</AlertDialogTitle>
                 <AlertDialogDescription>سيُحذف السعر الخاص لـ {service.label}.</AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex-row-reverse gap-2">
+              <AlertDialogFooter className="flex-col-reverse sm:flex-row-reverse gap-2">
                 <AlertDialogCancel>تراجع</AlertDialogCancel>
                 <AlertDialogAction onClick={onClear} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">حذف</AlertDialogAction>
               </AlertDialogFooter>

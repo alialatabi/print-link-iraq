@@ -57,12 +57,12 @@ const ServicesTabContent = ({
                 <IconDisplay icon={parent.icon} iconUrl={parent.icon_url} />
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-foreground text-sm">{parent.label}</h4>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-[10px] text-muted-foreground/60 font-mono">ID: {parent.id}</span>
-                    <span className="text-[10px] font-bold text-primary">خدمة عامة • {children.length} فرعية</span>
+                  <div className="flex items-center gap-3 gap-y-0.5 mt-1 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground/60 font-mono break-all">ID: {parent.id}</span>
+                    <span className="text-[10px] font-bold text-primary shrink-0">خدمة عامة • {children.length} فرعية</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => onEdit(parent)}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
@@ -90,28 +90,28 @@ const ServicesTabContent = ({
                       <IconDisplay icon={child.icon} iconUrl={child.icon_url} size="sm" />
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-foreground text-xs">{child.label}</h4>
-                        <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-[10px] text-muted-foreground/60 font-mono">ID: {child.id}</span>
+                        <div className="flex items-center gap-2 gap-y-0.5 mt-0.5 flex-wrap">
+                          <span className="text-[10px] text-muted-foreground/60 font-mono break-all">ID: {child.id}</span>
                           {child.ai_enabled && (
-                            <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5">
+                            <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 shrink-0">
                               <Sparkles className="w-2.5 h-2.5" /> AI{child.ai_fee ? ` · ${child.ai_fee.toLocaleString('en-US')} د.ع` : ''}
                             </span>
                           )}
                           {child.print_enabled === false && (
-                            <span className="text-[10px] text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded-full">غير مطبوع</span>
+                            <span className="text-[10px] text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded-full shrink-0">غير مطبوع</span>
                           )}
                           {child.price > 0 && (
-                            <span className="text-[10px] font-bold text-success">سعر: {child.price.toLocaleString('en-US')} د.ع</span>
+                            <span className="text-[10px] font-bold text-success shrink-0">سعر: {child.price.toLocaleString('en-US')} د.ع</span>
                           )}
                           {child.cost > 0 && (
-                            <span className="text-[10px] font-bold text-destructive">تكلفة: {child.cost.toLocaleString('en-US')} د.ع</span>
+                            <span className="text-[10px] font-bold text-destructive shrink-0">تكلفة: {child.cost.toLocaleString('en-US')} د.ع</span>
                           )}
                           {child.completion_days > 0 && (
-                            <span className="text-[10px] font-bold text-blue-500">⏱ {child.completion_days} {child.completion_days === 1 ? 'يوم' : 'أيام'}</span>
+                            <span className="text-[10px] font-bold text-blue-500 shrink-0">⏱ {child.completion_days} {child.completion_days === 1 ? 'يوم' : 'أيام'}</span>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                         <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => onEdit(child)}>
                           <Pencil className="w-3 h-3" />
                         </Button>

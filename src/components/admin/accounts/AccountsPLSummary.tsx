@@ -45,7 +45,7 @@ export function AccountsPLSummary({
   return (
     <>
       {/* ═══ P&L KPI Cards ═══ */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
         {[
           {
             label: 'إجمالي المبيعات',
@@ -126,7 +126,7 @@ export function AccountsPLSummary({
       </div>
 
       {/* ═══ Secondary KPIs ═══ */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: 'المبالغ المستلمة', value: fmt(confirmedPaid), sub: `نقد مستلم (شامل العرابين): ${fmt(totalCashReceived)} د.ع`, icon: Wallet, iconBg: 'bg-success/10', iconColor: 'text-success', valueColor: 'text-success' },
           { label: 'الطلبات المعلقة', value: fmt(pendingValue), sub: `${pendingOrdersCount} طلب قيد المعالجة`, icon: Clock, iconBg: 'bg-accent/10', iconColor: 'text-accent-foreground' },
@@ -167,10 +167,10 @@ export function AccountsPLSummary({
               </div>
             )}
           </div>
-          <div className="flex items-end gap-2 h-32">
+          <div className="flex items-end gap-1 sm:gap-2 h-32">
             {monthlyTrend.map((m, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-[9px] font-bold text-foreground">{m.revenue > 0 ? fmt(m.revenue) : ''}</span>
+              <div key={i} className="flex-1 min-w-0 flex flex-col items-center gap-1">
+                <span className="text-[9px] font-bold text-foreground truncate w-full text-center">{m.revenue > 0 ? fmt(m.revenue) : ''}</span>
                 <div className="w-full relative">
                   <div
                     className="w-full bg-primary/15 rounded-t-md transition-all duration-500 relative overflow-hidden"
@@ -182,8 +182,8 @@ export function AccountsPLSummary({
                     />
                   </div>
                 </div>
-                <span className="text-[10px] text-muted-foreground">{m.label}</span>
-                <span className="text-[9px] text-success font-bold">{m.profit > 0 ? fmt(m.profit) : ''}</span>
+                <span className="text-[10px] text-muted-foreground truncate w-full text-center">{m.label}</span>
+                <span className="text-[9px] text-success font-bold truncate w-full text-center">{m.profit > 0 ? fmt(m.profit) : ''}</span>
               </div>
             ))}
           </div>

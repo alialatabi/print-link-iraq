@@ -39,6 +39,57 @@ export function AccountsExpensesTab({
   onAddRecurring, onEditRecurring, onToggleRecurringActive, onDeleteRecurring,
   onAddExpense, onEditExpense, onDeleteExpense,
 }: AccountsExpensesTabProps) {
+  // Mobile card renderers (md:hidden) — mirror the table rows below so
+  // handlers/logic stay single-sourced between the card and table views.
+  const renderRecurringCard = (r: RecurringExpense) => (
+    <div key={r.id} className={`rounded-xl border border-border/50 bg-card/80 p-3 space-y-2 ${!r.active ? 'opacity-50' : ''}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-foreground truncate">{r.title}</p>
+          {r.notes && <p className="text-[10px] text-muted-foreground truncate">{r.notes}</p>}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button size="sm" variant="ghost" className="h-10 w-10 p-0" onClick={() => onEditRecurring(r)}><Pencil className="w-3.5 h-3.5" /></Button>
+          <Button size="sm" variant="ghost" className="h-10 w-10 p-0 text-destructive" onClick={() => onDeleteRecurring(r)}><Trash2 className="w-3.5 h-3.5" /></Button>
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <Badge variant="outline" className="text-[10px]">{r.category}</Badge>
+        <span className="text-xs font-bold text-destructive">{fmt(r.amount)} د.ع</span>
+      </div>
+      <button
+        onClick={() => onToggleRecurringActive(r)}
+        className={`w-full text-[10px] px-2 py-1.5 rounded-full border transition-colors ${r.active ? 'bg-success/10 text-success border-success/20' : 'bg-muted text-muted-foreground border-border'}`}
+      >
+        {r.active ? 'نشط' : 'متوقف'}
+      </button>
+    </div>
+  );
+
+  const renderExpenseCard = (exp: Expense) => (
+    <div key={exp.id} className="rounded-xl border border-border/50 bg-card/80 p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-foreground truncate">{exp.title}</p>
+          {exp.notes && <p className="text-[10px] text-muted-foreground truncate">{exp.notes}</p>}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button size="sm" variant="ghost" className="h-10 w-10 p-0" onClick={() => onEditExpense(exp)}>
+            <Pencil className="w-3.5 h-3.5" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-10 w-10 p-0 text-destructive" onClick={() => onDeleteExpense(exp)}>
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <Badge variant="outline" className="text-[10px]">{exp.category}</Badge>
+        <span className="font-bold text-destructive">{fmt(exp.amount)} د.ع</span>
+      </div>
+      <p className="text-[11px] text-muted-foreground">{new Date(exp.expense_date).toLocaleDateString('ar-IQ')}</p>
+    </div>
+  );
+
   return (
     <TabsContent value="expenses">
       <div className="space-y-4">
@@ -56,7 +107,7 @@ export function AccountsExpensesTab({
             </h4>
             <span className="text-[11px] text-muted-foreground">فئة «{MARKETING_CATEGORY}»</span>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <p className="text-[10px] text-muted-foreground mb-0.5">إنفاق التسويق</p>
               <p className="text-lg font-bold text-foreground leading-none">{fmt(marketingSpend)} <span className="text-[10px] font-normal text-muted-foreground">د.ع</span></p>
@@ -100,7 +151,14 @@ export function AccountsExpensesTab({
               لا توجد مصروفات شهرية متكررة
             </div>
           ) : (
-            <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 overflow-hidden">
+            <>
+              {/* Mobile card list */}
+              <div className="space-y-2 md:hidden">
+                {recurring.map(renderRecurringCard)}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 overflow-hidden">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -140,7 +198,8 @@ export function AccountsExpensesTab({
                   </TableBody>
                 </Table>
               </div>
-            </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -183,7 +242,14 @@ export function AccountsExpensesTab({
             <p className="text-muted-foreground text-sm">لا توجد مصروفات في هذه الفترة</p>
           </div>
         ) : (
-          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 overflow-hidden">
+          <>
+            {/* Mobile card list */}
+            <div className="space-y-2 md:hidden">
+              {dateFilteredExpenses.map(renderExpenseCard)}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 overflow-hidden">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -226,7 +292,8 @@ export function AccountsExpensesTab({
                 </TableBody>
               </Table>
             </div>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </TabsContent>

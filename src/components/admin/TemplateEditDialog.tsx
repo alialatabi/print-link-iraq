@@ -213,7 +213,7 @@ export function TemplateEditDialog({
           )}
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
             <Button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl">
               {saving ? (previewFiles.length ? `جاري الرفع... ${uploadProgress}%` : 'جاري الحفظ...') : editingTemplate ? 'حفظ التغييرات' : 'إضافة القالب'}
             </Button>

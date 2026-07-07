@@ -30,9 +30,9 @@ const AdminDesignersTab = ({ designerWorkload, orders, SERVICE_LABELS, totalOrde
             const isOnline = lastSeen && (Date.now() - lastSeen.getTime()) < 3 * 60 * 1000; // 3 minutes
             return (
               <div key={d.user_id} className={`bg-card rounded-xl p-5 border transition-all ${isActive ? 'border-border' : 'border-destructive/30 opacity-70'}`}>
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative flex-shrink-0">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isOnline ? 'bg-success/10' : isActive ? 'bg-cmyk-magenta/10' : 'bg-muted'}`}>
                         {isOnline
                           ? <Palette className="w-5 h-5 text-success" />
@@ -44,8 +44,8 @@ const AdminDesignersTab = ({ designerWorkload, orders, SERVICE_LABELS, totalOrde
                       {/* Online indicator dot */}
                       <span className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${isOnline ? 'bg-success' : 'bg-muted-foreground/40'}`} />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="font-bold text-foreground">{d.display_name || d.phone || 'مصمم'}</h4>
                         <Badge variant={isOnline ? 'default' : 'outline'} className={`text-[10px] px-1.5 py-0 ${isOnline ? 'bg-success/15 text-success border-success/30' : 'text-muted-foreground'}`}>
                           {isOnline ? 'متصل الآن' : 'غير متصل'}
@@ -69,7 +69,7 @@ const AdminDesignersTab = ({ designerWorkload, orders, SERVICE_LABELS, totalOrde
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
                   <div className="bg-primary/5 rounded-lg p-3">
                     <p className="text-xl font-bold text-primary">{d.activeOrders}</p>
                     <p className="text-xs text-muted-foreground">نشطة</p>

@@ -529,16 +529,16 @@ const AdminTemplates = () => {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex flex-col gap-3 mb-6 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full md:w-auto">
           {/* Search */}
-          <div className="relative">
+          <div className="relative w-full sm:w-56">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="بحث بالرقم أو القسم أو التخصص..."
-              className="w-56 pr-9 rounded-xl"
+              className="w-full pr-9 rounded-xl"
             />
             {search && (
               <button
@@ -552,7 +552,7 @@ const AdminTemplates = () => {
           </div>
           {/* Service filter */}
           <Select value={filterService} onValueChange={setFilterService}>
-            <SelectTrigger className="w-44 rounded-xl">
+            <SelectTrigger className="w-full sm:w-44 rounded-xl">
               <SelectValue placeholder="جميع الأقسام" />
             </SelectTrigger>
             <SelectContent>
@@ -566,7 +566,7 @@ const AdminTemplates = () => {
           </Select>
           {/* Specialization filter */}
           <Select value={filterSpec} onValueChange={setFilterSpec}>
-            <SelectTrigger className="w-44 rounded-xl">
+            <SelectTrigger className="w-full sm:w-44 rounded-xl">
               <SelectValue placeholder="جميع التخصصات" />
             </SelectTrigger>
             <SelectContent>
@@ -580,21 +580,21 @@ const AdminTemplates = () => {
             </SelectContent>
           </Select>
           {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="rounded-xl text-muted-foreground">
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="rounded-xl text-muted-foreground w-full sm:w-auto">
               <X className="w-4 h-4 ml-1" />
               مسح
             </Button>
           )}
           <span className="text-sm text-muted-foreground">{filtered.length} قالب</span>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           {selectionMode ? (
             <>
               <button
                 type="button"
                 onClick={toggleSelectAll}
                 disabled={filtered.length === 0}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border text-sm hover:bg-muted/50 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border text-sm hover:bg-muted/50 transition-colors disabled:opacity-50"
               >
                 <Checkbox checked={allFilteredSelected} className="pointer-events-none" />
                 {allFilteredSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
@@ -699,7 +699,7 @@ const AdminTemplates = () => {
                   </div>
                 )}
                 {!selectionMode && (
-                  <div className="absolute inset-0 bg-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <div className="absolute inset-0 bg-foreground/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <Button size="sm" variant="secondary" className="rounded-lg" onClick={() => openEdit(t)}>
                       <Pencil className="w-3 h-3 ml-1" /> تعديل
                     </Button>

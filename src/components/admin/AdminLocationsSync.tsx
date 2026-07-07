@@ -52,7 +52,7 @@ const AdminLocationsSync = () => {
 
   return (
     <div className="mt-10 pt-8 border-t border-border">
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
             <MapPin className="w-5 h-5 text-primary" />
@@ -60,7 +60,7 @@ const AdminLocationsSync = () => {
           </h3>
           <p className="text-sm text-muted-foreground">المحافظات والمناطق المستخدمة في تسجيل الزبائن وعناوين التوصيل — تُجلب من شركة الوسيط</p>
         </div>
-        <Button onClick={handleSync} disabled={syncing} className="rounded-xl gap-1.5">
+        <Button onClick={handleSync} disabled={syncing} className="rounded-xl gap-1.5 w-full sm:w-auto">
           {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           {syncing ? 'جاري المزامنة...' : 'تحديث المواقع من الوسيط'}
         </Button>

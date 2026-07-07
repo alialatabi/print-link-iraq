@@ -143,15 +143,15 @@ const AdminActivityLog = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <Badge variant="outline" className={`text-[11px] ${config.color} border-current/20`}>
+                          <Badge variant="outline" className={`text-[11px] min-w-0 max-w-full truncate ${config.color} border-current/20`}>
                             {config.label}
                           </Badge>
-                          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <span className="text-[11px] text-muted-foreground flex items-center gap-1 shrink-0">
                             <Clock className="w-3 h-3" />
                             {formatTime(log.created_at)}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed break-words">
                           {renderDetails(log)}
                         </p>
                       </div>

@@ -94,7 +94,7 @@ const FileActions = ({
 }) => {
   const { isImage, viewing, downloading, handleView, handleDownload } = useDesignFileActions(design, onView);
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 flex-wrap">
       {design.approved && (
         <span className="text-[11px] bg-success/10 text-success px-2 py-0.5 rounded-full flex items-center gap-1 mr-1">
           <CheckCircle2 className="w-3 h-3" />معتمد
@@ -160,7 +160,7 @@ const VersionRow = ({
 }) => (
   <div
     className={cn(
-      'rounded-lg p-3 flex items-center justify-between gap-3',
+      'rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3',
       index === 0 ? 'bg-primary/5 border border-primary/20' : 'bg-muted/50 border border-border',
     )}
   >
@@ -194,7 +194,7 @@ const FaceRow = ({
   onDelete?: (design: DesignVersion) => void | Promise<void>;
   onView: (url: string) => void;
 }) => (
-  <div className="rounded-lg p-2.5 flex items-center justify-between gap-2 bg-background/60 border border-border/60">
+  <div className="rounded-lg p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-background/60 border border-border/60">
     <p className="text-xs font-medium text-foreground shrink-0">{FACE_LABELS[face]}</p>
     {design ? (
       <FileActions design={design} canDelete={canDelete} onDelete={onDelete} onView={onView} />

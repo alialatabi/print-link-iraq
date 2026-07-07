@@ -571,34 +571,34 @@ const AdminPanel = () => {
   return (
     <div className="py-8">
       <div className="container max-w-6xl">
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <ShieldCheck className="w-7 h-7 text-primary" />
+              <ShieldCheck className="w-7 h-7 text-primary flex-shrink-0" />
               لوحة الإدارة
             </h1>
             <p className="text-muted-foreground">إدارة شاملة للطلبات والمستخدمين</p>
           </div>
-          {/* flex-wrap: badge + export button exceed narrow viewports (390px) side by side */}
-          <div className="flex items-center gap-3 flex-wrap min-w-0">
+          {/* stacked on mobile: badge + export button exceed narrow viewports (390px) side by side */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 min-w-0">
             {/* Online visitors indicator */}
-            <div className="flex items-center gap-2 bg-success/10 border border-success/20 rounded-xl px-4 py-2.5">
-              <span className="relative flex h-2.5 w-2.5">
+            <div className="flex items-center gap-2 bg-success/10 border border-success/20 rounded-xl px-4 py-2.5 w-fit">
+              <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-success" />
               </span>
               <span className="text-sm font-bold text-success">{onlineCount}</span>
               <span className="text-xs text-muted-foreground">متصل الآن</span>
             </div>
-            <Button onClick={handleExportPrintedOrders} variant="outline" className="rounded-xl">
-              <Download className="w-4 h-4 ml-2" />
+            <Button onClick={handleExportPrintedOrders} variant="outline" className="rounded-xl w-full sm:w-auto h-auto py-2.5 whitespace-normal text-center">
+              <Download className="w-4 h-4 ml-2 flex-shrink-0" />
               تصدير الطلبات المطبوعة (Excel)
             </Button>
           </div>
         </div>
 
         {/* Quick Stats Dashboard */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 mb-6">
           {[
             { label: 'إجمالي الطلبات', value: totalOrders, icon: Package, color: 'text-primary', bg: 'bg-primary/10', filter: 'all' as const },
             { label: 'بانتظار التعيين', value: pendingOrders, icon: Clock, color: 'text-cmyk-yellow', bg: 'bg-cmyk-yellow/10', filter: 'pending' as const },
@@ -622,14 +622,14 @@ const AdminPanel = () => {
                     setStatusFilter('all');
                   }
                 }}
-                className={`bg-card rounded-xl p-4 border text-right transition-all hover:shadow-md active:scale-[0.98] cursor-pointer ${isActive ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary/30'}`}
+                className={`bg-card rounded-xl p-3 sm:p-4 border text-right transition-all hover:shadow-md active:scale-[0.98] cursor-pointer ${isActive ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary/30'}`}
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+                  <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center flex-shrink-0`}>
                     <stat.icon className={`w-4 h-4 ${stat.color}`} />
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</p>
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
               </button>
             );
