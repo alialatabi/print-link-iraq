@@ -76,7 +76,7 @@ const ItemlessOrderPanel = ({
           تفاصيل الزبون
         </h4>
         {od.details ? (
-          <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap bg-muted/30 rounded-xl p-4 border border-border/50">
+          <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap break-words bg-muted/30 rounded-xl p-4 border border-border/50">
             {od.details}
           </p>
         ) : (
@@ -222,7 +222,7 @@ const ItemlessOrderPanel = ({
               onClick={onSendToPrint}
               disabled={printing}
               size="lg"
-              className="w-full bg-success hover:bg-success/90 text-success-foreground rounded-xl"
+              className="w-full whitespace-normal bg-success hover:bg-success/90 text-success-foreground rounded-xl"
             >
               <CheckCircle2 className="w-4 h-4 ml-2" />
               {printing ? 'جاري الإرسال...' : 'الموافقة على التصميم وإرساله للطبع 🖨'}

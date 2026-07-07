@@ -68,9 +68,9 @@ function AttachmentRow({ url, index }: { url: string; index: number }) {
           <img src={url} alt="" loading="lazy" className="w-full h-auto object-contain" />
         </a>
       ) : (
-        <div className="flex items-center gap-3 p-4">
+        <div className="flex items-center gap-3 p-4 min-w-0">
           <FileText className="w-8 h-8 text-primary shrink-0" />
-          <span className="text-sm text-muted-foreground truncate" dir="ltr">{filename}</span>
+          <span className="text-sm text-muted-foreground truncate min-w-0 flex-1" dir="ltr">{filename}</span>
         </div>
       )}
       <div className="flex items-center justify-end gap-2 p-2 border-t border-border/60 bg-card">

@@ -52,9 +52,9 @@ const SpecializationsTabContent = ({
             <IconDisplay icon={spec.icon} iconUrl={spec.icon_url} />
             <div className="flex-1 min-w-0">
               <h4 className="font-bold text-foreground text-sm">{spec.label}</h4>
-              <span className="text-[10px] text-muted-foreground/60 font-mono">ID: {spec.id}</span>
+              <span className="text-[10px] text-muted-foreground/60 font-mono break-all">ID: {spec.id}</span>
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
               <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => onEdit(spec)}>
                 <Pencil className="w-3.5 h-3.5" />
               </Button>

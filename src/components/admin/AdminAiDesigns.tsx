@@ -257,21 +257,21 @@ const AdminAiDesigns = () => {
 
       {/* Summary tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-card rounded-xl border border-border p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><ImageIcon className="w-3.5 h-3.5" />إجمالي التصاميم</div>
-          <p className="text-xl font-bold text-foreground">{stats.total.toLocaleString('en-US')}</p>
+        <div className="bg-card rounded-xl border border-border p-3 min-w-0">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><ImageIcon className="w-3.5 h-3.5 shrink-0" /><span className="truncate">إجمالي التصاميم</span></div>
+          <p className="text-xl font-bold text-foreground truncate">{stats.total.toLocaleString('en-US')}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><ShoppingBag className="w-3.5 h-3.5" />تم طلبها</div>
-          <p className="text-xl font-bold text-success">{stats.ordered.toLocaleString('en-US')}</p>
+        <div className="bg-card rounded-xl border border-border p-3 min-w-0">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><ShoppingBag className="w-3.5 h-3.5 shrink-0" /><span className="truncate">تم طلبها</span></div>
+          <p className="text-xl font-bold text-success truncate">{stats.ordered.toLocaleString('en-US')}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><User className="w-3.5 h-3.5" />زبائن</div>
-          <p className="text-xl font-bold text-foreground">{stats.customers.toLocaleString('en-US')}</p>
+        <div className="bg-card rounded-xl border border-border p-3 min-w-0">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><User className="w-3.5 h-3.5 shrink-0" /><span className="truncate">زبائن</span></div>
+          <p className="text-xl font-bold text-foreground truncate">{stats.customers.toLocaleString('en-US')}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><ImageIcon className="w-3.5 h-3.5" />بصورة محفوظة</div>
-          <p className="text-xl font-bold text-foreground">{stats.withImage.toLocaleString('en-US')}</p>
+        <div className="bg-card rounded-xl border border-border p-3 min-w-0">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><ImageIcon className="w-3.5 h-3.5 shrink-0" /><span className="truncate">بصورة محفوظة</span></div>
+          <p className="text-xl font-bold text-foreground truncate">{stats.withImage.toLocaleString('en-US')}</p>
         </div>
       </div>
 
@@ -327,11 +327,15 @@ const AdminAiDesigns = () => {
               {p.label}
             </button>
           ))}
-          <div className="flex items-center gap-2 mr-auto">
-            <label className="text-xs text-muted-foreground">من</label>
-            <Input type="date" value={from} onChange={e => onDateInput('from', e.target.value)} className="h-8 w-auto rounded-lg text-xs" dir="ltr" />
-            <label className="text-xs text-muted-foreground">إلى</label>
-            <Input type="date" value={to} onChange={e => onDateInput('to', e.target.value)} className="h-8 w-auto rounded-lg text-xs" dir="ltr" />
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto sm:mr-auto">
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-muted-foreground">من</label>
+              <Input type="date" value={from} onChange={e => onDateInput('from', e.target.value)} className="h-8 w-auto rounded-lg text-xs" dir="ltr" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-muted-foreground">إلى</label>
+              <Input type="date" value={to} onChange={e => onDateInput('to', e.target.value)} className="h-8 w-auto rounded-lg text-xs" dir="ltr" />
+            </div>
           </div>
         </div>
 

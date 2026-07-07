@@ -115,7 +115,7 @@ export function BulkUploadDialog({
               className="hidden"
             />
             {bulkPreviews.length > 0 && (
-              <div className="grid grid-cols-4 gap-2 mb-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-2">
                 {bulkPreviews.map((url, idx) => (
                   <div key={idx} className="relative rounded-lg overflow-hidden border border-border aspect-square">
                     <img src={url} alt="preview" className="w-full h-full object-cover" />
@@ -163,7 +163,7 @@ export function BulkUploadDialog({
           )}
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
             <Button onClick={handleBulkUpload} disabled={bulkUploading || bulkPreparing || bulkFiles.length === 0} className="flex-1 rounded-xl">
               {bulkUploading ? `جاري الرفع... ${bulkProgress}%` : `إنشاء ${bulkFiles.length || ''} قالب`}
             </Button>

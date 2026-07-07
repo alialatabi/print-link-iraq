@@ -438,9 +438,9 @@ const AdminOrdersTab = ({
                 )}
 
                 {/* Actions */}
-                <div className="border-t border-border bg-muted/20 px-4 py-3 flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <Palette className="w-4 h-4 text-muted-foreground" />
+                <div className="border-t border-border bg-muted/20 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:flex-wrap">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Palette className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <Select
                       value={order.designer_id || 'none'}
                       onValueChange={(val) => {
@@ -448,7 +448,7 @@ const AdminOrdersTab = ({
                       }}
                       disabled={order.status === 'print_ready' || order.status === 'printed' || order.status === 'delivered'}
                     >
-                      <SelectTrigger className="w-40 h-8 text-xs rounded-lg">
+                      <SelectTrigger className="w-full sm:w-40 h-8 text-xs rounded-lg">
                         <SelectValue placeholder="تعيين مصمم" />
                       </SelectTrigger>
                       <SelectContent>
@@ -464,13 +464,13 @@ const AdminOrdersTab = ({
                     </Select>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-muted-foreground" />
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <Select
                       value={order.status}
                       onValueChange={(val) => handleStatusChange(order.id, val)}
                     >
-                      <SelectTrigger className="w-40 h-8 text-xs rounded-lg">
+                      <SelectTrigger className="w-full sm:w-40 h-8 text-xs rounded-lg">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -489,7 +489,7 @@ const AdminOrdersTab = ({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 text-xs gap-1.5"
+                      className="h-8 text-xs gap-1.5 w-full sm:w-auto"
                       onClick={designFiles[0].download}
                     >
                       <Download className="w-3.5 h-3.5" />
@@ -498,7 +498,7 @@ const AdminOrdersTab = ({
                   ) : designFiles.length > 1 ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                        <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 w-full sm:w-auto">
                           <Download className="w-3.5 h-3.5" />
                           تحميل التصميم ({designFiles.length})
                           <ChevronDown className="w-3.5 h-3.5" />
@@ -518,7 +518,7 @@ const AdminOrdersTab = ({
                   {order.status !== 'draft' && order.status !== 'delivered' && order.status !== 'cancelled' && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50 gap-1.5 mr-auto">
+                        <Button variant="outline" size="sm" className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50 gap-1.5 w-full sm:w-auto sm:mr-auto">
                           <XCircle className="w-3.5 h-3.5" />
                           إلغاء الطلب
                         </Button>
@@ -531,7 +531,7 @@ const AdminOrdersTab = ({
                             سيتم إعادة حالته إلى مسودة وإلغاء تعيين المصمم.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
-                        <AlertDialogFooter className="flex-row-reverse gap-2">
+                        <AlertDialogFooter className="flex-row-reverse gap-2 flex-wrap">
                           <AlertDialogCancel>تراجع</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleCancelOrder(order.id)}

@@ -159,37 +159,41 @@ const AdminAiUsage = () => {
               {p.label}
             </button>
           ))}
-          <div className="flex items-center gap-2 mr-auto">
-            <label className="text-xs text-muted-foreground">من</label>
-            <Input type="date" value={from} onChange={(e) => onDateInput('from', e.target.value)} className="h-8 w-auto rounded-lg text-xs" dir="ltr" />
-            <label className="text-xs text-muted-foreground">إلى</label>
-            <Input type="date" value={to} onChange={(e) => onDateInput('to', e.target.value)} className="h-8 w-auto rounded-lg text-xs" dir="ltr" />
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto sm:mr-auto">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground">من</label>
+              <Input type="date" value={from} onChange={(e) => onDateInput('from', e.target.value)} className="h-8 w-auto rounded-lg text-xs" dir="ltr" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground">إلى</label>
+              <Input type="date" value={to} onChange={(e) => onDateInput('to', e.target.value)} className="h-8 w-auto rounded-lg text-xs" dir="ltr" />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Summary tiles (reflect the selected date range) */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
-        <div className="bg-card rounded-xl border border-border p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><User className="w-3.5 h-3.5" />زبائن</div>
-          <p className="text-xl font-bold text-foreground">{num(totals.customers)}</p>
+        <div className="bg-card rounded-xl border border-border p-3 min-w-0">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><User className="w-3.5 h-3.5 shrink-0" /><span className="truncate">زبائن</span></div>
+          <p className="text-xl font-bold text-foreground truncate">{num(totals.customers)}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><Image className="w-3.5 h-3.5" />تصاميم مولّدة</div>
-          <p className="text-xl font-bold text-foreground">{num(totals.generations)}</p>
+        <div className="bg-card rounded-xl border border-border p-3 min-w-0">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><Image className="w-3.5 h-3.5 shrink-0" /><span className="truncate">تصاميم مولّدة</span></div>
+          <p className="text-xl font-bold text-foreground truncate">{num(totals.generations)}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><Coins className="w-3.5 h-3.5" />الإيراد (رسوم)</div>
-          <p className="text-xl font-bold text-primary">{iqd(totals.revenue)}</p>
+        <div className="bg-card rounded-xl border border-border p-3 min-w-0">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><Coins className="w-3.5 h-3.5 shrink-0" /><span className="truncate">الإيراد (رسوم)</span></div>
+          <p className="text-xl font-bold text-primary truncate">{iqd(totals.revenue)}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><Wallet className="w-3.5 h-3.5" />التكلفة الفعلية</div>
-          <p className="text-xl font-bold text-amber-600">{iqd(totals.costIqd)}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5" dir="ltr">{usd(totals.costUsd)}</p>
+        <div className="bg-card rounded-xl border border-border p-3 min-w-0">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><Wallet className="w-3.5 h-3.5 shrink-0" /><span className="truncate">التكلفة الفعلية</span></div>
+          <p className="text-xl font-bold text-amber-600 truncate">{iqd(totals.costIqd)}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 truncate" dir="ltr">{usd(totals.costUsd)}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><TrendingUp className="w-3.5 h-3.5" />الربح</div>
-          <p className={`text-xl font-bold ${totals.profit >= 0 ? 'text-success' : 'text-destructive'}`}>{iqd(totals.profit)}</p>
+        <div className="bg-card rounded-xl border border-border p-3 min-w-0">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><TrendingUp className="w-3.5 h-3.5 shrink-0" /><span className="truncate">الربح</span></div>
+          <p className={`text-xl font-bold truncate ${totals.profit >= 0 ? 'text-success' : 'text-destructive'}`}>{iqd(totals.profit)}</p>
         </div>
       </div>
 
@@ -249,7 +253,7 @@ const AdminAiUsage = () => {
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="border-t border-border p-4">
                     <div className="flex items-center justify-between mb-3 text-xs flex-wrap gap-2">
                       <span className="text-muted-foreground">المنتجات التي صمّمها ({r.products.length})</span>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-muted-foreground" dir="ltr" title="التكلفة الفعلية بالدولار">التكلفة: {usd(r.total_cost_usd)}</span>
                         <span className={profit >= 0 ? 'text-success font-medium' : 'text-destructive font-medium'}>الربح: {iqd(profit)}</span>
                         {r.last_used && <span className="text-muted-foreground">آخر استخدام: {new Date(r.last_used).toLocaleDateString('ar')}</span>}

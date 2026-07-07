@@ -175,12 +175,12 @@ const AdminDiscounts = () => {
     <div className="space-y-8">
       {/* ── Discounts Section ── */}
       <Card className="border-border">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Percent className="w-5 h-5 text-primary" />
             الخصومات على الأقسام
           </CardTitle>
-          <Button onClick={() => setDiscountDialog(true)} size="sm" className="gap-1.5 rounded-xl">
+          <Button onClick={() => setDiscountDialog(true)} size="sm" className="gap-1.5 rounded-xl w-full sm:w-auto">
             <Plus className="w-4 h-4" />
             خصم جديد
           </Button>
@@ -193,14 +193,14 @@ const AdminDiscounts = () => {
           ) : (
             <div className="space-y-3">
               {discounts.map(d => (
-                <div key={d.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${d.is_active ? 'bg-success/5 border-success/20' : 'bg-muted/30 border-border/50 opacity-60'}`}>
+                <div key={d.id} className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border transition-all ${d.is_active ? 'bg-success/5 border-success/20' : 'bg-muted/30 border-border/50 opacity-60'}`}>
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                       <span className="text-primary font-black text-lg">{d.percentage}%</span>
                     </div>
                     <div>
                       <p className="font-bold text-foreground text-sm">{getTargetLabel(d)}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <Badge variant="secondary" className="text-[10px]">{DISCOUNT_TYPE_LABELS[d.discount_type]}</Badge>
                         {d.ends_at && (
                           <span className="text-[10px] text-muted-foreground">
@@ -239,12 +239,12 @@ const AdminDiscounts = () => {
 
       {/* ── Coupons Section ── */}
       <Card className="border-border">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Ticket className="w-5 h-5 text-primary" />
             كوبونات الخصم
           </CardTitle>
-          <Button onClick={() => { setCouponForm({ code: generateCode(), percentage: 10, max_uses: '' }); setCouponDialog(true); }} size="sm" className="gap-1.5 rounded-xl">
+          <Button onClick={() => { setCouponForm({ code: generateCode(), percentage: 10, max_uses: '' }); setCouponDialog(true); }} size="sm" className="gap-1.5 rounded-xl w-full sm:w-auto">
             <Plus className="w-4 h-4" />
             كوبون جديد
           </Button>
@@ -257,7 +257,7 @@ const AdminDiscounts = () => {
           ) : (
             <div className="space-y-3">
               {coupons.map(c => (
-                <div key={c.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${c.is_active ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-border/50 opacity-60'}`}>
+                <div key={c.id} className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border transition-all ${c.is_active ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-border/50 opacity-60'}`}>
                   <div className="flex items-center gap-3 flex-wrap">
                     <button
                       onClick={() => copyCode(c.code)}
@@ -269,7 +269,7 @@ const AdminDiscounts = () => {
                     </button>
                     <div>
                       <p className="font-bold text-foreground text-sm">خصم {c.percentage}%</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className="text-[10px] text-muted-foreground">
                           {/* dir=ltr: a bare "N / M" run gets bidi-reordered inside RTL text */}
                           مستخدم: <span dir="ltr">{c.used_count}{c.max_uses ? ` / ${c.max_uses}` : ''}</span>
@@ -464,7 +464,7 @@ const AdminDiscounts = () => {
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row-reverse gap-2">
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row-reverse gap-2">
             <AlertDialogCancel disabled={creatingCoupon}>تراجع</AlertDialogCancel>
             <AlertDialogAction
               disabled={creatingCoupon}

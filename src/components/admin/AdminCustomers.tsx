@@ -150,6 +150,116 @@ const AdminCustomers = () => {
     return sortDir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />;
   };
 
+  // Shared per-row derived data — used by both the desktop table row and the mobile card.
+  const getContactInfo = (c: CustomerData) => {
+    const phone = formatPhone(c.phone);
+    const waLink = phone ? `https://wa.me/${phone.replace('+', '')}` : null;
+    const telLink = phone ? `tel:${phone}` : null;
+    const isOnline = c.last_seen && (Date.now() - new Date(c.last_seen).getTime()) < 3 * 60 * 1000;
+    const address = [c.province, c.area, c.landmark].filter(Boolean).join(' - ');
+    return { phone, waLink, telLink, isOnline, address };
+  };
+
+  // Shared actions cluster (call / whatsapp / block / delete) — used by both the table row and the mobile card.
+  const renderCustomerActions = (c: CustomerData, telLink: string | null, waLink: string | null) => (
+    <div className="flex items-center gap-1 flex-wrap">
+      {telLink ? (
+        <a href={telLink}>
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-success hover:bg-success/10 hover:text-success" title="اتصال">
+            <Phone className="w-3.5 h-3.5" />
+          </Button>
+        </a>
+      ) : (
+        <Button size="icon" variant="ghost" className="h-7 w-7 opacity-30" disabled title="لا يوجد رقم">
+          <Phone className="w-3.5 h-3.5" />
+        </Button>
+      )}
+      {waLink ? (
+        <a href={waLink} target="_blank" rel="noopener noreferrer">
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366]" title="واتساب">
+            <MessageCircle className="w-3.5 h-3.5" />
+          </Button>
+        </a>
+      ) : (
+        <Button size="icon" variant="ghost" className="h-7 w-7 opacity-30" disabled title="لا يوجد رقم">
+          <MessageCircle className="w-3.5 h-3.5" />
+        </Button>
+      )}
+      <Button
+        size="icon"
+        variant="ghost"
+        className={`h-7 w-7 ${c.is_active ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10' : 'text-primary hover:bg-primary/10'}`}
+        title={c.is_active ? 'حظر الزبون' : 'رفع الحظر'}
+        onClick={() => handleBlock(c.user_id, c.is_active)}
+      >
+        {c.is_active ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+      </Button>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="حذف الحساب">
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف حساب الزبون</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف حساب <strong>{c.display_name || c.phone || 'هذا الزبون'}</strong> نهائياً؟<br />
+              <span className="text-destructive font-medium">لا يمكن التراجع عن هذا الإجراء.</span> ستبقى طلباته محفوظة في النظام.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>تراجع</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleDelete(c.user_id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              نعم، حذف الحساب
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+
+  // Mobile entity card — mirrors the table row's data with a touch-friendly stacked layout.
+  const renderCustomerCard = (c: CustomerData) => {
+    const { waLink, telLink, isOnline, address } = getContactInfo(c);
+    return (
+      <div key={c.user_id} className={`bg-card rounded-xl border border-border p-3 space-y-2 ${!c.is_active ? 'opacity-60 bg-destructive/5' : ''}`}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-success' : 'bg-muted-foreground/30'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'} />
+            {!c.is_active && (
+              <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded font-medium shrink-0">محظور</span>
+            )}
+            <p className="text-sm font-medium text-foreground truncate min-w-0">{c.display_name || '-'}</p>
+          </div>
+          <Badge variant="secondary" className="text-xs shrink-0">{c.orderCount}</Badge>
+        </div>
+        <p className="text-xs text-muted-foreground font-mono truncate" dir="ltr">{c.phone || '-'}</p>
+        {address && <p className="text-xs text-muted-foreground truncate">{address}</p>}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="text-xs font-bold text-success">{fmt(c.totalSpent)} <span className="text-[10px] font-normal text-muted-foreground">د.ع</span></span>
+          {c.last_seen ? (
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <Clock className="w-3 h-3 shrink-0" />
+              {formatLastSeen(c.last_seen)}
+            </span>
+          ) : (
+            <span className="text-[11px] text-muted-foreground/50">-</span>
+          )}
+        </div>
+        {c.total_time_seconds > 0 && (
+          <p className="text-[11px] text-muted-foreground">⏱️ {formatTimeSpent(c.total_time_seconds)}</p>
+        )}
+        <div className="pt-2 border-t border-border/60">
+          {renderCustomerActions(c, telLink, waLink)}
+        </div>
+      </div>
+    );
+  };
+
   let filtered = customers;
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
@@ -181,20 +291,20 @@ const AdminCustomers = () => {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
           { label: 'عدد الزبائن', value: totalCustomers, icon: Users, bg: 'bg-primary/10', color: 'text-primary' },
           { label: 'إجمالي الطلبات', value: totalOrdersAll, icon: Package, bg: 'bg-cmyk-cyan/10', color: 'text-cmyk-cyan' },
           { label: 'إجمالي المدفوعات', value: `${fmt(totalSpentAll)} د.ع`, icon: DollarSign, bg: 'bg-success/10', color: 'text-success' },
-        ].map(stat => (
-          <div key={stat.label} className="bg-card rounded-xl p-4 border border-border">
+        ].map((stat, i) => (
+          <div key={stat.label} className={`bg-card rounded-xl p-3 sm:p-4 border border-border min-w-0 ${i === 2 ? 'col-span-2 sm:col-span-1' : ''}`}>
             <div className="flex items-center gap-2 mb-2">
-              <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+              <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center shrink-0`}>
                 <stat.icon className={`w-4 h-4 ${stat.color}`} />
               </div>
             </div>
-            <p className="text-xl font-bold text-foreground">{stat.value}</p>
-            <p className="text-xs text-muted-foreground">{stat.label}</p>
+            <p className="text-lg sm:text-xl font-bold text-foreground truncate">{stat.value}</p>
+            <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
           </div>
         ))}
       </div>
@@ -210,157 +320,100 @@ const AdminCustomers = () => {
         />
       </div>
 
-      {/* Table */}
+      {/* Table (desktop/tablet) + card list (mobile) */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 bg-card rounded-xl border border-border">
           <Users className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
           <p className="text-muted-foreground text-sm">لا يوجد زبائن</p>
         </div>
       ) : (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="text-right text-[11px] font-semibold cursor-pointer select-none" onClick={() => handleSort('display_name')}>
-                    <span className="inline-flex items-center gap-1">الاسم <SortIcon col="display_name" /></span>
-                  </TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold cursor-pointer select-none" onClick={() => handleSort('phone')}>
-                    <span className="inline-flex items-center gap-1">الهاتف <SortIcon col="phone" /></span>
-                  </TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold">العنوان</TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold w-[70px] cursor-pointer select-none" onClick={() => handleSort('orderCount')}>
-                    <span className="inline-flex items-center gap-1">الطلبات <SortIcon col="orderCount" /></span>
-                  </TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold w-[100px] cursor-pointer select-none" onClick={() => handleSort('totalSpent')}>
-                    <span className="inline-flex items-center gap-1">المدفوع <SortIcon col="totalSpent" /></span>
-                  </TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold w-[100px] cursor-pointer select-none" onClick={() => handleSort('last_seen')}>
-                    <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> آخر نشاط <SortIcon col="last_seen" /></span>
-                  </TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold w-[90px]">
-                    <span className="inline-flex items-center gap-1">⏱️ وقت التصفح</span>
-                  </TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold w-[160px]">إجراءات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((c) => {
-                  const address = [c.province, c.area, c.landmark].filter(Boolean).join(' - ');
-                  const phone = formatPhone(c.phone);
-                  const waLink = phone ? `https://wa.me/${phone.replace('+', '')}` : null;
-                  const telLink = phone ? `tel:${phone}` : null;
-
-                  return (
-                    <TableRow key={c.user_id} className={!c.is_active ? 'opacity-60 bg-destructive/5' : ''}>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          {(() => {
-                            const isOnline = c.last_seen && (Date.now() - new Date(c.last_seen).getTime()) < 3 * 60 * 1000;
-                            return (
-                              <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-success' : 'bg-muted-foreground/30'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'} />
-                            );
-                          })()}
-                          {!c.is_active && (
-                            <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded font-medium">محظور</span>
-                          )}
-                          <p className="text-sm font-medium text-foreground">{c.display_name || '-'}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-xs text-muted-foreground font-mono" dir="ltr">{c.phone || '-'}</p>
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-xs text-muted-foreground max-w-[160px] truncate">{address || '-'}</p>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs">{c.orderCount}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs font-bold text-success">{fmt(c.totalSpent)} <span className="text-[10px] font-normal text-muted-foreground">د.ع</span></span>
-                      </TableCell>
-                      <TableCell>
-                        {c.last_seen ? (
-                          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3 shrink-0" />
-                            {formatLastSeen(c.last_seen)}
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-muted-foreground/50">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-[11px] text-muted-foreground">
-                          {c.total_time_seconds > 0 ? formatTimeSpent(c.total_time_seconds) : '-'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {telLink ? (
-                            <a href={telLink}>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-success hover:bg-success/10 hover:text-success" title="اتصال">
-                                <Phone className="w-3.5 h-3.5" />
-                              </Button>
-                            </a>
-                          ) : (
-                            <Button size="icon" variant="ghost" className="h-7 w-7 opacity-30" disabled title="لا يوجد رقم">
-                              <Phone className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                          {waLink ? (
-                            <a href={waLink} target="_blank" rel="noopener noreferrer">
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366]" title="واتساب">
-                                <MessageCircle className="w-3.5 h-3.5" />
-                              </Button>
-                            </a>
-                          ) : (
-                            <Button size="icon" variant="ghost" className="h-7 w-7 opacity-30" disabled title="لا يوجد رقم">
-                              <MessageCircle className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className={`h-7 w-7 ${c.is_active ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10' : 'text-primary hover:bg-primary/10'}`}
-                            title={c.is_active ? 'حظر الزبون' : 'رفع الحظر'}
-                            onClick={() => handleBlock(c.user_id, c.is_active)}
-                          >
-                            {c.is_active ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="حذف الحساب">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent dir="rtl">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>حذف حساب الزبون</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  هل أنت متأكد من حذف حساب <strong>{c.display_name || c.phone || 'هذا الزبون'}</strong> نهائياً؟<br />
-                                  <span className="text-destructive font-medium">لا يمكن التراجع عن هذا الإجراء.</span> ستبقى طلباته محفوظة في النظام.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter className="flex-row-reverse gap-2">
-                                <AlertDialogCancel>تراجع</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(c.user_id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  نعم، حذف الحساب
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+        <>
+          {/* Mobile: entity card list */}
+          <div className="md:hidden space-y-2">
+            {filtered.map((c) => renderCustomerCard(c))}
           </div>
-        </div>
+
+          {/* Desktop/tablet: full table */}
+          <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="text-right text-[11px] font-semibold cursor-pointer select-none" onClick={() => handleSort('display_name')}>
+                      <span className="inline-flex items-center gap-1">الاسم <SortIcon col="display_name" /></span>
+                    </TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold cursor-pointer select-none" onClick={() => handleSort('phone')}>
+                      <span className="inline-flex items-center gap-1">الهاتف <SortIcon col="phone" /></span>
+                    </TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold">العنوان</TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold w-[70px] cursor-pointer select-none" onClick={() => handleSort('orderCount')}>
+                      <span className="inline-flex items-center gap-1">الطلبات <SortIcon col="orderCount" /></span>
+                    </TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold w-[100px] cursor-pointer select-none" onClick={() => handleSort('totalSpent')}>
+                      <span className="inline-flex items-center gap-1">المدفوع <SortIcon col="totalSpent" /></span>
+                    </TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold w-[100px] cursor-pointer select-none" onClick={() => handleSort('last_seen')}>
+                      <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> آخر نشاط <SortIcon col="last_seen" /></span>
+                    </TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold w-[90px]">
+                      <span className="inline-flex items-center gap-1">⏱️ وقت التصفح</span>
+                    </TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold w-[160px]">إجراءات</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((c) => {
+                    const { waLink, telLink, isOnline, address } = getContactInfo(c);
+
+                    return (
+                      <TableRow key={c.user_id} className={!c.is_active ? 'opacity-60 bg-destructive/5' : ''}>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-success' : 'bg-muted-foreground/30'}`} title={isOnline ? 'متصل الآن' : 'غير متصل'} />
+                            {!c.is_active && (
+                              <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded font-medium">محظور</span>
+                            )}
+                            <p className="text-sm font-medium text-foreground">{c.display_name || '-'}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-xs text-muted-foreground font-mono" dir="ltr">{c.phone || '-'}</p>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-xs text-muted-foreground max-w-[160px] truncate">{address || '-'}</p>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs">{c.orderCount}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs font-bold text-success">{fmt(c.totalSpent)} <span className="text-[10px] font-normal text-muted-foreground">د.ع</span></span>
+                        </TableCell>
+                        <TableCell>
+                          {c.last_seen ? (
+                            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                              <Clock className="w-3 h-3 shrink-0" />
+                              {formatLastSeen(c.last_seen)}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground/50">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-[11px] text-muted-foreground">
+                            {c.total_time_seconds > 0 ? formatTimeSpent(c.total_time_seconds) : '-'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {renderCustomerActions(c, telLink, waLink)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </>
       )}
 
       <p className="text-xs text-muted-foreground text-center">عرض {filtered.length} من {customers.length} زبون</p>

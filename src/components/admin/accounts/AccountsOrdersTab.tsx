@@ -179,20 +179,20 @@ export function AccountsOrdersTab({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-3">
-          <div className="relative flex-1 min-w-[180px] max-w-xs">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 mb-3">
+          <div className="relative w-full sm:flex-1 sm:min-w-[180px] sm:max-w-xs">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث بالاسم أو الهاتف أو رقم الطلب..." className="pr-9 h-9 text-xs rounded-lg" />
           </div>
           <Select value={serviceFilter} onValueChange={setServiceFilter}>
-            <SelectTrigger className="w-[130px] h-9 text-xs rounded-lg"><SelectValue placeholder="الخدمة" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[130px] h-9 text-xs rounded-lg"><SelectValue placeholder="الخدمة" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">جميع الخدمات</SelectItem>
               {services.map(s => (<SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>))}
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[130px] h-9 text-xs rounded-lg"><SelectValue placeholder="حالة الطلب" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[130px] h-9 text-xs rounded-lg"><SelectValue placeholder="حالة الطلب" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">جميع الحالات</SelectItem>
               {Object.entries(STATUS_LABELS).filter(([k]) => k !== 'draft').map(([key, label]) => (
@@ -201,7 +201,7 @@ export function AccountsOrdersTab({
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[140px] h-9 text-xs rounded-lg"><SelectValue placeholder="ترتيب" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[140px] h-9 text-xs rounded-lg"><SelectValue placeholder="ترتيب" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="newest">الأحدث</SelectItem>
               <SelectItem value="oldest">الأقدم</SelectItem>
@@ -211,7 +211,7 @@ export function AccountsOrdersTab({
             </SelectContent>
           </Select>
           {(paymentFilter !== 'all' || searchQuery || serviceFilter !== 'all' || statusFilter !== 'all') && (
-            <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setPaymentFilter('all'); setSearchQuery(''); setServiceFilter('all'); setStatusFilter('all'); }}>
+            <Button variant="ghost" size="sm" className="h-9 text-xs w-full sm:w-auto" onClick={() => { setPaymentFilter('all'); setSearchQuery(''); setServiceFilter('all'); setStatusFilter('all'); }}>
               <X className="w-3 h-3 ml-1" /> مسح الفلاتر
             </Button>
           )}

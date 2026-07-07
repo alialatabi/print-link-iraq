@@ -672,13 +672,13 @@ const AdminAccounts = () => {
 
       {/* ═══ Tabs: الطلبات / المصروفات ═══ */}
       <Tabs defaultValue="orders" dir="rtl">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="orders" className="flex items-center gap-2 text-xs">
-            <Receipt className="w-3.5 h-3.5" />
+        <TabsList className="grid w-full grid-cols-2 mb-4 h-auto sm:h-10">
+          <TabsTrigger value="orders" className="flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-xs whitespace-normal sm:whitespace-nowrap text-center leading-tight px-1 py-2 sm:px-3 sm:py-1.5">
+            <Receipt className="w-3.5 h-3.5 shrink-0" />
             الطلبات والمدفوعات
           </TabsTrigger>
-          <TabsTrigger value="expenses" className="flex items-center gap-2 text-xs">
-            <Minus className="w-3.5 h-3.5" />
+          <TabsTrigger value="expenses" className="flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-xs whitespace-normal sm:whitespace-nowrap text-center leading-tight px-1 py-2 sm:px-3 sm:py-1.5">
+            <Minus className="w-3.5 h-3.5 shrink-0" />
             المصروفات ({dateFilteredExpenses.length})
           </TabsTrigger>
         </TabsList>
