@@ -235,6 +235,7 @@ const DesignItemCard = ({
               </h3>
               <p className="text-xs text-muted-foreground truncate">
                 {SERVICE_LABELS[item.templates?.service_type as ServiceType] || ''}
+                {itemDetails.variant_label && ` — ${itemDetails.variant_label}`}
                 {itemDetails.quantity && ` • ${Number(itemDetails.quantity).toLocaleString()} نسخة`}
               </p>
             </div>
@@ -272,6 +273,25 @@ const DesignItemCard = ({
 
             {/* Customer Details for this item */}
             <div className="p-4 border-b border-border">
+              {/* Variant selection (size/shape + product-wide attributes) — tells the designer
+                  exactly what to produce, e.g. 'ختم مستطيل 6×4 — لون الحبر: أزرق'. */}
+              {itemDetails.variant_label && (
+                <div className="mb-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                  <p className="text-sm font-bold text-primary">
+                    {[SERVICE_LABELS[item.templates?.service_type as ServiceType], itemDetails.variant_label]
+                      .filter(Boolean).join(' ')}
+                    {itemDetails.attributes && Object.keys(itemDetails.attributes as Record<string, unknown>).length > 0 && (
+                      ` — ${Object.values(itemDetails.attributes as Record<string, { label: string; value: string }>)
+                        .map(a => `${a.label}: ${a.value}`).join('، ')}`
+                    )}
+                  </p>
+                  {itemDetails.gift_quantity ? (
+                    <p className="text-xs text-success mt-1 font-medium">
+                      +{Number(itemDetails.gift_quantity).toLocaleString('en-US')} هدية
+                    </p>
+                  ) : null}
+                </div>
+              )}
               {itemDetails.is_ai_design && (
                 <div className="mb-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
                   <p className="text-sm font-bold text-primary flex items-center gap-2">

@@ -9,8 +9,9 @@ import { describe, it, expect } from 'vitest';
 import { mergeCarts, sanitizeCartItems } from './cartMerge';
 import type { CartItem } from '@/contexts/CartContext';
 
-/** Minimal valid CartItem; override only what a test cares about. */
-const makeItem = (o: Partial<CartItem> = {}): CartItem => ({
+/** Minimal valid CartItem (minus `lineId` — sanitizeCartItems/mergeCarts operate on the
+ *  server/pre-`lineId` shape); override only what a test cares about. */
+const makeItem = (o: Partial<CartItem> = {}): Omit<CartItem, 'lineId'> => ({
   templateId: 'tmpl-1',
   templateName: 'Card',
   serviceType: 'business_card',

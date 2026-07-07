@@ -75,6 +75,53 @@ export function computeResellerPrice(
   return { unitPrice, originalUnitPrice: base, type: 'percent', discountPercent: pct };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Variant-tier reseller pricing (2026-07): a variant tier prices an
+// admin-picked, arbitrary quantity as one lump total (see src/types/variants.ts),
+// not a rate × qty — so only PERCENT overrides (a pure ratio) map onto it.
+// FIXED overrides are expressed as a replacement unit price PER min_quantity
+// (the legacy per-service rate model) and have no meaningful equivalent for a
+// tier total, so they are IGNORED here; percent overrides still apply.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ResolvedTierPrice {
+  /** Charged price for this tier after any PERCENT override (post-discount). */
+  price: number;
+  /** Tier's pre-discount total (`VariantTier.price`), for strikethrough display. */
+  originalPrice: number;
+  /** Effective discount percent applied (0 when no rule, or when the resolved rule is FIXED). */
+  discountPercent: number;
+}
+
+/** Resolve the PERCENT-only discount for a (reseller, service) pair; 0 if the winning rule is FIXED or absent. */
+function resolveVariantDiscountPercent(
+  overrides: ResellerPriceOverride[],
+  resellerId: string | null,
+  serviceId: string,
+): number {
+  const rule = resolveOverride(overrides, resellerId, serviceId);
+  if (!rule || rule.price_type === 'fixed') return 0;
+  return Math.min(100, Math.max(0, rule.value));
+}
+
+/**
+ * Resolve a variant tier's reseller-charged price. `tierPrice` is the tier's
+ * pre-discount total (`VariantTier.price`). The rounding here (`Math.round`)
+ * MUST match `discountedTierPrice` (src/components/VariantPicker.tsx) and
+ * `buildVariantPricingSnapshot` (src/lib/orderPricing.ts), which apply the
+ * identical formula — money parity requires all three to stay in lockstep.
+ */
+export function resolveTierPrice(
+  overrides: ResellerPriceOverride[],
+  resellerId: string | null,
+  service: Pick<DbService, 'id'>,
+  tierPrice: number,
+): ResolvedTierPrice {
+  const discountPercent = resolveVariantDiscountPercent(overrides, resellerId, service.id);
+  const price = discountPercent > 0 ? Math.round(tierPrice * (1 - discountPercent / 100)) : tierPrice;
+  return { price, originalPrice: tierPrice, discountPercent };
+}
+
 /**
  * Loads reseller price overrides visible to the current user (RLS returns global +
  * product-wide rules plus the caller's own reseller-specific rules) and exposes a
@@ -103,5 +150,18 @@ export function useResellerPricing(resellerId?: string) {
     [overrides, effectiveResellerId],
   );
 
-  return { overrides, getPrice, loading, reload: load };
+  /** Variant-tier resolver — see `resolveTierPrice` above for the FIXED-rule limitation. */
+  const getTierPrice = useCallback(
+    (service: Pick<DbService, 'id'>, tierPrice: number): ResolvedTierPrice =>
+      resolveTierPrice(overrides, effectiveResellerId, service, tierPrice),
+    [overrides, effectiveResellerId],
+  );
+
+  /** The percent a variant product's tiers are discounted by, independent of any one tier's price — feeds `<VariantPicker discountPct>` before a tier is even picked. */
+  const getVariantDiscountPercent = useCallback(
+    (serviceId: string): number => resolveVariantDiscountPercent(overrides, effectiveResellerId, serviceId),
+    [overrides, effectiveResellerId],
+  );
+
+  return { overrides, getPrice, getTierPrice, getVariantDiscountPercent, loading, reload: load };
 }

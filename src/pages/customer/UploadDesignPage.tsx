@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,10 @@ import { Upload, X, FileText, Loader2, CheckCircle2, ChevronLeft, ChevronRight, 
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
-import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
+import { useServiceVariants } from '@/hooks/useVariants';
+import VariantPicker from '@/components/VariantPicker';
+import { toCartVariantInfo, variantDisplayName, type VariantSelection } from '@/types/variants';
+import { buildCatalog, buildPricingSnapshot, buildVariantPricingSnapshot, type Catalog } from '@/lib/orderPricing';
 import { isNativeApp } from '@/lib/platform';
 import {
   insertOrder,
@@ -128,19 +131,43 @@ const FileCard = ({ slot, onRemove, onReplace, inputRef: _inputRef }: {
 
 const UploadDesignPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInput1Ref = useRef<HTMLInputElement>(null);
   const fileInput2Ref = useRef<HTMLInputElement>(null);
   const { services, loading: servicesLoading } = useServices();
+  const { getVariants } = useServiceVariants();
 
   const [step, setStep] = useState<Step>('service');
   const [slot1, setSlot1] = useState<FileSlot | null>(null);
   const [slot2, setSlot2] = useState<FileSlot | null>(null);
   const [selectedService, setSelectedService] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  // Variant-tier services (getVariants non-empty) replace the plain service summary with
+  // <VariantPicker>; `variantSelection` is null until the picker reports a complete pick.
+  const [variantSelection, setVariantSelection] = useState<VariantSelection | null>(null);
 
   const selectedServiceData = services.find(s => s.id === selectedService);
+  const selectedVariants = selectedService ? getVariants(selectedService) : [];
+  const hasVariants = selectedVariants.length > 0;
+  const variantInfo = hasVariants && variantSelection
+    ? toCartVariantInfo(selectedServiceData?.variant_attributes, variantSelection)
+    : null;
+
+  // ?service=<id> preselect — only takes effect once the services catalog has loaded and the
+  // id is a real service, and never overrides a choice the customer already made.
+  useEffect(() => {
+    const svc = searchParams.get('service');
+    if (svc && !selectedService && services.some(s => s.id === svc)) {
+      setSelectedService(svc);
+    }
+  }, [searchParams, services, selectedService]);
+
+  const handleSelectService = (id: string) => {
+    if (id !== selectedService) setVariantSelection(null);
+    setSelectedService(id);
+  };
 
   const formatPrice = (price: number, minQ?: number) => {
     if (!price) return null;
@@ -168,20 +195,49 @@ const UploadDesignPage = () => {
     if (f) handleFileSelect(f, 1);
   };
 
+  // Builds the order `details` JSON for either path — legacy (min_quantity snapshot,
+  // unchanged) or variant-tier (tier IS the pricing unit — see the ORDER DETAILS CONTRACT).
+  // Called twice (empty urls on create, final urls on patch) so both writes stay consistent.
+  const buildOrderDetails = (attachmentUrls: string[], catalog: Catalog) => {
+    if (hasVariants && variantInfo) {
+      return {
+        order_type: 'ready_design',
+        service_type: selectedService,
+        attachment_urls: attachmentUrls,
+        quantity: variantInfo.tierQty,
+        variant_id: variantInfo.variantId,
+        variant_label: variantDisplayName(variantInfo),
+        size_label: variantInfo.sizeLabel,
+        unit_label: variantInfo.unitLabel,
+        attributes: variantInfo.attributes,
+        gift_quantity: variantInfo.gift,
+        faces: variantInfo.faces ?? selectedServiceData?.faces,
+        pricing: buildVariantPricingSnapshot(selectedService, variantInfo),
+      };
+    }
+    // Legacy path — UNCHANGED: no quantity input here, so order the service min_quantity.
+    const quantity = catalog[selectedService]?.min_quantity || 1000;
+    return {
+      order_type: 'ready_design',
+      service_type: selectedService,
+      attachment_urls: attachmentUrls,
+      quantity,
+      pricing: buildPricingSnapshot(catalog, selectedService, quantity),
+    };
+  };
+
   const handleSubmit = async () => {
     if (!slot1 || !selectedService || !user) return;
+    if (hasVariants && !variantInfo) return; // CTA is disabled while incomplete; belt-and-suspenders
     setSubmitting(true);
 
     try {
-      // Pricing snapshot: no quantity input here, so order the service min_quantity.
       const catalog = buildCatalog(services);
-      const quantity = catalog[selectedService]?.min_quantity || 1000;
-      const pricing = buildPricingSnapshot(catalog, selectedService, quantity);
 
       // 1. Create order
       const { data: orderData, error: orderError } = await insertOrder(
         user.id,
-        { order_type: 'ready_design', service_type: selectedService, attachment_urls: [], quantity, pricing } as unknown as Json,
+        buildOrderDetails([], catalog) as unknown as Json,
       );
 
       if (orderError || !orderData) throw orderError;
@@ -203,7 +259,7 @@ const UploadDesignPage = () => {
       // 3. Update order with URLs
       await patchOrderDetails(
         orderData.id,
-        { order_type: 'ready_design', service_type: selectedService, attachment_urls: publicUrls, quantity, pricing } as unknown as Json,
+        buildOrderDetails(publicUrls, catalog) as unknown as Json,
       );
 
       toast({ title: 'تم إرسال طلبك بنجاح ✅' });
@@ -215,7 +271,9 @@ const UploadDesignPage = () => {
     }
   };
 
-  const canProceed = step === 'service' ? !!selectedService : !!slot1;
+  const canProceed = step === 'service'
+    ? !!selectedService && (!hasVariants || !!variantInfo)
+    : !!slot1;
 
   const steps: { key: Step; label: string }[] = [
     { key: 'service', label: 'نوع الخدمة' },
@@ -267,10 +325,12 @@ const UploadDesignPage = () => {
                 <div className="text-center py-12 text-muted-foreground text-sm">جاري تحميل الخدمات...</div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {services.map(service => (
+                  {/* superseded rows = old per-size duplicates replaced by a consolidated
+                      variant-tier product at the flip — never offer them here again */}
+                  {services.filter(s => !s.superseded_by).map(service => (
                     <button
                       key={service.id}
-                      onClick={() => setSelectedService(service.id)}
+                      onClick={() => handleSelectService(service.id)}
                       className={`p-4 rounded-xl border-2 text-center transition-all ${
                         selectedService === service.id
                           ? 'border-primary bg-primary/8 text-primary'
@@ -292,6 +352,20 @@ const UploadDesignPage = () => {
                   ))}
                 </div>
               )}
+
+              {/* Variant-tier products (size/shape + admin-priced tier + attributes) —
+                  a complete pick is required before the customer can proceed. */}
+              {selectedServiceData && hasVariants && (
+                <div className="mt-5 p-4 rounded-2xl border border-border/60 bg-card">
+                  <VariantPicker
+                    service={selectedServiceData}
+                    variants={selectedVariants}
+                    value={variantSelection}
+                    onChange={setVariantSelection}
+                    compact
+                  />
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -300,23 +374,28 @@ const UploadDesignPage = () => {
             <motion.div key="upload" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
               {/* Selected service summary */}
               {selectedServiceData && (
-                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
                       {selectedServiceData.icon_url ? (
                         <img src={selectedServiceData.icon_url} alt={selectedServiceData.label} className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-xl">{selectedServiceData.icon}</span>
                       )}
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-foreground">{selectedServiceData.label}</p>
-                      {selectedServiceData.price > 0 && (
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">{selectedServiceData.label}</p>
+                      {hasVariants && variantInfo ? (
+                        <p className="text-primary font-bold text-xs truncate">
+                          {variantDisplayName(variantInfo)} · {variantInfo.tierQty.toLocaleString('en-US')}
+                          {variantInfo.unitLabel ? ` ${variantInfo.unitLabel}` : ''} — {variantInfo.tierPrice.toLocaleString('en-US')} د.ع
+                        </p>
+                      ) : selectedServiceData.price > 0 && (
                         <p className="text-primary font-bold text-xs">{formatPrice(selectedServiceData.price, selectedServiceData.min_quantity)}</p>
                       )}
                     </div>
                   </div>
-                  <button onClick={() => setStep('service')} className="text-xs text-primary underline underline-offset-2">تغيير</button>
+                  <button onClick={() => setStep('service')} className="text-xs text-primary underline underline-offset-2 shrink-0">تغيير</button>
                 </div>
               )}
 

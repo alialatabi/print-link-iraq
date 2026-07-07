@@ -19,6 +19,7 @@ import type { CartItem } from '@/contexts/CartContext';
 const fromMock = () => mockSupabase.from as ReturnType<typeof vi.fn>;
 
 const item: CartItem = {
+  lineId: 't1',
   templateId: 't1',
   templateName: 'Card',
   serviceType: 'business_card',

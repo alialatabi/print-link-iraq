@@ -20,16 +20,23 @@ vi.mock('@/integrations/supabase/client', async () => {
 import { cartItemsSignature } from './CheckoutPage';
 import type { CartItem } from '@/contexts/CartContext';
 
-const item = (over: Partial<CartItem>): CartItem => ({
-  templateId: 't1',
-  templateName: 'Business Card',
-  serviceType: 'business_card',
-  previewUrl: null,
-  quantity: 1000,
-  unitPrice: 25000,
-  minQuantity: 1000,
-  ...over,
-});
+// lineId defaults to templateId (the CartContext back-compat convention for non-variant lines)
+// unless the fixture explicitly supplies its own — variant fixtures pass both.
+const item = (over: Partial<CartItem>): CartItem => {
+  const base: CartItem = {
+    lineId: 't1',
+    templateId: 't1',
+    templateName: 'Business Card',
+    serviceType: 'business_card',
+    previewUrl: null,
+    quantity: 1000,
+    unitPrice: 25000,
+    minQuantity: 1000,
+  };
+  const merged = { ...base, ...over };
+  if (over.templateId && !over.lineId) merged.lineId = over.templateId;
+  return merged;
+};
 
 const aiItem = (imageUrl: string): CartItem =>
   item({
@@ -91,5 +98,17 @@ describe('cartItemsSignature', () => {
     const before = [item({ templateId: 't1', templateName: 'Old', previewUrl: null, unitPrice: 25000 })];
     const after = [item({ templateId: 't1', templateName: 'New', previewUrl: 'x.png', unitPrice: 25000 })];
     expect(cartItemsSignature(after)).toBe(cartItemsSignature(before));
+  });
+
+  it('changes when the SAME template has two different variant configs at the same quantity and no cellophane (the collision variant lines could introduce)', () => {
+    const before = [item({ templateId: 't1', lineId: 't1::variant-a::', quantity: 500 })];
+    const after = [item({ templateId: 't1', lineId: 't1::variant-b::', quantity: 500 })];
+    expect(cartItemsSignature(after)).not.toBe(cartItemsSignature(before));
+  });
+
+  it('is stable when a variant line is re-added unchanged (its lineId, quantity and cellophane match)', () => {
+    const a = [item({ templateId: 't1', lineId: 't1::variant-a::ink_color:blue', quantity: 500 })];
+    const b = [item({ templateId: 't1', lineId: 't1::variant-a::ink_color:blue', quantity: 500 })];
+    expect(cartItemsSignature(a)).toBe(cartItemsSignature(b));
   });
 });

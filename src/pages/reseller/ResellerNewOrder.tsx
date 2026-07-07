@@ -9,8 +9,11 @@ import { Upload, X, FileText, Loader2, Plus, Store, Minus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getUserFriendlyError } from '@/lib/errors';
 import { useServices } from '@/hooks/useServices';
+import { useServiceVariants } from '@/hooks/useVariants';
 import { useResellerPricing } from '@/hooks/useResellerPricing';
-import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
+import { buildCatalog, buildPricingSnapshot, buildVariantPricingSnapshot, type PricingSnapshot } from '@/lib/orderPricing';
+import VariantPicker from '@/components/VariantPicker';
+import { tierQtyLabel, toCartVariantInfo, variantDisplayName, type VariantSelection } from '@/types/variants';
 import {
   insertOrder,
   uploadOrderAttachment,
@@ -66,7 +69,8 @@ const ResellerNewOrder = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { services, loading: servicesLoading } = useServices();
-  const { getPrice, loading: pricingLoading } = useResellerPricing();
+  const { getVariants } = useServiceVariants();
+  const { getPrice, getTierPrice, getVariantDiscountPercent, loading: pricingLoading } = useResellerPricing();
 
   const fileInput1Ref = useRef<HTMLInputElement>(null);
   const fileInput2Ref = useRef<HTMLInputElement>(null);
@@ -76,6 +80,9 @@ const ResellerNewOrder = () => {
   const [selectedService, setSelectedService] = useState<string>('');
   const [quantity, setQuantity] = useState<number | null>(null);
   const [selectedCellophane, setSelectedCellophane] = useState<string>('');
+  // Variant-tier products (getVariants non-empty) replace the qty stepper with
+  // <VariantPicker>; `selection` is null until the picker reports a complete pick.
+  const [selection, setSelection] = useState<VariantSelection | null>(null);
   const [slot1, setSlot1] = useState<FileSlot | null>(null);
   const [slot2, setSlot2] = useState<FileSlot | null>(null);
   const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
@@ -85,7 +92,13 @@ const ResellerNewOrder = () => {
   const minQty = selectedServiceData?.min_quantity || 1000;
   const cellophaneType: string = selectedServiceData?.cellophane_type || 'none';
 
-  // Prefill from a re-order request
+  const variants = selectedServiceData ? getVariants(selectedServiceData.id) : [];
+  const hasVariants = variants.length > 0 && Boolean(selectedServiceData);
+
+  // Prefill from a re-order request. NOTE: `reorder.quantity` only ever applies to the
+  // legacy qty stepper — a re-order of a service that (now) has variants intentionally
+  // starts with a fresh <VariantPicker> (the old flat quantity doesn't map onto a
+  // specific size/tier pick), so the reseller re-selects the variant from scratch.
   useEffect(() => {
     if (!reorder) return;
     if (reorder.serviceId) setSelectedService(reorder.serviceId);
@@ -101,6 +114,12 @@ const ResellerNewOrder = () => {
       setQuantity(minQty);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedService]);
+
+  // Reset the variant selection whenever the picked service changes — VariantPicker
+  // itself resets its own internal draft the same way (keyed on service.id).
+  useEffect(() => {
+    setSelection(null);
   }, [selectedService]);
 
   // Default cellophane when needed
@@ -120,6 +139,23 @@ const ResellerNewOrder = () => {
   const qty = quantity || minQty;
   const total = pricing ? Math.ceil(pricing.unitPrice * (qty / minQty)) : 0;
   const originalTotal = pricing ? Math.ceil(pricing.originalUnitPrice * (qty / minQty)) : 0;
+
+  // Variant-tier pricing: the tier's own price IS the total (factor 1) — see
+  // buildVariantPricingSnapshot. `variantDiscountPercent` is resolved as soon as a
+  // service is picked (independent of which tier ends up chosen) so <VariantPicker>
+  // can shade every tier chip; `resolvedTier` (needs a concrete tier) only exists
+  // once the picker reports a complete selection.
+  const variantDiscountPercent = selectedServiceData ? getVariantDiscountPercent(selectedServiceData.id) : 0;
+  const resolvedTier = hasVariants && selection && selectedServiceData
+    ? getTierPrice({ id: selectedServiceData.id }, selection.tier.price)
+    : null;
+  const variantInfo = useMemo(
+    () => (hasVariants && selection ? toCartVariantInfo(selectedServiceData?.variant_attributes, selection) : null),
+    [hasVariants, selection, selectedServiceData],
+  );
+  const variantTotal = resolvedTier?.price ?? 0;
+  const variantOriginal = resolvedTier && resolvedTier.discountPercent > 0 ? resolvedTier.originalPrice : 0;
+
   const hasAttachment = !!slot1 || existingAttachments.length > 0;
 
   const handleFileSelect = async (f: File, slot: 1 | 2) => {
@@ -138,23 +174,45 @@ const ResellerNewOrder = () => {
 
   const handleSubmit = async () => {
     if (!selectedServiceData || !hasAttachment || !user) return;
+    if (hasVariants && (!selection || !variantInfo)) return; // CTA is disabled while incomplete
     setSubmitting(true);
 
-    // Standard pricing snapshot so accounting reads every order uniformly. The reseller's
-    // charged unit price (per min_quantity) is `pricing.unitPrice`; line_total is the total.
-    const catalog = buildCatalog(services);
-    const snapshot = buildPricingSnapshot(catalog, selectedServiceData.id, qty, {
-      priceOverride: pricing?.unitPrice,
-    });
+    // Immutable pricing snapshot so accounting reads every order uniformly.
+    let snapshot: PricingSnapshot;
+    if (hasVariants && variantInfo) {
+      // Variant-tier line: the tier IS the pricing unit (factor 1). `priceOverride` reuses
+      // the exact render-computed `resolvedTier.price` (mirrors how the legacy branch below
+      // reuses `pricing.unitPrice`) — the SAME number already shown to the reseller in the
+      // price summary, so `line_total` can never drift from what's on screen.
+      snapshot = buildVariantPricingSnapshot(selectedServiceData.id, variantInfo, {
+        priceOverride: resolvedTier?.price ?? variantInfo.tierPrice,
+      });
+    } else {
+      // Standard pricing snapshot so accounting reads every order uniformly. The reseller's
+      // charged unit price (per min_quantity) is `pricing.unitPrice`; line_total is the total.
+      const catalog = buildCatalog(services);
+      snapshot = buildPricingSnapshot(catalog, selectedServiceData.id, qty, {
+        priceOverride: pricing?.unitPrice,
+      });
+    }
 
     const buildDetails = (attachment_urls: string[]) => ({
       order_type: 'reseller',
       service_type: selectedServiceData.id,
       service_label: selectedServiceData.label,
-      quantity: qty,
+      quantity: hasVariants && variantInfo ? variantInfo.tierQty : qty,
       cellophane: selectedCellophane || null,
       attachment_urls,
       pricing: snapshot,
+      ...(hasVariants && variantInfo ? {
+        variant_id: variantInfo.variantId,
+        variant_label: variantDisplayName(variantInfo),
+        size_label: variantInfo.sizeLabel,
+        unit_label: variantInfo.unitLabel,
+        attributes: variantInfo.attributes,
+        gift_quantity: variantInfo.gift,
+        faces: variantInfo.faces ?? selectedServiceData.faces,
+      } : {}),
     });
 
     try {
@@ -213,7 +271,8 @@ const ResellerNewOrder = () => {
             <div className="text-center py-12 text-muted-foreground text-sm">جاري التحميل...</div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {services.filter(s => s.price > 0).map(service => {
+              {/* !superseded_by: old per-size duplicates replaced at the variant flip */}
+              {services.filter(s => s.price > 0 && !s.superseded_by).map(service => {
                 const p = getPrice({ id: service.id, price: service.price });
                 const isSel = selectedService === service.id;
                 return (
@@ -248,30 +307,42 @@ const ResellerNewOrder = () => {
             <div>
               <Label className="text-foreground font-semibold text-base block mb-4">٢. الكمية والخيارات</Label>
               <div className="bg-card rounded-2xl border border-border p-4 space-y-5">
-                {/* Quantity */}
-                <div>
-                  <Label className="text-sm font-bold text-foreground mb-2 block">
-                    الكمية <span className="text-xs font-normal text-muted-foreground">(الحد الأدنى {minQty.toLocaleString('en-US')})</span>
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" size="icon" className="rounded-xl"
-                      onClick={() => setQuantity(Math.max(minQty, qty - minQty))}>
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <Input
-                      type="number"
-                      min={minQty}
-                      step={minQty}
-                      value={qty}
-                      onChange={e => setQuantity(Math.max(minQty, Number(e.target.value) || minQty))}
-                      className="text-center text-lg font-bold"
-                    />
-                    <Button type="button" variant="outline" size="icon" className="rounded-xl"
-                      onClick={() => setQuantity(qty + minQty)}>
-                      <Plus className="w-4 h-4" />
-                    </Button>
+                {/* Quantity — variant-tier products (getVariants non-empty) replace this
+                    stepper with the shared picker (size/shape → tier → attributes). */}
+                {hasVariants ? (
+                  <VariantPicker
+                    service={selectedServiceData}
+                    variants={variants}
+                    value={selection}
+                    onChange={setSelection}
+                    discountPct={variantDiscountPercent}
+                    compact
+                  />
+                ) : (
+                  <div>
+                    <Label className="text-sm font-bold text-foreground mb-2 block">
+                      الكمية <span className="text-xs font-normal text-muted-foreground">(الحد الأدنى {minQty.toLocaleString('en-US')})</span>
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Button type="button" variant="outline" size="icon" className="rounded-xl"
+                        onClick={() => setQuantity(Math.max(minQty, qty - minQty))}>
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        min={minQty}
+                        step={minQty}
+                        value={qty}
+                        onChange={e => setQuantity(Math.max(minQty, Number(e.target.value) || minQty))}
+                        className="text-center text-lg font-bold"
+                      />
+                      <Button type="button" variant="outline" size="icon" className="rounded-xl"
+                        onClick={() => setQuantity(qty + minQty)}>
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Cellophane */}
                 {cellophaneType !== 'none' && (
@@ -358,26 +429,57 @@ const ResellerNewOrder = () => {
 
             {/* Price summary */}
             <div className="bg-primary/5 border border-primary/20 rounded-2xl p-5">
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-muted-foreground">{selectedServiceData.label} × {qty.toLocaleString('en-US')}</span>
-                {pricing && pricing.discountPercent > 0 && (
-                  <span className="text-muted-foreground line-through">{formatIQD(originalTotal)}</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-foreground">الإجمالي</span>
-                <div className="text-left">
-                  <span className="text-2xl font-extrabold text-primary">{formatIQD(total)}</span>
-                  {pricing && pricing.discountPercent > 0 && (
-                    <span className="block text-xs text-success font-semibold">خصم المطابع {pricing.discountPercent}%</span>
-                  )}
-                </div>
-              </div>
+              {hasVariants ? (
+                selection ? (
+                  <>
+                    <div className="flex items-center justify-between text-sm mb-1 gap-2">
+                      <span className="text-muted-foreground truncate min-w-0">
+                        {selectedServiceData.label} — {variantDisplayName({
+                          groupLabel: selection.variant.group_label ?? undefined,
+                          variantLabel: selection.variant.label,
+                        })} × {tierQtyLabel(selection.tier, selection.variant.unit_label)}
+                      </span>
+                      {variantOriginal > 0 && (
+                        <span className="text-muted-foreground line-through flex-shrink-0">{formatIQD(variantOriginal)}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground">الإجمالي</span>
+                      <div className="text-left">
+                        <span className="text-2xl font-extrabold text-primary">{formatIQD(variantTotal)}</span>
+                        {variantOriginal > 0 && (
+                          <span className="block text-xs text-success font-semibold">خصم المطابع {variantDiscountPercent}%</span>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center font-medium">أكمل اختيار النوع والكمية أعلاه لعرض السعر</p>
+                )
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">{selectedServiceData.label} × {qty.toLocaleString('en-US')}</span>
+                    {pricing && pricing.discountPercent > 0 && (
+                      <span className="text-muted-foreground line-through">{formatIQD(originalTotal)}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-foreground">الإجمالي</span>
+                    <div className="text-left">
+                      <span className="text-2xl font-extrabold text-primary">{formatIQD(total)}</span>
+                      {pricing && pricing.discountPercent > 0 && (
+                        <span className="block text-xs text-success font-semibold">خصم المطابع {pricing.discountPercent}%</span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <Button
               onClick={handleSubmit}
-              disabled={!hasAttachment || submitting}
+              disabled={!hasAttachment || submitting || (hasVariants && !selection)}
               size="lg"
               className="w-full bg-success hover:bg-success/90 text-success-foreground"
             >

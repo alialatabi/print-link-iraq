@@ -16,7 +16,8 @@ import { redeemCoupon, Coupon } from '@/hooks/useDiscounts';
 import { IMAGE_PDF_ACCEPT, partitionAllowed } from '@/lib/uploadValidation';
 import { buildAiOrderItemDetails } from '@/lib/aiDesign';
 import { useServices } from '@/hooks/useServices';
-import { buildCatalog, buildPricingSnapshot } from '@/lib/orderPricing';
+import { buildCatalog, buildPricingSnapshot, buildVariantPricingSnapshot } from '@/lib/orderPricing';
+import { variantDisplayName } from '@/types/variants';
 import { retryAsync } from '@/lib/retry';
 import {
   createCartOrderWithItems,
@@ -42,20 +43,24 @@ const PRINT_AS_IS_MARKER = 'اطبعوا التصميم كما هو بدون ت�
 
 /**
  * A stable, order-sensitive content signature for the cart. It captures each item's identity IN
- * ORDER — templateId, quantity, cellophane, and (for AI items) the generated-image ref — so an
+ * ORDER — lineId, quantity, cellophane, and (for AI items) the generated-image ref — so an
  * unchanged cart yields the identical string while ANY content change yields a different one, even
  * an edit that keeps the same item COUNT (swap a template, change a quantity/cellophane, regenerate
- * an AI image). This is what keys the reusable idempotency ids: same signature -> reuse the same
- * order/item UUIDs (so a dropped-response retry reconciles via create_order_with_items'
- * ON CONFLICT DO NOTHING); changed signature -> mint fresh UUIDs (so new content can't bind to stale
- * ids and get silently no-op'd by that same conflict clause). JSON.stringify keeps it collision-safe
- * regardless of what characters an id/URL contains.
+ * an AI image, or re-pick a DIFFERENT variant/attribute combo of the same template). `lineId` (not
+ * `templateId`) is what makes that last case safe: a variant-tier product can have several cart
+ * lines sharing one templateId (different size/shape/attribute picks), and `lineId` is the only
+ * field that tells them apart — keying on templateId alone would let two different variant configs
+ * at the same quantity collide onto the identical signature. This is what keys the reusable
+ * idempotency ids: same signature -> reuse the same order/item UUIDs (so a dropped-response retry
+ * reconciles via create_order_with_items' ON CONFLICT DO NOTHING); changed signature -> mint fresh
+ * UUIDs (so new content can't bind to stale ids and get silently no-op'd by that same conflict
+ * clause). JSON.stringify keeps it collision-safe regardless of what characters an id/URL contains.
  */
 export const cartItemsSignature = (
-  items: ReadonlyArray<Pick<CartItem, 'templateId' | 'quantity' | 'cellophane' | 'aiDesign'>>,
+  items: ReadonlyArray<Pick<CartItem, 'lineId' | 'quantity' | 'cellophane' | 'aiDesign'>>,
 ): string =>
   JSON.stringify(
-    items.map((it) => [it.templateId, it.quantity, it.cellophane ?? '', it.aiDesign?.imageUrl ?? '']),
+    items.map((it) => [it.lineId, it.quantity, it.cellophane ?? '', it.aiDesign?.imageUrl ?? '']),
   );
 
 const CheckoutPage = () => {
@@ -96,13 +101,15 @@ const CheckoutPage = () => {
   };
 
   // The brief is required only for non-AI items the customer wants edited (not "print as-is").
-  const detailsRequired = (item: (typeof items)[number]) => !item.aiDesign && !printAsIs[item.templateId];
+  // Keyed by lineId (not templateId): a variant-tier product can have several cart lines that
+  // share one templateId (different size/shape/attribute picks), each needing its OWN brief draft.
+  const detailsRequired = (item: (typeof items)[number]) => !item.aiDesign && !printAsIs[item.lineId];
 
   // Effective brief stored on the item: the ready-to-print marker (plus any optional notes) when
   // "print as-is" is checked, otherwise the typed brief.
   const composeDetails = (item: (typeof items)[number]): string => {
-    const typed = (details[item.templateId] || '').trim();
-    if (printAsIs[item.templateId]) return typed ? `${PRINT_AS_IS_MARKER}\n${typed}` : PRINT_AS_IS_MARKER;
+    const typed = (details[item.lineId] || '').trim();
+    if (printAsIs[item.lineId]) return typed ? `${PRINT_AS_IS_MARKER}\n${typed}` : PRINT_AS_IS_MARKER;
     return typed;
   };
 
@@ -136,24 +143,24 @@ const CheckoutPage = () => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!currentItem) return;
-    const tid = currentItem.templateId;
+    const lid = currentItem.lineId;
     const files = Array.from(e.target.files || []);
     const { ok: allowed, rejected } = partitionAllowed(files, { pdf: true });
     if (rejected.length) {
       toast({ title: 'صيغة غير مدعومة — PNG أو JPG أو PDF فقط', variant: 'destructive' });
     }
     const valid = allowed.filter(f => f.size <= 10 * 1024 * 1024);
-    const current = attachments[tid] || [];
+    const current = attachments[lid] || [];
     if (current.length + valid.length > 5) {
       toast({ title: 'الحد الأقصى 5 صور', variant: 'destructive' });
       return;
     }
-    setAttachments(prev => ({ ...prev, [tid]: [...current, ...valid] }));
+    setAttachments(prev => ({ ...prev, [lid]: [...current, ...valid] }));
     valid.forEach(f => {
       const reader = new FileReader();
       reader.onload = (ev) => setPreviews(prev => ({
         ...prev,
-        [tid]: [...(prev[tid] || []), ev.target?.result as string],
+        [lid]: [...(prev[lid] || []), ev.target?.result as string],
       }));
       reader.readAsDataURL(f);
     });
@@ -162,14 +169,14 @@ const CheckoutPage = () => {
 
   const removeAttachment = (index: number) => {
     if (!currentItem) return;
-    const tid = currentItem.templateId;
-    setAttachments(prev => ({ ...prev, [tid]: (prev[tid] || []).filter((_, i) => i !== index) }));
-    setPreviews(prev => ({ ...prev, [tid]: (prev[tid] || []).filter((_, i) => i !== index) }));
+    const lid = currentItem.lineId;
+    setAttachments(prev => ({ ...prev, [lid]: (prev[lid] || []).filter((_, i) => i !== index) }));
+    setPreviews(prev => ({ ...prev, [lid]: (prev[lid] || []).filter((_, i) => i !== index) }));
   };
 
   const goNext = () => {
     if (!currentItem) return;
-    if (detailsRequired(currentItem) && !details[currentItem.templateId]?.trim()) {
+    if (detailsRequired(currentItem) && !details[currentItem.lineId]?.trim()) {
       toast({ title: 'يرجى إدخال تفاصيل التصميم', variant: 'destructive' });
       return;
     }
@@ -195,7 +202,7 @@ const CheckoutPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (currentItem && detailsRequired(currentItem) && !details[currentItem.templateId]?.trim()) {
+    if (currentItem && detailsRequired(currentItem) && !details[currentItem.lineId]?.trim()) {
       toast({ title: 'يرجى إدخال تفاصيل التصميم', variant: 'destructive' });
       return;
     }
@@ -232,7 +239,7 @@ const CheckoutPage = () => {
       try {
         await Promise.all(items.map(async (item, index) => {
           if (item.aiDesign) return; // AI image is already uploaded
-          const files = attachments[item.templateId] || [];
+          const files = attachments[item.lineId] || [];
           urlsByItem[index] = await Promise.all(
             files.map((file, fileIndex) => uploadItemFile(orderId, index, fileIndex, file)),
           );
@@ -265,13 +272,34 @@ const CheckoutPage = () => {
               unitPrice: item.unitPrice,
               discountPct: couponPct,
             })
-          : {
-              details: composeDetails(item),
-              attachment_urls: urlsByItem[index],
-              quantity: item.quantity,
-              cellophane: item.cellophane || null,
-              pricing: buildPricingSnapshot(catalog, item.serviceType, item.quantity, { discountPct: couponPct, priceOverride: item.unitPrice }),
-            }) as unknown as Json,
+          : item.variant
+            ? {
+                details: composeDetails(item),
+                attachment_urls: urlsByItem[index],
+                quantity: item.quantity,
+                cellophane: item.cellophane || null,
+                variant_id: item.variant.variantId,
+                variant_label: variantDisplayName(item.variant),
+                size_label: item.variant.sizeLabel,
+                unit_label: item.variant.unitLabel,
+                attributes: item.variant.attributes,
+                gift_quantity: item.variant.gift,
+                faces: item.variant.faces ?? services.find(s => s.id === item.serviceType)?.faces,
+                // MONEY PARITY BY CONSTRUCTION: item.unitPrice is the charged (service-
+                // discounted) tier total the customer saw in the cart; substituting it as
+                // priceOverride and applying the checkout coupon on top mirrors the legacy
+                // branch below exactly — CartPage computes its coupon discount over the WHOLE
+                // cart total, so variant lines must be coupon-eligible or the stored
+                // line_total would exceed the total shown on /cart.
+                pricing: buildVariantPricingSnapshot(item.serviceType, item.variant, { discountPct: couponPct, priceOverride: item.unitPrice }),
+              }
+            : {
+                details: composeDetails(item),
+                attachment_urls: urlsByItem[index],
+                quantity: item.quantity,
+                cellophane: item.cellophane || null,
+                pricing: buildPricingSnapshot(catalog, item.serviceType, item.quantity, { discountPct: couponPct, priceOverride: item.unitPrice }),
+              }) as unknown as Json,
       }));
 
       await retryAsync(async () => {
@@ -314,9 +342,10 @@ const CheckoutPage = () => {
   if (!currentItem) return null;
 
   const isAi = !!currentItem.aiDesign;
-  const tid = currentItem.templateId;
-  const curPreviews = previews[tid] || [];
-  const curAttachments = attachments[tid] || [];
+  const tid = currentItem.templateId; // template identity — display/copy only (shared across variant lines)
+  const lid = currentItem.lineId; // per-line draft identity — distinguishes variant configs of the same template
+  const curPreviews = previews[lid] || [];
+  const curAttachments = attachments[lid] || [];
 
   return (
     <div className={isNativeApp ? 'pt-4 pb-10' : 'section-spacing-sm'}>
@@ -342,7 +371,7 @@ const CheckoutPage = () => {
         </div>
 
         {/* Current template info */}
-        <motion.div key={tid} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="mb-6">
+        <motion.div key={lid} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="mb-6">
           <div className="rounded-2xl overflow-hidden border border-border/60 shadow-card">
             {currentItem.previewUrl ? (
               <img src={currentItem.previewUrl} alt="" className="w-full max-h-52 object-contain bg-muted/20" />
@@ -367,7 +396,7 @@ const CheckoutPage = () => {
                 </>
               ) : (
                 <>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">رقم القالب</p>
                     <div className="flex items-center gap-2">
                       <p className="font-mono font-bold text-primary text-lg tracking-widest">{shortId(tid)}</p>
@@ -376,10 +405,21 @@ const CheckoutPage = () => {
                       </button>
                     </div>
                   </div>
-                  <div className="text-left">
+                  <div className="text-left min-w-0">
                     {/* Live DB service name first — the static map misses DB-managed types (e.g. card_iq_1) */}
-                    <p className="text-xs text-muted-foreground">{services.find(s => s.id === currentItem.serviceType)?.label || SERVICE_LABELS[currentItem.serviceType as ServiceType] || ''}</p>
-                    <p className="text-sm font-medium text-foreground">{currentItem.quantity.toLocaleString('en-US')} نسخة</p>
+                    <p className="text-xs text-muted-foreground truncate">{services.find(s => s.id === currentItem.serviceType)?.label || SERVICE_LABELS[currentItem.serviceType as ServiceType] || ''}</p>
+                    {currentItem.variant && (
+                      <p className="text-xs font-bold text-primary truncate">{variantDisplayName(currentItem.variant)}</p>
+                    )}
+                    <p className="text-sm font-medium text-foreground">
+                      {currentItem.quantity.toLocaleString('en-US')} {currentItem.variant?.unitLabel || 'نسخة'}
+                      {currentItem.variant?.gift ? ` + ${currentItem.variant.gift.toLocaleString('en-US')} هدية` : ''}
+                    </p>
+                    {currentItem.variant?.attributes && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                        {Object.values(currentItem.variant.attributes).map(a => `${a.label}: ${a.value}`).join(' · ')}
+                      </p>
+                    )}
                     {currentItem.cellophane && (
                       <p className="text-xs text-primary font-medium mt-0.5">
                         سيلفان: {currentItem.cellophane === 'matte' ? 'طافي' : 'لمّاع'}
@@ -393,7 +433,7 @@ const CheckoutPage = () => {
         </motion.div>
 
         {/* Form */}
-        <motion.div key={`form-${tid}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+        <motion.div key={`form-${lid}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
           {isAi && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
               <p className="text-sm font-bold text-primary flex items-center gap-2">
@@ -409,12 +449,12 @@ const CheckoutPage = () => {
           {/* Ready-to-print express option — makes the brief optional for finished artwork */}
           <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-3.5">
             <Checkbox
-              id={`print-as-is-${tid}`}
-              checked={!!printAsIs[tid]}
-              onCheckedChange={v => setPrintAsIs(prev => ({ ...prev, [tid]: v === true }))}
+              id={`print-as-is-${lid}`}
+              checked={!!printAsIs[lid]}
+              onCheckedChange={v => setPrintAsIs(prev => ({ ...prev, [lid]: v === true }))}
               className="mt-0.5 shrink-0"
             />
-            <Label htmlFor={`print-as-is-${tid}`} className="text-sm text-foreground leading-relaxed font-normal cursor-pointer">
+            <Label htmlFor={`print-as-is-${lid}`} className="text-sm text-foreground leading-relaxed font-normal cursor-pointer">
               {PRINT_AS_IS_MARKER}
               <span className="block text-xs text-muted-foreground mt-0.5">
                 فعّل هذا الخيار إذا كان تصميمك جاهزاً للطباعة ولا يحتاج أي تعديل — عندها لن تحتاج لكتابة التفاصيل.
@@ -425,14 +465,14 @@ const CheckoutPage = () => {
           <div>
             <Label className="text-foreground font-medium flex items-center gap-2 mb-2">
               <FileText className="w-4 h-4 text-muted-foreground" />
-              تفاصيل التصميم {printAsIs[tid]
+              تفاصيل التصميم {printAsIs[lid]
                 ? <span className="text-muted-foreground font-normal">(اختياري)</span>
                 : <span className="text-destructive">*</span>}
             </Label>
             <Textarea
-              value={details[tid] || ''}
-              onChange={e => setDetails(prev => ({ ...prev, [tid]: e.target.value }))}
-              placeholder={printAsIs[tid]
+              value={details[lid] || ''}
+              onChange={e => setDetails(prev => ({ ...prev, [lid]: e.target.value }))}
+              placeholder={printAsIs[lid]
                 ? 'ملاحظات إضافية للمصمم (اختياري)'
                 : 'اكتب هنا كل البيانات التي تريدها على التصميم\nمثال: الاسم، رقم الهاتف، العنوان، المسمى الوظيفي...'}
               rows={6}

@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { m as motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Plus, Pencil, Trash2, GripVertical, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, Sparkles, Ruler } from 'lucide-react';
 import IconDisplay from '@/components/admin/IconDisplay';
+import VariantManager from '@/components/admin/VariantManager';
 import type { Service } from '@/components/admin/adminTypes';
 
 interface ServicesTabContentProps {
@@ -24,7 +26,12 @@ const ServicesTabContent = ({
   onAdd,
   onEdit,
   onDelete,
-}: ServicesTabContentProps) => (
+}: ServicesTabContentProps) => {
+  // Local dialog state for the "القياسات والأسعار" entry point — AdminServicesSpecs
+  // (the parent) owns none of this; it only ever renders <ServicesTabContent />.
+  const [variantsFor, setVariantsFor] = useState<{ id: string; label: string } | null>(null);
+
+  return (
   <>
     <div className="flex items-center justify-between mb-4">
       <p className="text-sm text-muted-foreground">الخدمات العامة والفرعية</p>
@@ -112,6 +119,15 @@ const ServicesTabContent = ({
                         </div>
                       </div>
                       <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          title="القياسات والأسعار"
+                          onClick={() => setVariantsFor({ id: child.id, label: child.label })}
+                        >
+                          <Ruler className="w-3 h-3" />
+                        </Button>
                         <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => onEdit(child)}>
                           <Pencil className="w-3 h-3" />
                         </Button>
@@ -127,7 +143,15 @@ const ServicesTabContent = ({
           );
         })}
     </div>
+    {/* Always mounted (like ServiceEditDialog) so Radix's close animation isn't cut off by unmounting. */}
+    <VariantManager
+      serviceId={variantsFor?.id ?? ''}
+      serviceLabel={variantsFor?.label ?? ''}
+      open={!!variantsFor}
+      onOpenChange={o => { if (!o) setVariantsFor(null); }}
+    />
   </>
-);
+  );
+};
 
 export default ServicesTabContent;

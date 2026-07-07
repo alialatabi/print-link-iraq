@@ -27,6 +27,11 @@ interface ItemlessOrderViewProps {
   orderServiceLabel: string;
   orderQuantity: number | undefined;
   orderTotal: number | undefined;
+  /** Variant-tier orders (2026-07) — undefined on legacy orders, which render exactly as before. */
+  orderVariantLabel?: string;
+  orderUnitLabel?: string;
+  orderGiftQty?: number;
+  orderAttributes?: Record<string, { label: string; value: string }>;
   orderHasDelivery: boolean;
   orderCancelled: boolean;
   onLightboxView: (url: string) => void;
@@ -39,6 +44,10 @@ const ItemlessOrderView = ({
   orderServiceLabel,
   orderQuantity,
   orderTotal,
+  orderVariantLabel,
+  orderUnitLabel,
+  orderGiftQty,
+  orderAttributes,
   orderHasDelivery,
   orderCancelled,
   onLightboxView,
@@ -86,20 +95,37 @@ const ItemlessOrderView = ({
       {(orderServiceLabel || orderQuantity || orderTotal) && (
         <div className="bg-card rounded-2xl border border-border/60 shadow-card p-5 space-y-2 text-sm">
           {orderServiceLabel && (
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">نوع الطباعة</span>
-              <span className="font-semibold text-foreground">{orderServiceLabel}</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground shrink-0">نوع الطباعة</span>
+              <span className="font-semibold text-foreground truncate min-w-0">{orderServiceLabel}</span>
+            </div>
+          )}
+          {orderVariantLabel && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground shrink-0">النوع</span>
+              <span className="font-semibold text-foreground truncate min-w-0">{orderVariantLabel}</span>
             </div>
           )}
           {orderQuantity != null && (
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">الكمية</span>
-              <span className="font-semibold text-foreground">{orderQuantity.toLocaleString('en-US')}</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground shrink-0">الكمية</span>
+              <span className="font-semibold text-foreground truncate min-w-0">
+                {orderQuantity.toLocaleString('en-US')}{orderUnitLabel ? ` ${orderUnitLabel}` : ''}
+                {orderGiftQty ? ` +${orderGiftQty.toLocaleString('en-US')} هدية` : ''}
+              </span>
+            </div>
+          )}
+          {orderAttributes && Object.keys(orderAttributes).length > 0 && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground shrink-0">خيارات</span>
+              <span className="font-semibold text-foreground truncate min-w-0">
+                {Object.values(orderAttributes).map(a => `${a.label}: ${a.value}`).join('، ')}
+              </span>
             </div>
           )}
           {orderTotal != null && orderTotal > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">الإجمالي</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground shrink-0">الإجمالي</span>
               <span className="font-bold text-success">{orderTotal.toLocaleString('en-US')} د.ع</span>
             </div>
           )}

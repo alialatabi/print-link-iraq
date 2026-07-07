@@ -10,6 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useServices, useSpecializations } from '@/hooks/useServices';
+import { useServiceVariants } from '@/hooks/useVariants';
+import VariantPicker, { discountedTierPrice } from '@/components/VariantPicker';
+import { tierQtyLabel, toCartVariantInfo, type VariantSelection } from '@/types/variants';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 import { trackView, getPreferredServiceTypes, getRecentlyViewed } from '@/lib/browsingTracker';
@@ -265,12 +268,16 @@ const TemplateDetails = () => {
   const { toast } = useToast();
   const { services } = useServices();
   const { specializations } = useSpecializations();
+  const { getVariants } = useServiceVariants();
   const specMap = Object.fromEntries(specializations.map(s => [s.id, s]));
 
   const [template, setTemplate] = useState<DbTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState<number | null>(null);
   const [selectedCellophane, setSelectedCellophane] = useState<string>('');
+  // Variant-tier products (getVariants non-empty) replace the qty stepper with
+  // <VariantPicker>; `selection` is null until the picker reports a complete pick.
+  const [selection, setSelection] = useState<VariantSelection | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -300,13 +307,45 @@ const TemplateDetails = () => {
   // fall back to the parent category's description when the sub-service has none.
   const serviceDescription: string = serviceData?.description?.trim() || parentService?.description?.trim() || '';
 
+  // Variant-tier products: sizes/shapes come from service_variants, each priced by an
+  // admin-enumerated tier list — the qty stepper below is skipped entirely for these.
+  // Also require `serviceData` to have loaded (not just the variants list) — VariantPicker
+  // reads service.variant_attributes to decide which attribute Selects are required, and
+  // rendering it before that catalog loads would let a selection complete without them.
+  const variants = getVariants(template?.service_type || '');
+  const hasVariants = variants.length > 0 && Boolean(serviceData);
+  const allTierPrices = hasVariants ? variants.flatMap(v => v.tiers.map(t => t.price)) : [];
+  const cheapestTierPrice = allTierPrices.length ? Math.min(...allTierPrices) : 0;
+
   // Discount
   const { discountPercent, discountLabel } = useActiveDiscount(template?.service_type, parentServiceId);
   const discountedUnitPrice = discountPercent > 0 ? Math.ceil(unitPrice * (1 - discountPercent / 100)) : unitPrice;
   const qty = quantity || minQty;
   const totalPrice = Math.ceil(discountedUnitPrice * (qty / minQty));
   const originalTotalPrice = discountPercent > 0 ? Math.ceil(unitPrice * (qty / minQty)) : 0;
-  const isInCart = items.some(i => i.templateId === templateId);
+
+  // Variant-tier total: the tier IS the pricing unit (factor 1), so the discounted tier
+  // price is both the "unit" price and the line total — see buildVariantPricingSnapshot.
+  const variantTotalPrice = selection ? discountedTierPrice(selection.tier, discountPercent) : 0;
+  const variantOriginalPrice = selection && discountPercent > 0 ? selection.tier.price : 0;
+  const displayTotal = hasVariants ? variantTotalPrice : totalPrice;
+  const displayOriginal = hasVariants ? variantOriginalPrice : originalTotalPrice;
+
+  // Cart line id for variant products mirrors the CartContext convention
+  // (`${templateId}::${variantId}::${attrKey}`) so "already in cart" reflects the exact
+  // size/tier/attribute combo, not just the template.
+  const currentVariantInfo = hasVariants && selection
+    ? toCartVariantInfo(serviceData?.variant_attributes, selection)
+    : null;
+  const currentLineId = currentVariantInfo
+    ? `${template?.id}::${currentVariantInfo.variantId}::${Object.entries(currentVariantInfo.attributes ?? {})
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([attrId, av]) => `${attrId}:${av.value}`)
+      .join(',')}`
+    : (template?.id || '');
+  const isInCart = hasVariants
+    ? Boolean(currentVariantInfo) && items.some(i => (i.lineId ?? i.templateId) === currentLineId)
+    : items.some(i => i.templateId === templateId);
 
   // Set initial quantity to min_quantity when service data loads
   useEffect(() => {
@@ -314,6 +353,12 @@ const TemplateDetails = () => {
       setQuantity(minQty);
     }
   }, [serviceData, minQty, quantity]);
+
+  // Reset the variant selection when navigating to a template under a different service —
+  // VariantPicker itself resets its own draft the same way (keyed on service id).
+  useEffect(() => {
+    setSelection(null);
+  }, [template?.service_type]);
 
   // Set default cellophane when it's single type (or 'both' first load)
   useEffect(() => {
@@ -334,7 +379,22 @@ const TemplateDetails = () => {
 
   const handleAddToCart = () => {
     if (!template) return;
-    if (guardGuest()) return;
+    if (hasVariants) {
+      if (!selection || !currentVariantInfo) return; // CTA is disabled while incomplete
+      addItem({
+        templateId: template.id,
+        templateName: template.name,
+        serviceType: template.service_type,
+        previewUrl: template.preview_url,
+        quantity: selection.tier.qty,
+        unitPrice: variantTotalPrice, // charged (post-discount) tier total — money parity
+        minQuantity: selection.tier.qty,
+        variant: currentVariantInfo,
+        discountPct: discountPercent || undefined,
+      });
+      toast({ title: 'تمت الإضافة للسلة ✓', description: template.id.slice(0, 8).toUpperCase() });
+      return;
+    }
     addItem({
       templateId: template.id,
       templateName: template.name,
@@ -349,6 +409,7 @@ const TemplateDetails = () => {
   };
 
   const handleOrder = () => {
+    if (hasVariants && !selection) return; // CTA is disabled while incomplete
     if (guardGuest()) return;
     handleAddToCart();
     navigate('/cart');
@@ -414,7 +475,7 @@ const TemplateDetails = () => {
         brand: { '@type': 'Brand', name: 'مطبعتي' },
         offers: {
           '@type': 'Offer',
-          price: unitPrice,
+          price: hasVariants ? cheapestTierPrice : unitPrice,
           priceCurrency: 'IQD',
           availability: 'https://schema.org/InStock',
           seller: { '@type': 'Organization', name: 'مطبعتي' },
@@ -475,25 +536,51 @@ const TemplateDetails = () => {
             )}
 
             {/* Price */}
-            <div>
-              <p className="text-xs text-muted-foreground mb-1.5">السعر لكل {minQty.toLocaleString('en-US')} نسخة</p>
-              <div className="flex items-center gap-3 flex-wrap">
-                <p className={`text-4xl font-extrabold ${discountPercent > 0 ? 'text-success' : 'text-foreground'}`}>
-                  {discountedUnitPrice.toLocaleString('en-US')}
-                  <span className="text-base font-semibold text-muted-foreground mr-1.5"> د.ع</span>
+            {hasVariants ? (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5">
+                  {selection ? `السعر لـ ${tierQtyLabel(selection.tier, selection.variant.unit_label)}` : 'اختر النوع والكمية لعرض السعر'}
                 </p>
-                {discountPercent > 0 && (
-                  <>
-                    <span className="text-lg text-destructive line-through font-bold">
-                      {unitPrice.toLocaleString('en-US')}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-destructive/15 text-destructive text-xs font-black animate-pulse">
-                      {discountLabel}
-                    </span>
-                  </>
+                {selection && (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <p className={`text-4xl font-extrabold ${discountPercent > 0 ? 'text-success' : 'text-foreground'}`}>
+                      {discountedTierPrice(selection.tier, discountPercent).toLocaleString('en-US')}
+                      <span className="text-base font-semibold text-muted-foreground mr-1.5"> د.ع</span>
+                    </p>
+                    {discountPercent > 0 && (
+                      <>
+                        <span className="text-lg text-destructive line-through font-bold">
+                          {selection.tier.price.toLocaleString('en-US')}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-lg bg-destructive/15 text-destructive text-xs font-black animate-pulse">
+                          {discountLabel}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
+            ) : (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5">السعر لكل {minQty.toLocaleString('en-US')} نسخة</p>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <p className={`text-4xl font-extrabold ${discountPercent > 0 ? 'text-success' : 'text-foreground'}`}>
+                    {discountedUnitPrice.toLocaleString('en-US')}
+                    <span className="text-base font-semibold text-muted-foreground mr-1.5"> د.ع</span>
+                  </p>
+                  {discountPercent > 0 && (
+                    <>
+                      <span className="text-lg text-destructive line-through font-bold">
+                        {unitPrice.toLocaleString('en-US')}
+                      </span>
+                      <span className="px-2.5 py-1 rounded-lg bg-destructive/15 text-destructive text-xs font-black animate-pulse">
+                        {discountLabel}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Description (inherited from the sub-service) */}
             {serviceDescription && (
@@ -541,58 +628,79 @@ const TemplateDetails = () => {
 
             <div className="h-px bg-border/30" />
 
-            {/* Quantity */}
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground mb-3 block uppercase tracking-wide">
-                الكمية
-              </label>
-              <div className="flex items-center gap-4 bg-muted/20 rounded-xl p-3 border border-border/30">
-                <Button variant="outline" size="icon" onClick={() => qty > minQty && setQuantity(qty - minQty)} disabled={qty <= minQty} className="h-11 w-11 rounded-xl">
-                  <Minus className="w-4 h-4" />
-                </Button>
-                <div className="flex-1 text-center">
-                  <input
-                    type="number"
-                    value={qty}
-                    onChange={e => {
-                      const val = parseInt(e.target.value) || minQty;
-                      const rounded = Math.max(minQty, Math.round(val / minQty) * minQty);
-                      setQuantity(rounded);
-                    }}
-                    onBlur={() => {
-                      const rounded = Math.max(minQty, Math.round(qty / minQty) * minQty);
-                      if (rounded !== qty) setQuantity(rounded);
-                    }}
-                    min={minQty}
-                    className="w-full text-center text-3xl font-black text-foreground bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    dir="ltr"
-                  />
-                  <p className="text-xs text-muted-foreground/70 mt-0.5">الحد الأدنى: {minQty.toLocaleString('en-US')} نسخة</p>
-                </div>
-                <Button variant="outline" size="icon" onClick={() => setQuantity(qty + minQty)} className="h-11 w-11 rounded-xl">
-                  <Plus className="w-4 h-4" />
-                </Button>
+            {/* Quantity / Variant picker */}
+            {hasVariants && serviceData ? (
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-3 block uppercase tracking-wide">
+                  المواصفات
+                </label>
+                <VariantPicker
+                  service={serviceData}
+                  variants={variants}
+                  value={selection}
+                  onChange={setSelection}
+                  discountPct={discountPercent}
+                />
               </div>
-            </div>
+            ) : (
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-3 block uppercase tracking-wide">
+                  الكمية
+                </label>
+                <div className="flex items-center gap-4 bg-muted/20 rounded-xl p-3 border border-border/30">
+                  <Button variant="outline" size="icon" onClick={() => qty > minQty && setQuantity(qty - minQty)} disabled={qty <= minQty} className="h-11 w-11 rounded-xl">
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <div className="flex-1 text-center">
+                    <input
+                      type="number"
+                      value={qty}
+                      onChange={e => {
+                        const val = parseInt(e.target.value) || minQty;
+                        const rounded = Math.max(minQty, Math.round(val / minQty) * minQty);
+                        setQuantity(rounded);
+                      }}
+                      onBlur={() => {
+                        const rounded = Math.max(minQty, Math.round(qty / minQty) * minQty);
+                        if (rounded !== qty) setQuantity(rounded);
+                      }}
+                      min={minQty}
+                      className="w-full text-center text-3xl font-black text-foreground bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      dir="ltr"
+                    />
+                    <p className="text-xs text-muted-foreground/70 mt-0.5">الحد الأدنى: {minQty.toLocaleString('en-US')} نسخة</p>
+                  </div>
+                  <Button variant="outline" size="icon" onClick={() => setQuantity(qty + minQty)} className="h-11 w-11 rounded-xl">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Total */}
             <div className="py-5 px-6 rounded-2xl bg-success/5 border border-success/15">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground font-medium">المجموع</span>
-                <div className="flex items-center gap-2">
-                  {originalTotalPrice > 0 && (
-                    <span className="text-sm text-destructive line-through font-bold">{originalTotalPrice.toLocaleString('en-US')}</span>
+              {hasVariants && !selection ? (
+                <p className="text-sm text-muted-foreground font-medium text-center">أكمل الاختيار أعلاه لعرض السعر الإجمالي</p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground font-medium">المجموع</span>
+                    <div className="flex items-center gap-2">
+                      {displayOriginal > 0 && (
+                        <span className="text-sm text-destructive line-through font-bold">{displayOriginal.toLocaleString('en-US')}</span>
+                      )}
+                      <span className="text-2xl font-black text-success">
+                        {displayTotal.toLocaleString('en-US')}
+                        <span className="text-sm font-semibold text-muted-foreground mr-1"> د.ع</span>
+                      </span>
+                    </div>
+                  </div>
+                  {displayOriginal > 0 && (
+                    <p className="text-xs text-success font-bold mt-1 text-left">
+                      وفّرت {(displayOriginal - displayTotal).toLocaleString('en-US')} د.ع 🎉
+                    </p>
                   )}
-                  <span className="text-2xl font-black text-success">
-                    {totalPrice.toLocaleString('en-US')}
-                    <span className="text-sm font-semibold text-muted-foreground mr-1"> د.ع</span>
-                  </span>
-                </div>
-              </div>
-              {originalTotalPrice > 0 && (
-                <p className="text-xs text-success font-bold mt-1 text-left">
-                  وفّرت {(originalTotalPrice - totalPrice).toLocaleString('en-US')} د.ع 🎉
-                </p>
+                </>
               )}
             </div>
 
@@ -602,12 +710,18 @@ const TemplateDetails = () => {
                 onClick={handleAddToCart}
                 variant="outline"
                 size="lg"
+                disabled={hasVariants && !selection}
                 className="flex-1 font-bold gap-2 rounded-xl"
               >
                 {isInCart ? <Check /> : <ShoppingCart />}
                 {isInCart ? 'في السلة ✓' : 'أضف للسلة'}
               </Button>
-              <Button onClick={handleOrder} size="lg" className="flex-1 font-bold rounded-xl shadow-md hover:shadow-lg transition-shadow">
+              <Button
+                onClick={handleOrder}
+                size="lg"
+                disabled={hasVariants && !selection}
+                className="flex-1 font-bold rounded-xl shadow-md hover:shadow-lg transition-shadow"
+              >
                 اطلب الآن
               </Button>
             </div>

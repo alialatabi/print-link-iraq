@@ -166,8 +166,20 @@ const DesignerOrderDetails = () => {
     return () => { cancelled = true; };
   }, [orderItems, order]);
 
-  const itemFaces = (item: OrderItem): 1 | 2 => serviceFaces[item.templates?.service_type ?? ''] ?? 1;
-  const orderFaces: 1 | 2 = serviceFaces[String(order?.details?.service_type ?? '')] ?? 1;
+  // Prefer the order/item's own stored `details.faces` (set at order time whenever the service
+  // has variants — the variant's faces override, or else the service's) over the live
+  // services-table lookup, so an already-priced order keeps showing the right face count even if
+  // the catalog changes later. Falls back to `serviceFaces` (the pre-variant source) when absent.
+  const resolveFaces = (detailsFaces: unknown, fallback: 1 | 2): 1 | 2 => {
+    const n = Number(detailsFaces);
+    return n === 1 || n === 2 ? n : fallback;
+  };
+  const itemFaces = (item: OrderItem): 1 | 2 =>
+    resolveFaces(item.details?.faces, serviceFaces[item.templates?.service_type ?? ''] ?? 1);
+  const orderFaces: 1 | 2 = resolveFaces(
+    order?.details?.faces,
+    serviceFaces[String(order?.details?.service_type ?? '')] ?? 1,
+  );
 
   // Build the per-face upload state a two-face card/panel needs (uploading/info/failed/hasExisting).
   const faceZoneState = (designSet: DesignVersion[], keyPrefix: string): { front: FaceZoneState; back: FaceZoneState } => {
@@ -701,6 +713,13 @@ const DesignerOrderDetails = () => {
                 {order.profiles?.display_name || '-'}
                 {hasItems && <span className="mr-2">• {orderItems.length} عناصر</span>}
               </p>
+              {/* Item-less order carrying a variant selection — tell the designer exactly what to produce. */}
+              {!hasItems && !isReseller && order.details?.variant_label && (
+                <p className="text-xs font-bold text-primary mt-1">
+                  {[SERVICE_LABELS[order.details?.service_type as ServiceType], order.details.variant_label]
+                    .filter(Boolean).join(' ')}
+                </p>
+              )}
               {/* Customer contact + clarification — available on ALL order types */}
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 {customerPhone && (

@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { VariantAttribute } from '@/types/variants';
 
 export interface DbService {
   id: string;
@@ -21,6 +22,17 @@ export interface DbService {
   ai_fee?: number;
   // Printed faces per design version: 1 = single file, 2 = front + back (two-face products).
   faces?: number;
+  /**
+   * Product-wide customer choices (ink color, bag color…) for variant-tier
+   * products — see src/types/variants.ts. Null/absent = no attributes.
+   */
+  variant_attributes?: VariantAttribute[] | null;
+  /**
+   * Consolidated service id that replaced this old duplicated sub-service at
+   * the variant-tier flip. Pickers that list print-disabled services too
+   * (upload flow, reseller) must exclude superseded rows.
+   */
+  superseded_by?: string | null;
 }
 
 export interface DbSpecialization {

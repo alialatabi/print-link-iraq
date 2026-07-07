@@ -1,17 +1,78 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { m as motion, AnimatePresence } from 'framer-motion';
-import { useCart } from '@/contexts/CartContext';
+import { useCart, type CartItem } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { SERVICE_LABELS, ServiceType } from '@/data/mockData';
 import { ArrowRight, Minus, Plus, Trash2, ShoppingCart, Palette, ShieldCheck, Truck, Tag, Loader2, X, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import SEOHead from '@/components/SEOHead';
 import { useServices } from '@/hooks/useServices';
+import { useServiceVariants } from '@/hooks/useVariants';
+import { discountedTierPrice } from '@/components/VariantPicker';
+import { tierQtyLabel, variantDisplayName, type ServiceVariant, type VariantTier } from '@/types/variants';
 import { validateCoupon, Coupon } from '@/hooks/useDiscounts';
 import { toast } from 'sonner';
 import { isNativeApp } from '@/lib/platform';
+
+/**
+ * Compact tier picker that REPLACES the qty stepper for variant lines — a shadcn Select fits the
+ * cart row's tight width even for products with several tiers (a chip row would wrap across many
+ * lines). Falls back to a read-only badge if the variant was deactivated/deleted since this line
+ * was added (no live tiers left to switch between), still rendering from the line's OWN stored
+ * info so the row never breaks.
+ */
+const VariantTierControl = ({
+  item,
+  variantRow,
+  onPickTier,
+}: {
+  item: CartItem;
+  variantRow: ServiceVariant | undefined;
+  onPickTier: (tier: VariantTier) => void;
+}) => {
+  const info = item.variant;
+  if (!info) return null;
+  const tiers = variantRow?.tiers ?? [];
+
+  if (tiers.length === 0) {
+    return (
+      <span className="inline-flex items-center min-h-10 text-xs font-semibold text-foreground bg-muted rounded-lg px-2.5 py-1.5">
+        {tierQtyLabel({ qty: info.tierQty, price: info.tierPrice, gift: info.gift }, info.unitLabel)}
+      </span>
+    );
+  }
+
+  return (
+    <Select
+      dir="rtl"
+      value={String(info.tierQty)}
+      onValueChange={(val) => {
+        const tier = tiers.find(t => String(t.qty) === val);
+        if (tier) onPickTier(tier);
+      }}
+    >
+      <SelectTrigger className="h-10 w-auto min-w-[7.5rem] rounded-lg text-xs px-2.5">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="bg-card border-border z-50">
+        {tiers.map(t => (
+          <SelectItem key={t.qty} value={String(t.qty)}>
+            {tierQtyLabel(t, info.unitLabel)} — {discountedTierPrice(t, item.discountPct ?? 0).toLocaleString('en-US')} د.ع
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -19,8 +80,9 @@ const fadeUp = {
 };
 
 const CartPage = () => {
-  const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart();
+  const { items, removeItem, updateQuantity, updateTier, totalPrice, clearCart } = useCart();
   const { services } = useServices();
+  const { getVariants } = useServiceVariants();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [couponCode, setCouponCode] = useState('');
@@ -96,9 +158,13 @@ const CartPage = () => {
 
         <div className="space-y-4 mb-10">
           <AnimatePresence>
-            {items.map((item, i) => (
+            {items.map((item, i) => {
+              const variantRow = item.variant
+                ? getVariants(item.serviceType).find(v => v.id === item.variant?.variantId)
+                : undefined;
+              return (
               <motion.div
-                key={item.templateId}
+                key={item.lineId}
                 custom={i}
                 initial="hidden"
                 animate="visible"
@@ -118,7 +184,7 @@ const CartPage = () => {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
+                    <div className="min-w-0">
                       <h3 className="font-bold text-foreground text-sm truncate">{item.templateName}</h3>
                       <span className="text-xs text-muted-foreground">
                         {item.aiDesign
@@ -127,28 +193,48 @@ const CartPage = () => {
                           // aren't in the static map — never show the raw id to customers).
                           : (services.find(s => s.id === item.serviceType)?.label || SERVICE_LABELS[item.serviceType as ServiceType] || 'تصميم')}
                       </span>
+                      {/* Variant-tier products: size/shape + product-wide attribute choices */}
+                      {item.variant && (
+                        <div className="mt-1 space-y-0.5">
+                          <p className="text-xs font-semibold text-primary truncate">
+                            {variantDisplayName(item.variant)}
+                            {item.variant.sizeLabel ? ` · ${item.variant.sizeLabel}` : ''}
+                          </p>
+                          {item.variant.attributes && (
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {Object.values(item.variant.attributes).map(a => `${a.label}: ${a.value}`).join(' · ')}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <button
-                      onClick={() => removeItem(item.templateId)}
+                      onClick={() => removeItem(item.lineId)}
                       className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200 shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between mt-4">
-                    {/* Quantity (AI items are a single fixed-price design) */}
+                  <div className="flex items-center justify-between mt-4 gap-2 flex-wrap">
+                    {/* Quantity (AI items are a single fixed-price design; variant items pick a tier) */}
                     {item.aiDesign ? (
                       <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 rounded-lg px-2.5 py-1.5">
                         <Sparkles className="w-3.5 h-3.5" /> تصميم AI
                       </span>
+                    ) : item.variant ? (
+                      <VariantTierControl
+                        item={item}
+                        variantRow={variantRow}
+                        onPickTier={(tier) => updateTier(item.lineId, tier, item.discountPct)}
+                      />
                     ) : (
                       <div className="flex items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 rounded-lg"
-                          onClick={() => updateQuantity(item.templateId, item.quantity - (item.minQuantity || 1000))}
+                          onClick={() => updateQuantity(item.lineId, item.quantity - (item.minQuantity || 1000))}
                           disabled={item.quantity <= (item.minQuantity || 1000)}
                         >
                           <Minus className="w-3 h-3" />
@@ -160,7 +246,7 @@ const CartPage = () => {
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 rounded-lg"
-                          onClick={() => updateQuantity(item.templateId, item.quantity + (item.minQuantity || 1000))}
+                          onClick={() => updateQuantity(item.lineId, item.quantity + (item.minQuantity || 1000))}
                         >
                           <Plus className="w-3 h-3" />
                         </Button>
@@ -168,16 +254,24 @@ const CartPage = () => {
                     )}
 
                     {/* Price */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success/10 border border-success/15">
-                      <span className="font-extrabold text-success text-sm">
-                        {Math.ceil(item.unitPrice * (item.quantity / (item.minQuantity || 1000))).toLocaleString('en-US')}
-                      </span>
-                      <span className="text-[10px] font-semibold text-success/70">د.ع</span>
+                    <div className="inline-flex items-center gap-1.5">
+                      {item.variant && (item.discountPct ?? 0) > 0 && (
+                        <span className="text-[10px] text-destructive line-through">
+                          {item.variant.tierPrice.toLocaleString('en-US')}
+                        </span>
+                      )}
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success/10 border border-success/15">
+                        <span className="font-extrabold text-success text-sm">
+                          {Math.ceil(item.unitPrice * (item.quantity / (item.minQuantity || 1000))).toLocaleString('en-US')}
+                        </span>
+                        <span className="text-[10px] font-semibold text-success/70">د.ع</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </AnimatePresence>
         </div>
 

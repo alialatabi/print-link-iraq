@@ -239,8 +239,18 @@ const OrderItemCard = ({
   const designerMessages: DesignerMessage[] = (itemDetails.designer_messages as DesignerMessage[]) || [];
   const currentStepIndex = ITEM_STEPS.findIndex(s => s.status === item.status);
   const showDesignReview = ['waiting_approval', 'design_uploaded'].includes(item.status) || itemDesigns.length > 0;
-  // Two-face products (كارت وجهين) render both faces per version; single-face is unchanged.
-  const faces = serviceFaceCount(allServices.find(s => s.id === item.templates?.service_type));
+  // Variant-tier lines (2026-07): denormalized on the line's own details — undefined on legacy
+  // lines, which render exactly as before.
+  const variantLabel = itemDetails.variant_label as string | undefined;
+  const unitLabel = itemDetails.unit_label as string | undefined;
+  const giftQty = itemDetails.gift_quantity as number | undefined;
+  const quantity = itemDetails.quantity as number | undefined;
+  const attributes = itemDetails.attributes as Record<string, { label: string; value: string }> | undefined;
+  // Two-face products (كارت وجهين) render both faces per version; a variant can override the
+  // service's face count (`faces` is written on the line whenever the service has variants).
+  const faces = serviceFaceCount({
+    faces: (itemDetails.faces as number | undefined) ?? allServices.find(s => s.id === item.templates?.service_type)?.faces,
+  });
   const isTwoFace = faces === 2;
 
   return (
@@ -251,12 +261,12 @@ const OrderItemCard = ({
           onClick={onToggle}
           className="w-full flex items-center justify-between p-5 hover:bg-muted/30 transition-colors text-right"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0">
               <span className="text-primary font-bold text-sm">{idx + 1}</span>
             </div>
-            <div>
-              <h3 className="font-bold text-foreground text-sm">{item.templates?.name || 'عنصر'}</h3>
+            <div className="min-w-0">
+              <h3 className="font-bold text-foreground text-sm truncate">{item.templates?.name || 'عنصر'}</h3>
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-xs text-muted-foreground">
                   {SERVICE_LABELS[item.templates?.service_type as ServiceType] || ''}
@@ -271,9 +281,21 @@ const OrderItemCard = ({
                   ) : null;
                 })()}
               </div>
+              {variantLabel && (
+                <p className="text-xs font-semibold text-primary mt-0.5 truncate">
+                  {variantLabel}
+                  {quantity != null ? ` · ${quantity.toLocaleString('en-US')}${unitLabel ? ` ${unitLabel}` : ''}` : ''}
+                  {giftQty ? ` +${giftQty.toLocaleString('en-US')} هدية` : ''}
+                </p>
+              )}
+              {attributes && (
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {Object.values(attributes).map(a => `${a.label}: ${a.value}`).join('، ')}
+                </p>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <StatusBadge status={item.status} />
             {isExpanded ? (
               <ChevronUp className="w-4 h-4 text-muted-foreground" />

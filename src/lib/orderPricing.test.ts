@@ -10,10 +10,12 @@ import { describe, it, expect } from 'vitest';
 import {
   buildCatalog,
   buildPricingSnapshot,
+  buildVariantPricingSnapshot,
   computeLine,
 } from './orderPricing';
 import type { Catalog } from './orderPricing';
 import type { DbService } from '@/hooks/useServices';
+import type { CartVariantInfo } from '@/types/variants';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,6 +43,15 @@ const catalog: Catalog = {
   'banner':        { price: 50000, cost: 25000, min_quantity: 1   },
   'flyer':         { price: 20000, cost: 8000,  min_quantity: 500  },
 };
+
+/** Minimal valid CartVariantInfo for variant-pricing tests. Override only what matters. */
+const makeVariantInfo = (overrides: Partial<CartVariantInfo> = {}): CartVariantInfo => ({
+  variantId: 'var-6x4',
+  variantLabel: '6×4',
+  tierQty: 500,
+  tierPrice: 20000,
+  ...overrides,
+});
 
 // ---------------------------------------------------------------------------
 // buildCatalog
@@ -235,6 +246,150 @@ describe('buildPricingSnapshot', () => {
     const cat4: Catalog = { 'svc': { price: 1001, cost: 100, min_quantity: 2 } };
     const snap = buildPricingSnapshot(cat4, 'svc', 1);
     expect(snap.line_total).toBe(501);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildVariantPricingSnapshot
+// ---------------------------------------------------------------------------
+
+describe('buildVariantPricingSnapshot', () => {
+  // --- Tier IS the pricing unit ---
+
+  it('sets min_quantity = quantity = tier.qty (tier is the pricing unit)', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierQty: 500 }));
+    expect(snap.quantity).toBe(500);
+    expect(snap.min_quantity).toBe(500);
+  });
+
+  it('no discount: line_total equals the tier price exactly (parity with what the customer sees)', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierPrice: 20000 }));
+    expect(snap.unit_price).toBe(20000);
+    expect(snap.line_total).toBe(20000);
+    expect(snap.discount_pct).toBeUndefined();
+  });
+
+  it('carries service_type through unchanged', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo());
+    expect(snap.service_type).toBe('stamp');
+  });
+
+  // --- Discount parity ---
+
+  it('applies discountPct to the tier price and records discount_pct', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierPrice: 20000 }), { discountPct: 10 });
+    // total = round(20000 * 0.90) = 18000
+    expect(snap.unit_price).toBe(18000);
+    expect(snap.line_total).toBe(18000);
+    expect(snap.discount_pct).toBe(10);
+  });
+
+  it('MONEY PARITY: line_total equals the discounted tier total for any discount pct', () => {
+    for (const pct of [0, 5, 10, 15, 25, 33, 50, 100]) {
+      const info = makeVariantInfo({ tierPrice: 37000 });
+      const snap = buildVariantPricingSnapshot('stamp', info, { discountPct: pct });
+      const expected = pct > 0 ? Math.round(info.tierPrice * (1 - pct / 100)) : info.tierPrice;
+      expect(snap.line_total).toBe(expected);
+      expect(snap.unit_price).toBe(expected);
+    }
+  });
+
+  it('discountPct=0 leaves the tier price unchanged and discount_pct absent', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierPrice: 20000 }), { discountPct: 0 });
+    expect(snap.unit_price).toBe(20000);
+    expect(snap.discount_pct).toBeUndefined();
+  });
+
+  it('rounds a fractional discounted total (rounding parity check)', () => {
+    // 20001 * 0.85 = 17000.85 -> round = 17001
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierPrice: 20001 }), { discountPct: 15 });
+    expect(snap.line_total).toBe(17001);
+  });
+
+  // --- priceOverride (reseller / negotiated flows) ---
+
+  it('priceOverride substitutes the tier price entirely', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierPrice: 20000 }), { priceOverride: 15000 });
+    expect(snap.unit_price).toBe(15000);
+    expect(snap.line_total).toBe(15000);
+    expect(snap.discount_pct).toBeUndefined();
+  });
+
+  it('discount is applied ON TOP of priceOverride', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierPrice: 20000 }), {
+      priceOverride: 10000,
+      discountPct: 20,
+    });
+    // unitPrice = round(10000 * 0.80) = 8000 — the ORIGINAL tierPrice is ignored entirely
+    expect(snap.unit_price).toBe(8000);
+    expect(snap.line_total).toBe(8000);
+    expect(snap.discount_pct).toBe(20);
+  });
+
+  // --- Cost ---
+
+  it('carries tierCost through as unit_cost/line_cost (tier is the pricing unit, no factor scaling)', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierCost: 8000 }));
+    expect(snap.unit_cost).toBe(8000);
+    expect(snap.line_cost).toBe(8000);
+  });
+
+  it('defaults unit_cost/line_cost to 0 when tierCost is absent', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierCost: undefined }));
+    expect(snap.unit_cost).toBe(0);
+    expect(snap.line_cost).toBe(0);
+  });
+
+  it('cost is NOT discounted (only the charged price is)', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierCost: 8000, tierPrice: 20000 }), { discountPct: 50 });
+    expect(snap.unit_cost).toBe(8000);
+    expect(snap.line_cost).toBe(8000);
+    expect(snap.unit_price).toBe(10000);
+  });
+
+  // --- Variant identity / display ---
+
+  it('carries variant_id through unchanged', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ variantId: 'var-abc' }));
+    expect(snap.variant_id).toBe('var-abc');
+  });
+
+  it('variant_label is just variantLabel when there is no group', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ variantLabel: 'A4', groupLabel: undefined }));
+    expect(snap.variant_label).toBe('A4');
+  });
+
+  it('variant_label joins groupLabel + variantLabel when a group is present', () => {
+    const snap = buildVariantPricingSnapshot('bag', makeVariantInfo({ groupLabel: 'مستطيل', variantLabel: '6×4' }));
+    expect(snap.variant_label).toBe('مستطيل 6×4');
+  });
+
+  // --- Gift passthrough ---
+
+  it('gift_quantity is undefined when the tier has no gift', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ gift: undefined }));
+    expect(snap.gift_quantity).toBeUndefined();
+  });
+
+  it('gift_quantity carries the tier gift through (e.g. stickers 500 -> +100 هدية)', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ tierQty: 500, gift: 100 }));
+    expect(snap.gift_quantity).toBe(100);
+    // quantity/min_quantity stay the PAID qty, not qty+gift
+    expect(snap.quantity).toBe(500);
+    expect(snap.min_quantity).toBe(500);
+  });
+
+  // --- Attributes passthrough ---
+
+  it('attributes is undefined when the variant has no product-wide attributes', () => {
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ attributes: undefined }));
+    expect(snap.attributes).toBeUndefined();
+  });
+
+  it('attributes carries the {attrId: {label, value}} map through unchanged', () => {
+    const attributes = { ink_color: { label: 'لون الحبر', value: 'أزرق' } };
+    const snap = buildVariantPricingSnapshot('stamp', makeVariantInfo({ attributes }));
+    expect(snap.attributes).toEqual(attributes);
   });
 });
 

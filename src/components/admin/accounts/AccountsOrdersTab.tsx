@@ -43,6 +43,8 @@ interface AccountsOrdersTabProps {
   costOf: (order: OrderRow) => number;
   quantityOf: (order: OrderRow) => number;
   serviceTypesOf: (order: OrderRow) => string[];
+  /** Variant label(s) + gift touched by the order (from stored pricing snapshots) — empty for legacy orders. */
+  variantInfoOf: (order: OrderRow) => { label: string; gift?: number }[];
   SERVICE_LABELS: Record<string, string>;
   onUpdatePayment: (orderId: string, amount: number, orderTotal: number) => Promise<void>;
   onMarkPaid: (orderId: string, orderTotal: number) => Promise<void>;
@@ -59,7 +61,7 @@ export function AccountsOrdersTab({
   paidCount, unpaidCount, partialCount,
   serviceRevenue, topCustomers,
   editingPayment, setEditingPayment, editAmount, setEditAmount,
-  revenueOf, costOf, quantityOf, serviceTypesOf,
+  revenueOf, costOf, quantityOf, serviceTypesOf, variantInfoOf,
   SERVICE_LABELS,
   onUpdatePayment, onMarkPaid, onExportCSV,
 }: AccountsOrdersTabProps) {
@@ -251,6 +253,9 @@ export function AccountsOrdersTab({
                     const svcLabel = svcTypes.length > 1
                       ? 'متعدد'
                       : (SERVICE_LABELS[svcTypes[0] || order.templates?.service_type || ''] || '');
+                    // Variant label(s) (+ gift) touched by this order — empty for legacy/non-variant orders.
+                    const variantParts = variantInfoOf(order).map(v =>
+                      v.gift ? `${v.label} (+${v.gift.toLocaleString('en-US')} هدية)` : v.label);
 
                     return (
                       <TableRow key={order.id} className="group">
@@ -263,6 +268,9 @@ export function AccountsOrdersTab({
                         <TableCell>
                           <p className="text-xs text-foreground">{order.templates?.name || '-'}</p>
                           <p className="text-[10px] text-muted-foreground">{svcLabel}</p>
+                          {variantParts.length > 0 && (
+                            <p className="text-[10px] text-primary truncate max-w-[180px]">{variantParts.join(' + ')}</p>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span className="text-xs text-foreground">{fmt(qty)}</span>

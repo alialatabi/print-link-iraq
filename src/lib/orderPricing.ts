@@ -18,6 +18,7 @@
 
 import type { DbService } from '@/hooks/useServices';
 import type { OrderDetailsJson } from '@/types/db';
+import { variantDisplayName, type CartVariantInfo } from '@/types/variants';
 
 /** Immutable record of what a single order line was charged at order time. */
 export interface PricingSnapshot {
@@ -35,6 +36,15 @@ export interface PricingSnapshot {
   line_cost: number;
   /** Discount percent applied to reach `unit_price` (0–100), if any. */
   discount_pct?: number;
+  // Variant-tier orders (2026-07): denormalized so staff/accounting views need
+  // no catalog lookup. Absent on legacy and non-variant lines.
+  variant_id?: string;
+  /** Full display name incl. group, e.g. 'مستطيل 6×4' or 'A4'. */
+  variant_label?: string;
+  /** Free extra units included with the tier (stickers +100 هدية). */
+  gift_quantity?: number;
+  /** attrId → { label: 'لون الحبر', value: 'أزرق' }. */
+  attributes?: Record<string, { label: string; value: string }>;
 }
 
 interface CatalogEntry { price: number; cost: number; min_quantity: number; }
@@ -80,6 +90,37 @@ export function buildPricingSnapshot(
     line_total: round(unitPrice * factor),
     line_cost: round(c.cost * factor),
     discount_pct: discountPct > 0 ? discountPct : undefined,
+  };
+}
+
+/**
+ * Build an immutable snapshot for a variant-tier line. The tier IS the pricing
+ * unit, so `min_quantity = quantity = tier.qty` — the legacy factor math
+ * (unit_price / min_quantity × quantity) stays exact and `computeLine` needs no
+ * change. `priceOverride` substitutes the charged tier total (reseller flows);
+ * `discountPct` then reduces it.
+ */
+export function buildVariantPricingSnapshot(
+  serviceType: string,
+  info: CartVariantInfo,
+  opts: { discountPct?: number; priceOverride?: number } = {},
+): PricingSnapshot {
+  const discountPct = opts.discountPct ?? 0;
+  const base = opts.priceOverride ?? info.tierPrice;
+  const total = discountPct > 0 ? round(base * (1 - discountPct / 100)) : base;
+  return {
+    service_type: serviceType,
+    quantity: info.tierQty,
+    min_quantity: info.tierQty,
+    unit_price: total,
+    unit_cost: info.tierCost || 0,
+    line_total: total,
+    line_cost: info.tierCost || 0,
+    discount_pct: discountPct > 0 ? discountPct : undefined,
+    variant_id: info.variantId,
+    variant_label: variantDisplayName(info),
+    gift_quantity: info.gift || undefined,
+    attributes: info.attributes,
   };
 }
 

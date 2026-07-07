@@ -23,11 +23,12 @@ function isAiPayload(v: unknown): v is AiCartPayload {
 }
 
 /**
- * Coerce one untrusted entry into a valid CartItem, or return null when it is malformed. The
- * numeric fields feed checkout pricing, so anything non-finite / out-of-range is rejected. Unknown
- * extra properties are dropped (only the known CartItem fields are copied).
+ * Coerce one untrusted entry into a valid CartItem (minus `lineId`, which the caller derives —
+ * see CartContext's `withLineId`), or return null when it is malformed. The numeric fields feed
+ * checkout pricing, so anything non-finite / out-of-range is rejected. Unknown extra properties
+ * are dropped (only the known CartItem fields are copied).
  */
-function normalizeItem(entry: unknown): CartItem | null {
+function normalizeItem(entry: unknown): Omit<CartItem, 'lineId'> | null {
   if (!entry || typeof entry !== 'object') return null;
   const e = entry as Record<string, unknown>;
 
@@ -37,7 +38,7 @@ function normalizeItem(entry: unknown): CartItem | null {
   if (!isFiniteNumber(e.unitPrice) || e.unitPrice < 0) return null;
   if (!isFiniteNumber(e.minQuantity) || e.minQuantity <= 0) return null;
 
-  const item: CartItem = {
+  const item: Omit<CartItem, 'lineId'> = {
     templateId,
     templateName: typeof e.templateName === 'string' ? e.templateName : '',
     serviceType: typeof e.serviceType === 'string' ? e.serviceType : '',
@@ -61,10 +62,10 @@ function normalizeItem(entry: unknown): CartItem | null {
  * Never throws; returns [] for anything that is not an array of well-formed CartItems. On duplicate
  * templateIds the FIRST occurrence wins (mirrors the cart's key-by-templateId invariant).
  */
-export function sanitizeCartItems(raw: unknown): CartItem[] {
+export function sanitizeCartItems(raw: unknown): Omit<CartItem, 'lineId'>[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
-  const out: CartItem[] = [];
+  const out: Omit<CartItem, 'lineId'>[] = [];
   for (const entry of raw) {
     const item = normalizeItem(entry);
     if (item && !seen.has(item.templateId)) {
@@ -80,11 +81,15 @@ export function sanitizeCartItems(raw: unknown): CartItem[] {
  * is exactly what the user currently sees; server-only items (added on another device) are appended
  * after, preserving the user's current ordering. The result is de-duplicated by templateId. Inputs
  * are treated defensively (a non-array collapses to []).
+ *
+ * Generic so callers can pass full `CartItem[]` (has `lineId`) for `local` and the `lineId`-less
+ * shape `sanitizeCartItems` returns for `server` — the caller (CartContext) re-derives `lineId` for
+ * whichever items came from `server` via `withLineId` after merging.
  */
-export function mergeCarts(local: CartItem[], server: CartItem[]): CartItem[] {
+export function mergeCarts<T extends Omit<CartItem, 'lineId'>>(local: T[], server: T[]): T[] {
   const localArr = Array.isArray(local) ? local : [];
   const serverArr = Array.isArray(server) ? server : [];
-  const byId = new Map<string, CartItem>();
+  const byId = new Map<string, T>();
   for (const it of localArr) byId.set(it.templateId, it);                       // local first → local wins + keeps order
   for (const it of serverArr) if (!byId.has(it.templateId)) byId.set(it.templateId, it); // append server-only
   return Array.from(byId.values());

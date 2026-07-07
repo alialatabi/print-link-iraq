@@ -51,8 +51,10 @@ export interface SkippedReorderItem {
 }
 
 export interface ReorderResult {
-  /** Cart-ready items priced at the CURRENT catalog, in source order. */
-  items: CartItem[];
+  /** Cart-ready items priced at the CURRENT catalog, in source order. Fed directly into
+   *  `useCart().addItem`, which computes `lineId` — reorder never resolves variant lines, so
+   *  callers get the legacy (non-variant) shape. */
+  items: Omit<CartItem, 'lineId'>[];
   /** Template items that could not be re-added (deleted / unpriceable). */
   skipped: SkippedReorderItem[];
 }
@@ -123,7 +125,7 @@ export function buildReorderResult(input: {
   const templatesById = new Map(templates.map((t) => [t.id, t]));
   const servicesById = new Map(services.map((s) => [s.id, s]));
 
-  const items: CartItem[] = [];
+  const items: Omit<CartItem, 'lineId'>[] = [];
   const skipped: SkippedReorderItem[] = [];
   const seen = new Set<string>();
 

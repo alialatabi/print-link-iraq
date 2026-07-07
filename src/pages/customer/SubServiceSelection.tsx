@@ -1,6 +1,7 @@
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { useServices } from '@/hooks/useServices';
+import { useServiceVariants } from '@/hooks/useVariants';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
@@ -16,6 +17,7 @@ const SubServiceSelection = () => {
   const { parentId } = useParams<{ parentId: string }>();
   const { parentServices, getSubServices, loading } = useServices();
   const { getDiscount } = useServiceDiscounts();
+  const { getVariants } = useServiceVariants();
 
   const parent = parentServices.find(s => s.id === parentId);
   const subServices = parentId ? getSubServices(parentId) : [];
@@ -24,6 +26,16 @@ const SubServiceSelection = () => {
     if (!service.price) return null;
     const minQ = service.min_quantity || 1000;
     return `${service.price.toLocaleString('en-US')} د.ع / ${minQ.toLocaleString('en-US')}`;
+  };
+
+  // Variant-tier products (stamps, etc.) have no single service.price — each size/shape
+  // prices itself via admin-enumerated tiers, so show the cheapest tier as a "starts from".
+  const formatStartingPrice = (serviceId: string): string | null => {
+    const variants = getVariants(serviceId);
+    if (!variants.length) return null;
+    const prices = variants.flatMap(v => v.tiers.map(t => t.price));
+    if (!prices.length) return null;
+    return `يبدأ من ${Math.min(...prices).toLocaleString('en-US')} د.ع`;
   };
 
   if (loading) {
@@ -87,6 +99,7 @@ const SubServiceSelection = () => {
               {subServices.map((service, i) => {
                 const discount = getDiscount(service.id);
                 const Icon = getServiceIcon(service);
+                const startingPrice = formatStartingPrice(service.id);
                 return (
                   <motion.div
                     key={service.id}
@@ -110,7 +123,9 @@ const SubServiceSelection = () => {
                             </span>
                           )}
                         </div>
-                        {service.price > 0 && (
+                        {startingPrice ? (
+                          <p className="text-primary font-bold text-xs mt-1">{startingPrice}</p>
+                        ) : service.price > 0 && (
                           <p className="text-primary font-bold text-xs mt-1">{formatPrice(service)}</p>
                         )}
                         {service.completion_days > 0 && (
@@ -127,7 +142,9 @@ const SubServiceSelection = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 auto-rows-fr gap-5 sm:gap-6">
-              {subServices.map((service, i) => (
+              {subServices.map((service, i) => {
+                const startingPrice = formatStartingPrice(service.id);
+                return (
                 <motion.div
                   key={service.id}
                   initial={{ opacity: 0, scale: 0.96 }}
@@ -147,7 +164,11 @@ const SubServiceSelection = () => {
                       )}
                     </div>
                     <h3 className="font-bold text-base sm:text-lg text-foreground mb-2">{service.label}</h3>
-                    {service.price > 0 && (
+                    {startingPrice ? (
+                      <p className="text-primary font-bold text-sm mt-4">
+                        {startingPrice}
+                      </p>
+                    ) : service.price > 0 && (
                       <p className="text-primary font-bold text-sm mt-4">
                         {formatPrice(service)}
                       </p>
@@ -159,7 +180,8 @@ const SubServiceSelection = () => {
                     )}
                   </Link>
                 </motion.div>
-              ))}
+                );
+              })}
             </div>
           )
         )}

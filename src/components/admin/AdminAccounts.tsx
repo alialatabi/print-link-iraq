@@ -5,7 +5,7 @@ import { useServices, buildLabelMap } from '@/hooks/useServices';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { buildCatalog, computeLine } from '@/lib/orderPricing';
+import { buildCatalog, computeLine, type PricingSnapshot } from '@/lib/orderPricing';
 import { PAYMENT_LABELS, DATE_RANGE_LABELS } from '@/lib/constants';
 import type { DateRange } from '@/lib/constants';
 import { handleSupabaseError } from '@/lib/errors';
@@ -116,6 +116,20 @@ const AdminAccounts = () => {
   // Distinct service types touched by an order (for the "متعدد" label).
   const serviceTypesOf = useCallback((order: OrderRow): string[] =>
     [...new Set(linesOf(order).map(l => l.serviceType).filter(Boolean))], [linesOf]);
+
+  // Variant label(s) + gift touched by an order, read straight off each line's stored pricing
+  // snapshot (no catalog lookup needed). Empty for legacy/non-variant orders — purely additive
+  // display info for the accounting table (see AccountsOrdersTab).
+  const variantInfoOf = useCallback((order: OrderRow): { label: string; gift?: number }[] => {
+    const items = orderItemsByOrder.get(order.id);
+    const detailsList: OrderDetailsJson[] = items && items.length > 0
+      ? items.map(it => it.details)
+      : [order.details];
+    return detailsList
+      .map(d => d?.pricing as PricingSnapshot | undefined)
+      .filter((p): p is PricingSnapshot => Boolean(p?.variant_label))
+      .map(p => ({ label: p.variant_label as string, gift: p.gift_quantity }));
+  }, [orderItemsByOrder]);
 
   const loadOrders = useCallback(async () => {
     const { data: ordersData } = await supabase
@@ -709,6 +723,7 @@ const AdminAccounts = () => {
           costOf={costOf}
           quantityOf={quantityOf}
           serviceTypesOf={serviceTypesOf}
+          variantInfoOf={variantInfoOf}
           SERVICE_LABELS={SERVICE_LABELS}
           onUpdatePayment={handleUpdatePayment}
           onMarkPaid={handleMarkPaid}

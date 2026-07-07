@@ -20,7 +20,7 @@ interface ResellerOrderDetails {
   quantity?: number;
   cellophane?: string | null;
   attachment_urls?: string[];
-  pricing?: { total?: number };
+  pricing?: { line_total?: number };
   review?: { result?: 'approved' | 'rejected' | 'pending'; note?: string | null; at?: string };
 }
 
@@ -224,7 +224,7 @@ const ResellerDashboard = () => {
                         </div>
                       </div>
                       <div className="text-left flex-shrink-0">
-                        <p className="font-extrabold text-primary text-sm">{formatIQD(d.pricing?.total ?? 0)}</p>
+                        <p className="font-extrabold text-primary text-sm">{formatIQD(d.pricing?.line_total ?? 0)}</p>
                       </div>
                     </div>
 
@@ -390,7 +390,7 @@ const ResellerDashboard = () => {
                         </div>
                       </div>
                       <div className="text-left flex-shrink-0">
-                        <p className="font-extrabold text-primary text-sm">{formatIQD(d.pricing?.total ?? 0)}</p>
+                        <p className="font-extrabold text-primary text-sm">{formatIQD(d.pricing?.line_total ?? 0)}</p>
                       </div>
                     </div>
 

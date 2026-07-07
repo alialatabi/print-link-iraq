@@ -89,19 +89,35 @@ const ItemlessOrderPanel = ({
             {serviceLabel && (
               <div>
                 <span className="text-muted-foreground text-xs">نوع الطباعة</span>
-                <p className="text-foreground font-medium">{serviceLabel}</p>
+                <p className="text-foreground font-medium">
+                  {od.variant_label ? `${serviceLabel} ${od.variant_label}` : serviceLabel}
+                </p>
               </div>
             )}
             {quantity != null && (
               <div>
                 <span className="text-muted-foreground text-xs">الكمية</span>
-                <p className="text-foreground font-medium">{quantity.toLocaleString('en-US')}</p>
+                <p className="text-foreground font-medium">
+                  {quantity.toLocaleString('en-US')}
+                  {od.unit_label ? ` ${od.unit_label}` : ''}
+                  {od.gift_quantity ? ` + ${Number(od.gift_quantity).toLocaleString('en-US')} هدية` : ''}
+                </p>
               </div>
             )}
             {total != null && total > 0 && (
               <div>
                 <span className="text-muted-foreground text-xs">الإجمالي</span>
                 <p className="text-success font-bold">{total.toLocaleString('en-US')} د.ع</p>
+              </div>
+            )}
+            {/* Product-wide attribute choices (ink color, bag color…) — variant-tier orders only. */}
+            {od.attributes && Object.keys(od.attributes as Record<string, unknown>).length > 0 && (
+              <div className="col-span-2 sm:col-span-3">
+                <span className="text-muted-foreground text-xs">الخيارات</span>
+                <p className="text-foreground font-medium">
+                  {Object.values(od.attributes as Record<string, { label: string; value: string }>)
+                    .map(a => `${a.label}: ${a.value}`).join('، ')}
+                </p>
               </div>
             )}
           </div>

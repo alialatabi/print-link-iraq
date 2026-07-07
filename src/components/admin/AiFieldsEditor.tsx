@@ -65,7 +65,6 @@ const newOptionId = () => `o_${Math.random().toString(36).slice(2, 8)}`;
  * sync with migration 20260703140000_ai_directives_print_rules.sql.
  * NOTE: ai-design-generate caps directives at 2500 chars — leave room for the product sentence.
  */
-// eslint-disable-next-line react-refresh/only-export-components -- utility constant co-located with this editor component
 export const PRINT_RULES_BLOCK = `PRINT RULES:
 - Colors: prefer CMYK offset-printable colors; vivid or saturated tones are allowed whenever they benefit the design — but NEVER a very dark or predominantly black design or background.
 - No thin hairlines, no tiny text (nothing below an 8pt equivalent at the printed size).

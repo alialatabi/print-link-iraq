@@ -41,8 +41,14 @@ const MyOrders = () => {
   const handleReorder = useCallback(async (e: React.MouseEvent, order: OrderRow) => {
     e.stopPropagation(); // don't trigger the card's navigate-to-tracking
     if (reorderingId) return;
+    // Variant-tier lines (size/shape/attributes) carry a `variant_id` in their details but
+    // `resolveReorder` only knows the plain catalog price/min_quantity — re-adding one as if
+    // it were a legacy item would silently swap in the WRONG size/price. Exclude them here
+    // (reorder.ts's own contract assumes callers pre-filter variant lines) and surface them
+    // as needing a manual re-pick, same as a genuinely-unavailable item.
+    const variantSkipped = order._items.filter(it => it.template_id && it.details?.variant_id).length;
     const source: ReorderSourceItem[] = order._items
-      .filter(it => it.template_id)
+      .filter(it => it.template_id && !it.details?.variant_id)
       .map(it => ({ templateId: it.template_id, quantity: it.details?.quantity, cellophane: it.details?.cellophane }));
     if (source.length === 0) return;
 
@@ -54,10 +60,11 @@ const MyOrders = () => {
         return;
       }
       reItems.forEach(addItem);
+      const skippedTotal = skipped.length + variantSkipped;
       toast({
         title: 'أُضيفت المنتجات إلى السلة ✓',
-        description: skipped.length > 0
-          ? `تعذّر إضافة ${formatProductCount(skipped.length)} لعدم التوفر`
+        description: skippedTotal > 0
+          ? `تعذّر إضافة ${formatProductCount(skippedTotal)} تلقائياً`
           : undefined,
       });
       navigate('/cart');
@@ -179,8 +186,22 @@ const MyOrders = () => {
               const serviceType = (items[0]?.templates?.service_type || order.templates?.service_type || order.details?.service_type) as ServiceType | undefined;
               const serviceLabel = serviceType ? (SERVICE_LABELS[serviceType] || '') : '';
               const quantity = (items[0]?.details?.quantity ?? order.details?.quantity) as number | undefined;
+              // Variant-tier orders (2026-07): denormalized fields on the line's details — legacy
+              // orders simply don't have them, so every one of these stays undefined for them.
+              const firstItemDetails = items[0]?.details ?? order.details;
+              const variantLabel = firstItemDetails?.variant_label as string | undefined;
+              const unitLabel = firstItemDetails?.unit_label as string | undefined;
+              const giftQty = firstItemDetails?.gift_quantity as number | undefined;
+              const attributes = firstItemDetails?.attributes as Record<string, { label: string; value: string }> | undefined;
+              const attributesLabel = attributes ? Object.values(attributes).map(a => `${a.label}: ${a.value}`).join('، ') : '';
+              const quantityLabel = quantity != null
+                ? (unitLabel ? `${quantity.toLocaleString('en-US')} ${unitLabel}` : `الكمية: ${quantity.toLocaleString('en-US')}`)
+                : '';
               const total = orderTotal(order);
-              const canReorder = items.some(it => it.template_id);
+              // Variant-tier lines aren't handled by the one-tap reorder flow (see
+              // handleReorder) — only surface the button when at least one item is
+              // actually reorderable that way.
+              const canReorder = items.some(it => it.template_id && !it.details?.variant_id);
               const isDelivered = order.status === 'delivered';
               const isReordering = reorderingId === order.id;
 
@@ -222,12 +243,14 @@ const MyOrders = () => {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h3 className="font-bold text-foreground text-sm leading-tight truncate">{title}</h3>
-                          {(serviceLabel || quantity != null) && (
+                          {(serviceLabel || variantLabel || quantityLabel) && (
                             <p className="text-muted-foreground text-xs mt-1 truncate">
-                              {serviceLabel}
-                              {serviceLabel && quantity != null ? ' · ' : ''}
-                              {quantity != null ? `الكمية: ${quantity.toLocaleString('en-US')}` : ''}
+                              {[serviceLabel, variantLabel, quantityLabel].filter(Boolean).join(' · ')}
+                              {giftQty ? ` +${giftQty.toLocaleString('en-US')} هدية` : ''}
                             </p>
+                          )}
+                          {attributesLabel && (
+                            <p className="text-muted-foreground text-[11px] mt-0.5 truncate">{attributesLabel}</p>
                           )}
                           {multi && (
                             <div className="flex flex-wrap gap-1 mt-1.5">

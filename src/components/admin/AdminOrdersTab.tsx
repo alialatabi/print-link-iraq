@@ -24,6 +24,39 @@ import {
 import type { AdminOrder, DesignerProfile, DesignerWorkloadItem, QuickFilter } from './adminTypes';
 import type { OrderDetailsJson } from '@/types/db';
 
+// Compact chip texts for a variant-tier order/line (staff-facing) — additive, always empty for
+// legacy (non-variant) details. 'مستطيل 6×4 — لون الحبر: أزرق' style: variant(+size), each
+// attribute as 'label: value', quantity+unit when the tier prices per unit (دفتر…), then the gift.
+function buildVariantChips(d: OrderDetailsJson): string[] {
+  const chips: string[] = [];
+  const variantLabel = d?.variant_label as string | undefined;
+  if (variantLabel) {
+    const sizeLabel = d?.size_label as string | undefined;
+    chips.push(sizeLabel ? `${variantLabel} — ${sizeLabel}` : variantLabel);
+  }
+  const attrs = d?.attributes as Record<string, { label: string; value: string }> | undefined;
+  if (attrs) {
+    Object.values(attrs).forEach(a => { if (a?.label && a?.value) chips.push(`${a.label}: ${a.value}`); });
+  }
+  if (d?.quantity != null && d?.unit_label) {
+    chips.push(`${Number(d.quantity).toLocaleString('en-US')} ${d.unit_label}`);
+  }
+  if (d?.gift_quantity) {
+    chips.push(`+${Number(d.gift_quantity).toLocaleString('en-US')} هدية`);
+  }
+  return chips;
+}
+
+const VariantChipRow = ({ chips }: { chips: string[] }) => (
+  chips.length > 0 ? (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {chips.map((c, i) => (
+        <span key={i} className="text-[10px] bg-primary/10 text-primary rounded-full px-2 py-0.5">{c}</span>
+      ))}
+    </div>
+  ) : null
+);
+
 interface Props {
   orders: AdminOrder[];
   filteredOrders: AdminOrder[];
@@ -198,7 +231,11 @@ const AdminOrdersTab = ({
             };
             const deliveryKeys = ['delivery_province', 'delivery_area', 'delivery_landmark', 'delivery_label', 'delivery_phone'];
             // Reseller bookkeeping keys are shown via a dedicated block, not as raw fields.
-            const hiddenKeys = ['order_type', 'service_type', 'service_label', 'attachment_urls', 'pricing'];
+            // Variant-tier keys are shown via the compact chip row below, not as raw fields.
+            const hiddenKeys = [
+              'order_type', 'service_type', 'service_label', 'attachment_urls', 'pricing',
+              'variant_label', 'size_label', 'unit_label', 'gift_quantity', 'faces', 'variant_id',
+            ];
             const hasDelivery = deliveryKeys.some(k => details[k]);
             const contentFields = Object.entries(details)
               .filter(([key, val]) => !deliveryKeys.includes(key) && !hiddenKeys.includes(key) && key !== 'approved_at' && val && typeof val !== 'object')
@@ -206,6 +243,8 @@ const AdminOrdersTab = ({
             const deliveryFields = deliveryKeys
               .filter(k => details[k])
               .map(k => ({ key: k, label: DETAIL_LABELS[k] || k, value: String(details[k]) }));
+            // Order-level variant chips (item-less / single-line orders — cart orders show these per item below).
+            const orderVariantChips = buildVariantChips(details);
 
             // Collect every downloadable design file for this order:
             //  - order-level uploaded files (reseller ready designs, customer "ready_design" uploads)
@@ -220,7 +259,7 @@ const AdminOrdersTab = ({
             const rawName = order.profiles?.display_name || '';
             const custName = (!rawName || rawName === custPhone || /^[?\s]+$/.test(rawName)) ? 'زبون' : rawName;
             const isOpen = openOrders.has(order.id);
-            const hasDetails = (order._items?.length ?? 0) > 0 || contentFields.length > 0 || hasDelivery;
+            const hasDetails = (order._items?.length ?? 0) > 0 || contentFields.length > 0 || hasDelivery || orderVariantChips.length > 0;
             const designFiles: { id: string; label: string; download: () => void }[] = [];
             const orderAttachments: string[] = Array.isArray(details.attachment_urls) ? details.attachment_urls : [];
             orderAttachments.forEach((url, idx) => {
@@ -362,6 +401,7 @@ const AdminOrdersTab = ({
                   <div className="px-4 pb-3 space-y-2">
                     {order._items.map((item, idx: number) => {
                       const itemD = (item.details || {}) as OrderDetailsJson;
+                      const itemChips = buildVariantChips(itemD);
                       return (
                         <div key={item.id} className="bg-muted/20 rounded-lg p-3 border border-border/50">
                           <div className="flex items-center justify-between mb-1.5">
@@ -373,20 +413,24 @@ const AdminOrdersTab = ({
                           </div>
                           {itemD.details && <p className="text-xs text-muted-foreground truncate">{itemD.details}</p>}
                           {itemD.quantity && <p className="text-[11px] text-muted-foreground">الكمية: {Number(itemD.quantity).toLocaleString()}</p>}
+                          <VariantChipRow chips={itemChips} />
                         </div>
                       );
                     })}
                   </div>
-                ) : contentFields.length > 0 ? (
+                ) : (contentFields.length > 0 || orderVariantChips.length > 0) ? (
                   <div className="px-4 pb-3">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-xs">
-                      {contentFields.map(f => (
-                        <div key={f.key}>
-                          <span className="text-muted-foreground">{f.label}</span>
-                          <p className="text-foreground font-medium truncate">{f.value}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <VariantChipRow chips={orderVariantChips} />
+                    {contentFields.length > 0 && (
+                      <div className={`grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-xs${orderVariantChips.length > 0 ? ' mt-2' : ''}`}>
+                        {contentFields.map(f => (
+                          <div key={f.key}>
+                            <span className="text-muted-foreground">{f.label}</span>
+                            <p className="text-foreground font-medium truncate">{f.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : null)}
 
@@ -411,9 +455,9 @@ const AdminOrdersTab = ({
                         <span className="text-xs text-muted-foreground">لا يوجد ملف مرفق</span>
                       )}
                     </div>
-                    {details.pricing?.total != null && (
+                    {details.pricing?.line_total != null && (
                       <span className="text-sm font-extrabold text-primary">
-                        {Number(details.pricing.total).toLocaleString('en-US')} د.ع
+                        {Number(details.pricing.line_total).toLocaleString('en-US')} د.ع
                       </span>
                     )}
                   </div>

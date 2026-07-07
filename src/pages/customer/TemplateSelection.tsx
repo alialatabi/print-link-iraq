@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { m as motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { TEMPLATE_COLORS, ServiceType } from '@/data/mockData';
-import { ArrowRight, Palette } from 'lucide-react';
+import { ArrowRight, Palette, PenSquare } from 'lucide-react';
 import { getOptimizedImageUrl } from '@/lib/imageUtils';
 import {
   Select,
@@ -12,10 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import logoImg from '@/assets/logo-small.webp';
 import SEOHead from '@/components/SEOHead';
 import JsonLd, { breadcrumbSchema } from '@/components/JsonLd';
 import { useServices, useSpecializations } from '@/hooks/useServices';
+import { useServiceVariants } from '@/hooks/useVariants';
 import { useActiveDiscount } from '@/hooks/useDiscounts';
 import DiscountBadge from '@/components/DiscountBadge';
 import { TemplateGridSkeleton } from '@/components/skeletons/CatalogSkeletons';
@@ -35,6 +37,7 @@ const TemplateSelection = () => {
   const { serviceType } = useParams<{ serviceType: string }>();
   const { services, getSubServices } = useServices();
   const { specializations, loading: specsLoading } = useSpecializations();
+  const { getVariants } = useServiceVariants();
   const [allTemplates, setAllTemplates] = useState<DbTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSpec, setSelectedSpec] = useState<string | null>(null);
@@ -43,6 +46,10 @@ const TemplateSelection = () => {
   const currentService = services.find(s => s.id === serviceType);
   const serviceLabel = currentService?.label || 'التصميم';
   const parentId = currentService?.parent_id;
+  // Variant-tier products (stamps, etc.) may ship with zero templates initially — they're
+  // still orderable via the "design your own" flow, so the empty state below gets a CTA.
+  const variants = getVariants(serviceType || '');
+  const hasVariants = variants.length > 0;
 
   // Price + discount are owned by the sub-service, so every template in this grid shares
   // the same figures — compute once for the page. `preview + price` are the card's real
@@ -53,6 +60,15 @@ const TemplateSelection = () => {
   const discountedUnitPrice = discountPercent > 0
     ? Math.ceil(unitPrice * (1 - discountPercent / 100))
     : unitPrice;
+  // Variant-tier products don't have one flat unit price — each size/shape prices itself
+  // via admin-enumerated tiers (which can drift from the legacy `service.price` fallback
+  // above once an admin edits a tier) — show the cheapest tier as a "starts from", mirroring
+  // SubServiceSelection's formatStartingPrice one level up.
+  const allTierPrices = hasVariants ? variants.flatMap(v => v.tiers.map(t => t.price)) : [];
+  const cheapestTierPrice = allTierPrices.length ? Math.min(...allTierPrices) : 0;
+  const discountedCheapestTierPrice = discountPercent > 0
+    ? Math.ceil(cheapestTierPrice * (1 - discountPercent / 100))
+    : cheapestTierPrice;
 
   // When this sub-service's parent has only one child, the sub-service picker is skipped,
   // so "back" must return to the category list (the level above the collapsed picker),
@@ -184,7 +200,20 @@ const TemplateSelection = () => {
                     )}
                   </div>
                   <div className="p-3 sm:p-4 bg-card">
-                    {unitPrice > 0 && (
+                    {hasVariants ? (
+                      cheapestTierPrice > 0 && (
+                        <div className="flex items-baseline gap-1.5 flex-wrap mb-1.5">
+                          <span className="text-[11px] font-semibold text-muted-foreground">يبدأ من</span>
+                          <span className={`font-extrabold text-sm sm:text-base leading-none ${discountPercent > 0 ? 'text-success' : 'text-foreground'}`}>
+                            {discountedCheapestTierPrice.toLocaleString('en-US')}
+                          </span>
+                          <span className="text-[11px] font-semibold text-muted-foreground">د.ع</span>
+                          {discountPercent > 0 && (
+                            <span className="text-[11px] text-destructive line-through font-bold">{cheapestTierPrice.toLocaleString('en-US')}</span>
+                          )}
+                        </div>
+                      )
+                    ) : unitPrice > 0 && (
                       <div className="flex items-baseline gap-1.5 flex-wrap mb-1.5">
                         <span className={`font-extrabold text-sm sm:text-base leading-none ${discountPercent > 0 ? 'text-success' : 'text-foreground'}`}>
                           {discountedUnitPrice.toLocaleString('en-US')}
@@ -206,9 +235,17 @@ const TemplateSelection = () => {
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
               <Palette className="w-8 h-8 text-muted-foreground" />
             </div>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-sm mb-6">
               {selectedSpec ? 'لا توجد قوالب لهذا التخصص' : 'لا توجد قوالب متاحة حالياً لهذه الخدمة'}
             </p>
+            {hasVariants && (
+              <Button asChild size="lg" className="rounded-xl font-bold gap-2">
+                <Link to={`/upload-design?service=${serviceType}`}>
+                  <PenSquare className="w-4 h-4" />
+                  اطلب بتصميمك الخاص
+                </Link>
+              </Button>
+            )}
           </div>
         )}
       </div>

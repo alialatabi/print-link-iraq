@@ -233,8 +233,14 @@ const OrderTracking = () => {
   // prices, then go to the cart. Deleted/unavailable templates are surfaced.
   const handleReorder = async () => {
     if (reordering) return;
+    // Variant-tier lines (size/shape/attributes) carry a `variant_id` in their details but
+    // `resolveReorder` only knows the plain catalog price/min_quantity — re-adding one as if
+    // it were a legacy item would silently swap in the WRONG size/price. Exclude them here
+    // (reorder.ts's own contract assumes callers pre-filter variant lines) and surface them
+    // as needing a manual re-pick, same as a genuinely-unavailable item.
+    const variantSkipped = orderItems.filter(it => it.template_id && it.details?.variant_id).length;
     const source: ReorderSourceItem[] = orderItems
-      .filter(it => it.template_id)
+      .filter(it => it.template_id && !it.details?.variant_id)
       .map(it => ({ templateId: it.template_id, quantity: it.details?.quantity, cellophane: it.details?.cellophane }));
     if (source.length === 0) return;
 
@@ -246,10 +252,11 @@ const OrderTracking = () => {
         return;
       }
       reItems.forEach(addItem);
+      const skippedTotal = skipped.length + variantSkipped;
       toast({
         title: 'أُضيفت المنتجات إلى السلة ✓',
-        description: skipped.length > 0
-          ? `تعذّر إضافة ${formatProductCount(skipped.length)} لعدم التوفر`
+        description: skippedTotal > 0
+          ? `تعذّر إضافة ${formatProductCount(skippedTotal)} تلقائياً`
           : undefined,
       });
       navigate('/cart');
@@ -264,7 +271,9 @@ const OrderTracking = () => {
   if (!order) return <div className={isNativeApp ? 'py-16 text-center' : 'py-24 text-center'}><p className="text-muted-foreground text-sm">لم يتم العثور على الطلب</p></div>;
 
   const hasItems = orderItems.length > 0;
-  const canReorder = orderItems.some(it => it.template_id);
+  // Variant-tier lines aren't handled by the one-tap reorder flow (see handleReorder) —
+  // only surface the button when at least one item is actually reorderable that way.
+  const canReorder = orderItems.some(it => it.template_id && !it.details?.variant_id);
   const isCompleted = (['delivered', 'printed', 'print_ready'] as string[]).includes(order.status);
 
   // Item-less orders: aggregate read-only display data from the order row itself.
@@ -274,6 +283,13 @@ const OrderTracking = () => {
   const orderServiceLabel = SERVICE_LABELS[od.service_type as ServiceType] || order.templates?.name || '';
   const orderQuantity = od.quantity as number | undefined;
   const orderTotal = od.pricing?.line_total as number | undefined;
+  // Variant-tier orders (2026-07): denormalized on the order's own details for item-less
+  // (upload / vault re-order) orders — absent on legacy orders, so ItemlessOrderView renders
+  // exactly as before for those.
+  const orderVariantLabel = od.variant_label as string | undefined;
+  const orderUnitLabel = od.unit_label as string | undefined;
+  const orderGiftQty = od.gift_quantity as number | undefined;
+  const orderAttributes = od.attributes as Record<string, { label: string; value: string }> | undefined;
   const orderHasDelivery = Boolean(od.delivery_province || od.delivery_phone);
   const orderCancelled = order.status === 'cancelled';
 
@@ -376,6 +392,10 @@ const OrderTracking = () => {
               orderServiceLabel={orderServiceLabel}
               orderQuantity={orderQuantity}
               orderTotal={orderTotal}
+              orderVariantLabel={orderVariantLabel}
+              orderUnitLabel={orderUnitLabel}
+              orderGiftQty={orderGiftQty}
+              orderAttributes={orderAttributes}
               orderHasDelivery={orderHasDelivery}
               orderCancelled={orderCancelled}
               onLightboxView={setLightboxUrl}
