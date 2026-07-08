@@ -86,13 +86,14 @@ const CardThumb = ({ t, isFirst }: { t: PopularTemplate; isFirst: boolean }) => 
   const [broken, setBroken] = useState(false);
   const showImg = !!t.preview_url && !broken;
   return (
-    <div className={`relative aspect-[3/4] overflow-hidden ${showImg ? 'bg-[#F4ECE0]/40' : `bg-gradient-to-br ${TYPE_GRAD[t.service_type] || 'from-[#EAEEF7] to-[#E4F7FC]'} flex items-center justify-center p-5`}`}>
+    <div className={`relative aspect-[3/4] overflow-hidden ${showImg ? 'bg-[#F4ECE0]/40' : `bg-gradient-to-br ${TYPE_GRAD[t.service_type] || 'from-[#EAEEF7] to-[#E4F7FC]'} flex items-center justify-center p-5`}`} onContextMenu={e => e.preventDefault()}>
       {showImg ? (
         <img
           src={getOptimizedImageUrl(t.preview_url!, { width: 400, height: 533 })}
           alt={t.name} loading="lazy" width={400} height={533}
           onError={() => setBroken(true)}
-          className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500"
+          draggable={false}
+          className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500 img-protect"
         />
       ) : (
         <div className="w-[78%] aspect-[1.6] bg-white rounded-[10px] shadow-[0_14px_28px_-14px_rgba(80,60,40,.5)] -rotate-3 p-3.5 flex flex-col justify-between overflow-hidden">

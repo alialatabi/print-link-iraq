@@ -40,14 +40,21 @@ interface DbTemplate {
 }
 
 // ─── Image Slider Gallery ─────────────────────────────────────────────────────
-const Gallery = ({ images, name }: { images: string[]; name: string }) => {
+const Gallery = ({ images, name, serviceType }: { images: string[]; name: string; serviceType: string }) => {
   const [active, setActive] = useState(0);
+  // Box shape follows the template's real proportions (known statically from its
+  // service type, before any image request fires) instead of a hard-coded square —
+  // a landscape business card or a tall letterhead used to be squeezed into a 1/1 box
+  // with huge dead padding, which read as "the image isn't fully shown". Falling back
+  // to '1/1' for DB-managed types (variant products) matches the proven-good default
+  // used by the main templates grid (TemplateSelection.tsx) for the same unmapped types.
+  const aspectRatio = TEMPLATE_ASPECT_RATIOS[serviceType as ServiceType] || '1/1';
 
   if (!images.length) {
     return (
       <div
         className="rounded-2xl bg-muted/40 flex items-center justify-center border border-border/50 w-full max-w-[2048px] mx-auto"
-        style={{ aspectRatio: '1/1' }}
+        style={{ aspectRatio }}
       >
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Palette className="w-12 h-12 opacity-40" />
@@ -62,12 +69,14 @@ const Gallery = ({ images, name }: { images: string[]; name: string }) => {
 
   return (
     <div className="w-full max-w-[2048px] mx-auto">
-      {/* Main image container - square */}
-      <div className="relative rounded-2xl overflow-hidden border border-border/40 bg-card shadow-card w-full" style={{ aspectRatio: '1/1' }}>
+      {/* Main image container - matches the template's real aspect ratio */}
+      <div className="relative rounded-2xl overflow-hidden border border-border/40 bg-card shadow-card w-full" style={{ aspectRatio }} onContextMenu={e => e.preventDefault()}>
         <AnimatePresence mode="wait">
           <motion.img
             key={active}
-            src={getOptimizedImageUrl(images[active], { width: 1024 })}
+            // width-only params make Supabase's image transform return a center-cropped
+            // square, discarding edges — resize:'contain' scales to fit with no crop.
+            src={getOptimizedImageUrl(images[active], { width: 1024, height: 1024, resize: 'contain' })}
             alt={name}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -79,7 +88,8 @@ const Gallery = ({ images, name }: { images: string[]; name: string }) => {
             // Cast to the motion img props (not ImgHTMLAttributes) so it merges cleanly
             // with motion.img, whose onDrag/style types differ from the DOM ones.
             {...({ fetchpriority: 'high' } as HTMLMotionProps<'img'>)}
-            className="w-full h-full object-contain"
+            draggable={false}
+            className="w-full h-full object-contain img-protect"
           />
         </AnimatePresence>
 
@@ -119,7 +129,7 @@ const Gallery = ({ images, name }: { images: string[]; name: string }) => {
 
       {/* Thumbnail strip */}
       {images.length > 1 && (
-        <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+        <div className="flex gap-2 mt-3 overflow-x-auto pb-1" onContextMenu={e => e.preventDefault()}>
           {images.map((img, i) => (
             <button
               key={i}
@@ -128,7 +138,7 @@ const Gallery = ({ images, name }: { images: string[]; name: string }) => {
                 active === i ? 'border-primary shadow-md' : 'border-border/40 opacity-60 hover:opacity-100'
               }`}
             >
-              <img src={getOptimizedImageUrl(img, { width: 128, height: 128 })} alt="" loading="lazy" width={64} height={64} className="w-full h-full object-cover" />
+              <img src={getOptimizedImageUrl(img, { width: 128, height: 128 })} alt="" loading="lazy" width={64} height={64} draggable={false} className="w-full h-full object-cover img-protect" />
             </button>
           ))}
         </div>
@@ -213,7 +223,10 @@ const PersonalizedRecommendations = ({ serviceType, currentId }: { serviceType: 
       </motion.h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {items.map((t, i) => {
-          const aspectRatio = TEMPLATE_ASPECT_RATIOS[t.service_type as ServiceType] || '3/4';
+          // DB-managed service types (variant products: stickers, bags, card_iq_*, ...) aren't
+          // in the legacy map — fall back to a neutral square instead of an arbitrary portrait
+          // ratio, matching the proven-good default used by the main templates grid.
+          const aspectRatio = TEMPLATE_ASPECT_RATIOS[t.service_type as ServiceType] || '1/1';
           const svcLabel = getServiceLabel(t.service_type);
           return (
             <motion.div
@@ -230,13 +243,14 @@ const PersonalizedRecommendations = ({ serviceType, currentId }: { serviceType: 
                 onFocus={prefetchTemplateDetails}
                 className="group block rounded-2xl overflow-hidden border border-border/40 bg-card/80 backdrop-blur-sm shadow-card hover:shadow-card-hover hover:-translate-y-1.5 transition-all duration-400"
               >
-                <div className="overflow-hidden bg-muted/30" style={{ aspectRatio }}>
+                <div className="overflow-hidden bg-muted/30" style={{ aspectRatio }} onContextMenu={e => e.preventDefault()}>
                   {t.preview_url ? (
                     <img
-                      src={getOptimizedImageUrl(t.preview_url, { width: 400 })}
+                      src={getOptimizedImageUrl(t.preview_url, { width: 400, height: 400, resize: 'contain' })}
                       alt=""
                       loading="lazy"
-                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                      draggable={false}
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 img-protect"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -422,7 +436,11 @@ const TemplateDetails = () => {
         <div className="container max-w-5xl">
           <Skeleton className="h-5 w-32 mb-8" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <Skeleton className="rounded-2xl" style={{ aspectRatio: '9/5.5' }} />
+            {/* service_type isn't known until the fetch resolves, so the skeleton can't
+                match the gallery box exactly — '1/1' is the gallery's fallback ratio and
+                the exact shape for the bulk of the live catalog (DB-managed types),
+                minimizing the skeleton→loaded layout shift. */}
+            <Skeleton className="rounded-2xl" style={{ aspectRatio: '1/1' }} />
             <div className="flex flex-col gap-5">
               <Skeleton className="h-6 w-24" />
               <Skeleton className="h-10 w-48" />
@@ -500,7 +518,7 @@ const TemplateDetails = () => {
 
           {/* ── LEFT: Gallery ── */}
           <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={1}>
-            <Gallery images={template.preview_urls?.length ? template.preview_urls : (template.preview_url ? [template.preview_url] : [])} name={template.name} />
+            <Gallery images={template.preview_urls?.length ? template.preview_urls : (template.preview_url ? [template.preview_url] : [])} name={template.name} serviceType={template.service_type} />
           </motion.div>
 
           {/* ── RIGHT: Info panel ── */}

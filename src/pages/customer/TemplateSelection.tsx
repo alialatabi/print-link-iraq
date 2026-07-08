@@ -189,10 +189,10 @@ const TemplateSelection = () => {
                   onFocus={prefetchTemplateDetails}
                   className="group block rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 border border-border/60 hover:border-primary/20"
                 >
-                  <div className={`relative bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`} style={{ aspectRatio: '1/1' }}>
+                  <div className={`relative bg-gradient-to-br ${colors.bg} flex items-center justify-center overflow-hidden`} style={{ aspectRatio: '1/1' }} onContextMenu={e => e.preventDefault()}>
                     <DiscountBadge percentage={discountPercent} />
                     {template.preview_url ? (
-                      <img src={getOptimizedImageUrl(template.preview_url, { width: 400, height: 400, resize: 'contain' })} alt={template.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500" loading="lazy" width="400" height="400" />
+                      <img src={getOptimizedImageUrl(template.preview_url, { width: 400, height: 400, resize: 'contain' })} alt={template.name} className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-500 img-protect" loading="lazy" width="400" height="400" draggable={false} />
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-2 p-4">
                         <img src={logoImg} alt="مطبعتي" className="w-16 h-16 object-contain opacity-40" />
