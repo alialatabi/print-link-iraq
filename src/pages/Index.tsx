@@ -86,14 +86,15 @@ const CardThumb = ({ t, isFirst }: { t: PopularTemplate; isFirst: boolean }) => 
   const [broken, setBroken] = useState(false);
   const showImg = !!t.preview_url && !broken;
   return (
-    <div className={`relative aspect-[3/4] overflow-hidden ${showImg ? 'bg-[#F4ECE0]/40' : `bg-gradient-to-br ${TYPE_GRAD[t.service_type] || 'from-[#EAEEF7] to-[#E4F7FC]'} flex items-center justify-center p-5`}`} onContextMenu={e => e.preventDefault()}>
+    <div className={`relative aspect-square overflow-hidden ${showImg ? 'bg-[#F4ECE0]/40' : `bg-gradient-to-br ${TYPE_GRAD[t.service_type] || 'from-[#EAEEF7] to-[#E4F7FC]'} flex items-center justify-center p-5`}`} onContextMenu={e => e.preventDefault()}>
       {showImg ? (
         <img
-          src={getOptimizedImageUrl(t.preview_url!, { width: 400, height: 533 })}
-          alt={t.name} loading="lazy" width={400} height={533}
+          // resize:'contain' shows the whole image; width-only (no resize param) gets center-cropped server-side
+          src={getOptimizedImageUrl(t.preview_url!, { width: 400, height: 400, resize: 'contain' })}
+          alt={t.name} loading="lazy" width={400} height={400}
           onError={() => setBroken(true)}
           draggable={false}
-          className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500 img-protect"
+          className="w-full h-full object-contain group-hover:scale-[1.05] transition-transform duration-500 img-protect"
         />
       ) : (
         <div className="w-[78%] aspect-[1.6] bg-white rounded-[10px] shadow-[0_14px_28px_-14px_rgba(80,60,40,.5)] -rotate-3 p-3.5 flex flex-col justify-between overflow-hidden">
@@ -139,23 +140,24 @@ const Index = () => {
       });
     };
 
-    // Top-8 templates by order count, computed server-side (SECURITY DEFINER RPC — the
-    // generated types don't know it yet, hence the recent_order_activity-style casts).
+    // Full catalog of templates ranked by order count, computed server-side (SECURITY
+    // DEFINER RPC — the generated types don't know it yet, hence the
+    // recent_order_activity-style casts). Server-side cap is 100 (catalog is far smaller).
     const loadPopular = async () => {
       setLoading(true);
-      const { data, error } = await supabase.rpc('popular_templates' as never, { limit_count: 8 } as never);
+      const { data, error } = await supabase.rpc('popular_templates' as never, { limit_count: 100 } as never);
       if (!error && Array.isArray(data)) {
         setPopularTemplates(data as unknown as PopularTemplate[]);
         setLoading(false);
         return;
       }
-      // Fallback while the RPC isn't deployed: just the 8 newest templates —
+      // Fallback while the RPC isn't deployed: just the newest templates —
       // never the old "download every order row and count client-side" scan.
       const { data: templates } = await supabase
         .from('templates')
         .select('id, name, preview_url, service_type')
         .order('created_at', { ascending: false })
-        .limit(8);
+        .limit(100);
       setPopularTemplates((templates || []).map(t => ({ ...t, order_count: 0 })));
       setLoading(false);
     };
@@ -354,7 +356,7 @@ const Index = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="rounded-[20px] bg-[#F4ECE0]/60 animate-pulse">
-                <div className="aspect-[3/4]" />
+                <div className="aspect-square" />
                 <div className="p-4 space-y-2"><div className="h-3 bg-[#EAE2D6] rounded w-3/4" /><div className="h-3 bg-[#EAE2D6] rounded w-1/2" /></div>
               </div>
             ))}
